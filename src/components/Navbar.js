@@ -36,9 +36,9 @@ export default function Navbar() {
           aria-label="Toggle menu"
         >
           {isOpen ? (
-            <XMarkIcon className="h-6 w-6 text-white" />
+            <XMarkIcon className="h-6 w-6 text-gray-900" />
           ) : (
-            <Bars3Icon className="h-6 w-6 text-white" />
+            <Bars3Icon className="h-6 w-6 text-gray-900" />
           )}
         </button>
 
@@ -66,7 +66,7 @@ export default function Navbar() {
               key={href}
               href={href}
               className={`hover:underline px-2 py-1 rounded ${
-                pathname === href ? 'bg-yellow-300 text-gray-900' : ''
+                pathname === href ? 'bg-red-500 text-gray-900' : ''
               }`}
               onClick={() => setIsOpen(false)}
             >
