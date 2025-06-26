@@ -23,9 +23,9 @@ export default function Navbar() {
           <Image
             src="/logo-full.png"
             alt="FIXify"
-            width={72}
+            width={96}
             height={32}
-            className="h-8 w-18"
+            className="h-8 w-24"
           />
         </Link>
 
