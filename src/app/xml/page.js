@@ -14,34 +14,38 @@ export default function XMLFormatterPage() {
       const reg = /(>)(<)(\/*)/g;
       let xmlFormatted = "";
       let pad = 0;
-
+  
       xml = xml.replace(reg, "$1\r\n$2");
       const lines = xml.split("\r\n");
-
+  
       for (let i = 0; i < lines.length; i++) {
         const node = lines[i].trim();
-
         if (!node) continue;
-
-        let indent = 0;
-        if (/^<\/.+>/.test(node)) {
-          pad -= 1;
+  
+        if (/^<\?/.test(node) || /^<!--/.test(node)) {
+          // XML declarations or comments
+          xmlFormatted += PADDING.repeat(pad) + node + "\n";
+          continue;
         }
-
+  
+        const isClosing = /^<\/.+>/.test(node);
+        const isOpening = /^<[^!?\/][^>]*[^/]?>/.test(node);
+        const isSelfClosing = /^<.+\/>$/.test(node);
+        const isEmptyPair = /^<[^>]+><\/[^>]+>$/.test(node);
+  
+        if (isClosing) pad--;
+  
         xmlFormatted += PADDING.repeat(pad) + node + "\n";
-
-        if (/^<[^!?\/][^>]*[^/]?>/.test(node) && !/<\/[^>]+>\s*$/.test(node)) {
-          indent = 1;
-        }
-
-        pad += indent;
+  
+        if (isOpening && !isClosing && !isSelfClosing && !isEmptyPair) pad++;
       }
-
+  
       return xmlFormatted.trim();
     } catch {
       return "Invalid XML";
     }
   };
+  
 
   const highlightXml = (xml) => {
     const highlighted = xml
