@@ -167,7 +167,7 @@ export default function Home() {
 
   return (
     <main className="app-container">
-      <h1 className="text-3xl font-bold mb-6">Fixify - FIX File Processor 📄</h1>
+      <h1 className="text-3xl font-bold mb-6">Fixify - FIX Logs Processor 📄</h1>
 
       <div className="w-full max-w-md mb-4">
         <div className="mb-4">

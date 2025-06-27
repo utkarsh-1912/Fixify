@@ -10,7 +10,7 @@ export default function Navbar() {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/', label: 'FIX Processor' },
+    { href: '/', label: 'Logs Processor' },
     { href: '/xml', label: 'XML Formatter' },
     { href: '/interpreter', label: 'FIX Interpreter' },
   ];
