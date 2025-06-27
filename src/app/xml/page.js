@@ -9,42 +9,38 @@ export default function XMLFormatterPage() {
   const [copied, setCopied] = useState(false);
 
   const formatXml = (xml) => {
-  try {
-    const PADDING = "  ";
-    const reg = /(>)(<)(\/*)/g;
-    let xmlFormatted = "";
-    let pad = 0;
-
-    xml = xml.replace(reg, "$1\r\n$2");
-    const lines = xml.split("\r\n");
-
-    for (let i = 0; i < lines.length; i++) {
-      const node = lines[i].trim();
-      if (!node) continue;
-
-      if (/^<\?/.test(node) || /^<!--/.test(node)) {
-        // XML declarations or comments
-        xmlFormatted += PADDING.repeat(pad) + node + "\n";
-        continue;
+    try {
+      const PADDING = "  ";
+      let formatted = "";
+      let pad = 0;
+  
+      // Insert newline between tags (but preserve inline empty tags)
+      xml = xml.replace(/>\s*</g, ">\n<");
+  
+      const lines = xml.split("\n");
+  
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+  
+        const isClosing = /^<\/.+?>$/.test(line);
+        const isOpening = /^<[^!?\/][^>]*?>$/.test(line) && !isClosing;
+        const isSelfClosing = /^<[^>]+\/>$/.test(line);
+        const isInlinePair = /^<([^>]+)><\/\1>$/.test(line); // e.g. <A></A>
+  
+        if (isClosing && !isInlinePair) pad--;
+  
+        formatted += PADDING.repeat(pad) + line + "\n";
+  
+        if (isOpening && !isSelfClosing && !isInlinePair) pad++;
       }
-
-      const isClosing = /^<\/.+>/.test(node);
-      const isOpening = /^<[^!?\/][^>]*[^/]?>/.test(node);
-      const isSelfClosing = /^<.+\/>$/.test(node);
-      const isEmptyPair = /^<[^>]+><\/[^>]+>$/.test(node);
-
-      if (isClosing) pad--;
-
-      xmlFormatted += PADDING.repeat(pad) + node + "\n";
-
-      if (isOpening && !isClosing && !isSelfClosing && !isEmptyPair) pad++;
+  
+      return formatted.trim();
+    } catch (err) {
+      return "Invalid XML";
     }
-
-    return xmlFormatted.trim();
-  } catch {
-    return "Invalid XML";
-  }
-};
+  };
+  
 
 
   const highlightXml = (xml) => {
