@@ -98,7 +98,7 @@ export default function XMLFormatterPage() {
       <div className="flex gap-2">
       <button
         onClick={() => setFormatted(formatXml(input))}
-        className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded shadow-md"
+        className="mt-6 bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded shadow-md"
       >
         Format XML
       </button>

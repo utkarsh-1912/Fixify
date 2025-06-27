@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "FIXify",
-  description: "FIXify by UTAI INC",
+  description: "FIXify by UTAI Inc.",
 };
 
 export default function RootLayout({ children }) {
