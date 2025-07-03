@@ -12,7 +12,8 @@ export default function Navbar() {
   const navItems = [
     { href: '/', label: 'Logs Processor' },
     { href: '/xml', label: 'XML Formatter' },
-    { href: '/interpreter', label: 'FIX Interpreter' },
+    { href: '/compare', label: 'Compare' },
+    { href: '/interpreter', label: 'Interpreter' },
   ];
 
   return (
@@ -60,12 +61,12 @@ export default function Navbar() {
 
       {/* Mobile dropdown */}
       {isOpen && (
-        <div className="md:hidden mt-2 flex flex-col gap-3 px-2">
+        <div className="md:hidden mt-3 flex flex-col gap-3">
           {navItems.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
-              className={`hover:underline px-2 py-1 rounded ${
+              className={`hover:underline px-3 py-1 rounded ${
                 pathname === href ? 'bg-red-500 text-gray-900' : ''
               }`}
               onClick={() => setIsOpen(false)}

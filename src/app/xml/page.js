@@ -1,4 +1,4 @@
-// ---- Updated XML Formatter Page (app/xml/page.js) with colored tags and values ----
+// ---- Updated XML Formatter Page (app/xml/page.js) with colored tags and values and improved layout ----
 "use client";
 import { useState } from "react";
 import { ClipboardDocumentIcon, ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
@@ -13,35 +13,31 @@ export default function XMLFormatterPage() {
       const PADDING = "  ";
       let formatted = "";
       let pad = 0;
-  
-      // Insert newline between tags (but preserve inline empty tags)
+
       xml = xml.replace(/>\s*</g, ">\n<");
-  
       const lines = xml.split("\n");
-  
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-  
+
         const isClosing = /^<\/.+?>$/.test(line);
         const isOpening = /^<[^!?\/][^>]*?>$/.test(line) && !isClosing;
         const isSelfClosing = /^<[^>]+\/>$/.test(line);
-        const isInlinePair = /^<([^>]+)><\/\1>$/.test(line); // e.g. <A></A>
-  
+        const isInlinePair = /^<([^>]+)><\/\1>$/.test(line);
+
         if (isClosing && !isInlinePair) pad--;
-  
+
         formatted += PADDING.repeat(pad) + line + "\n";
-  
+
         if (isOpening && !isSelfClosing && !isInlinePair) pad++;
       }
-  
+
       return formatted.trim();
     } catch (err) {
       return "Invalid XML";
     }
   };
-  
-
 
   const highlightXml = (xml) => {
     const highlighted = xml
@@ -56,17 +52,33 @@ export default function XMLFormatterPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleReset = ()=>{
+  const handleReset = () => {
     setInput("");
-    setFormatted(""); 
-  } 
+    setFormatted("");
+  };
 
   return (
     <main className="p-4">
       <h1 className="text-3xl font-bold mb-6 text-center">🛠️ XML Formatter</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="flex flex-col">
-          <label className="font-semibold mb-1">🔤 Paste Raw XML</label>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <div className="flex flex-col relative">
+          <div className="flex items-center justify-between mb-1 px-1">
+            <label className="font-semibold mb-0.5">🔤 Paste Raw XML</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFormatted(formatXml(input))}
+                className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded shadow"
+              >
+                Format
+              </button>
+              <button
+                onClick={handleReset}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded shadow"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
           <textarea
             className="w-full h-[70vh] p-3 border border-gray-300 rounded shadow-sm text-sm font-mono"
             placeholder="&lt;root&gt;&lt;tag&gt;value&lt;/tag&gt;&lt;/root&gt;"
@@ -75,7 +87,9 @@ export default function XMLFormatterPage() {
           />
         </div>
         <div className="flex flex-col relative">
-          <label className="font-semibold mb-1">🧾 Formatted Output</label>
+          <div className="flex items-center justify-between mb-1 px-1 h-[30px]">
+            <label className="font-semibold">🧾 Formatted Output</label>
+          </div>
           <div
             className="w-full h-[70vh] p-3 border border-gray-200 rounded bg-gray-50 shadow-inner text-sm font-mono overflow-auto whitespace-pre-wrap"
             dangerouslySetInnerHTML={{ __html: highlightXml(formatted.replace(/</g, '&lt;').replace(/>/g, '&gt;')) }}
@@ -94,20 +108,6 @@ export default function XMLFormatterPage() {
             </button>
           )}
         </div>
-      </div>
-      <div className="flex gap-2">
-      <button
-        onClick={() => setFormatted(formatXml(input))}
-        className="mt-6 bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded shadow-md"
-      >
-        Format XML
-      </button>
-      <button
-        onClick={handleReset}
-        className="mt-6 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded shadow-md"
-      >
-        Reset
-      </button>
       </div>
     </main>
   );
