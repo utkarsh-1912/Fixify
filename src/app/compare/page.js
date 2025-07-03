@@ -93,8 +93,8 @@ export default function FIXComparePage() {
     reader.readAsText(acceptedFiles[0]);
   };
 
-  const { getRootProps: getRootProps1, getInputProps: getInputProps1 } = useDropzone({ onDrop: onDrop1 });
-  const { getRootProps: getRootProps2, getInputProps: getInputProps2 } = useDropzone({ onDrop: onDrop2 });
+  const { getRootProps: getRootProps1, getInputProps: getInputProps1 } = useDropzone({ onDrop: onDrop1, accept: { "text/plain": [".txt", ".fix"] }, });
+  const { getRootProps: getRootProps2, getInputProps: getInputProps2 } = useDropzone({ onDrop: onDrop2, accept: { "text/plain": [".txt", ".fix"] }, });
 
   return (
     <main className="p-4">
@@ -204,14 +204,20 @@ export default function FIXComparePage() {
           <div className="bg-white max-w-4xl w-full rounded shadow-lg p-4">
             <div className="text-lg font-semibold mb-2">{modalContent?.title || "Comparison Result"}</div>
             <div className="overflow-auto max-h-[70vh]">
-              {modalContent?.data ? (
+              {modalContent?.data ?(
                 <pre className="text-xs whitespace-pre-wrap font-mono">
-                {modalContent.data.map((msg, idx) => (
+                {modalContent?.type==='matched' ? (modalContent.data.map(({msg1,msg2}, idx) => (
+                  <div key={idx} className="flex border-b border-dashed border-gray-300 py-1">
+                    <div className="w-12 text-right pr-2 text-gray-500">{msg1.lineNumber || idx + 1}</div>
+                    <div className="flex-1 text-red-700">{msg1.line || Object.entries(msg1.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
+                    <div className="flex-1 text-green-700">{msg2.line || Object.entries(msg2.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
+                  </div>
+                ))):(modalContent.data.map((msg, idx) => (
                   <div key={idx} className="flex border-b border-dashed border-gray-300 py-1">
                     <div className="w-12 text-right pr-2 text-gray-500">{msg.lineNumber || idx + 1}</div>
                     <div className="flex-1 text-red-700">{msg.line || Object.entries(msg.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
                   </div>
-                ))}
+                )))}
               </pre>              
               ) : (
                 <table className="w-full text-sm font-mono border">
