@@ -96,7 +96,7 @@ export default function FIXComparePage() {
   const { getRootProps: getRootProps2, getInputProps: getInputProps2 } = useDropzone({ onDrop: onDrop2, accept: { "text/plain": [".txt", ".fix"] }, });
 
   return (
-    <main className="p-4">
+    <main className="p-4 min-h-[80vh]">
       <h1 className="text-3xl font-bold mb-6 text-center">🧪 FIX Message Comparator</h1>
 
       <div className="mb-6 flex flex-col md:flex-row md:items-end md:gap-4">

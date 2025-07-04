@@ -12,7 +12,7 @@ export default function Navbar() {
   const navItems = [
     { href: '/', label: 'Logs Processor' },
     { href: '/xml', label: 'XML Formatter' },
-    { href: '/compare', label: 'Compare' },
+    { href: '/compare', label: 'Comparator' },
     { href: '/interpreter', label: 'Interpreter' },
   ];
 
