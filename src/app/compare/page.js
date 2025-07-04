@@ -207,10 +207,10 @@ export default function FIXComparePage() {
               {modalContent?.data ?(
                 <pre className="text-xs whitespace-pre-wrap font-mono">
                 {modalContent?.type==='matched' ? (modalContent.data.map(({msg1,msg2}, idx) => (
-                  <div key={idx} className="flex border-b border-dashed border-gray-300 py-1">
-                    <div className="w-12 text-right pr-2 text-gray-500">{msg1.lineNumber || idx + 1}</div>
-                    <div className="flex-1 text-red-700">{msg1.line || Object.entries(msg1.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
-                    <div className="flex-1 text-green-700">{msg2.line || Object.entries(msg2.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
+                  <div key={idx} className="border border-gray-300 rounded p-2 bg-gray-50 space-y-2 text-xs mb-1">
+                    <div className="text-gray-500 font-semibold">Message {msg1.lineNumber || idx + 1}</div>
+                    <div className="bg-red-50 text-red-800 p-2 rounded break-words whitespace-pre-wrap">{msg1.line || Object.entries(msg1.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
+                    <div className="bg-gray-50 text-gray-800 p-2 rounded break-words whitespace-pre-wrap">{msg2.line || Object.entries(msg2.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
                   </div>
                 ))):(modalContent.data.map((msg, idx) => (
                   <div key={idx} className="flex border-b border-dashed border-gray-300 py-1">
