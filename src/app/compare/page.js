@@ -209,7 +209,7 @@ export default function FIXComparePage() {
                 {modalContent?.type==='matched' ? (modalContent.data.map(({msg1,msg2}, idx) => (
                   <div key={idx} className="border border-gray-300 rounded p-2 bg-gray-50 space-y-2 text-xs mb-1">
                     <div className="text-gray-500 font-semibold">Message {msg1.lineNumber || idx + 1}</div>
-                    <div className="bg-red-50 text-red-800 p-2 rounded break-words whitespace-pre-wrap">{msg1.line || Object.entries(msg1.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
+                    <div className="bg-green-50 text-green-800 p-2 rounded break-words whitespace-pre-wrap">{msg1.line || Object.entries(msg1.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
                     <div className="bg-gray-50 text-gray-800 p-2 rounded break-words whitespace-pre-wrap">{msg2.line || Object.entries(msg2.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
                   </div>
                 ))):(modalContent.data.map((msg, idx) => (
