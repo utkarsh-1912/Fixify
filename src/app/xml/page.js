@@ -1,4 +1,3 @@
-// ---- Updated XML Formatter Page (app/xml/page.js) with colored tags and values and improved layout ----
 "use client";
 import { useState } from "react";
 import { ClipboardDocumentIcon, ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
@@ -62,7 +61,7 @@ export default function XMLFormatterPage() {
       <h1 className="text-3xl font-bold mb-6 text-center">🛠️ XML Formatter</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <div className="flex flex-col relative">
-          <div className="flex items-center justify-between mb-1 px-1">
+          <div className="flex items-center justify-between mb-2 px-1">
             <label className="font-semibold mb-0.5">🔤 Paste Raw XML</label>
             <div className="flex gap-2">
               <button
@@ -87,7 +86,7 @@ export default function XMLFormatterPage() {
           />
         </div>
         <div className="flex flex-col relative">
-          <div className="flex items-center justify-between mb-1 px-1 h-[30px]">
+          <div className="flex items-center justify-between mb-2 px-1 h-[30px]">
             <label className="font-semibold">🧾 Formatted Output</label>
           </div>
           <div

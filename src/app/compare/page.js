@@ -1,4 +1,3 @@
-// ---- Updated FIX Compare Page with controlled modal and diff preview ----
 "use client";
 import { useState } from "react";
 import { useDropzone } from "react-dropzone";
