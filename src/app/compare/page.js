@@ -166,24 +166,28 @@ export default function FIXComparePage() {
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Drop or Paste FIX Files</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div {...getRootProps1()} className="border-dashed border-2 p-4 rounded bg-white text-center cursor-pointer">
-              <input {...getInputProps1()} />
-              <p className="text-gray-600">Drop or select File 1</p>
+            <div>
+              <div {...getRootProps1()} className="border-dashed border-2 p-4 rounded bg-white text-center cursor-pointer">
+                <input {...getInputProps1()} />
+                <p className="text-gray-800">Drop or select File 1</p>
+              </div>
               <textarea
-                className="p-2 border mt-2 rounded w-full h-40 font-mono"
-                placeholder="Paste File 1 Content"
-                value={file1Content}
-                onChange={(e) => setFile1Content(e.target.value)}
+                  className="p-2 border mt-2 rounded w-full h-40 font-mono"
+                  placeholder="Paste File 1 Content"
+                  value={file1Content}
+                  onChange={(e) => setFile1Content(e.target.value)}
               />
             </div>
-            <div {...getRootProps2()} className="border-dashed border-2 p-4 rounded bg-white text-center cursor-pointer">
-              <input {...getInputProps2()} />
-              <p className="text-gray-600">Drop or select File 2</p>
+            <div>
+              <div {...getRootProps2()} className="border-dashed border-2 p-4 rounded bg-white text-center cursor-pointer">
+                <input {...getInputProps2()} />
+                <p className="text-gray-800">Drop or select File 2</p>
+              </div>
               <textarea
-                className="p-2 border mt-2 rounded w-full h-40 font-mono"
-                placeholder="Paste File 2 Content"
-                value={file2Content}
-                onChange={(e) => setFile2Content(e.target.value)}
+                  className="p-2 border mt-2 rounded w-full h-40 font-mono"
+                  placeholder="Paste File 2 Content"
+                  value={file2Content}
+                  onChange={(e) => setFile2Content(e.target.value)}
               />
             </div>
           </div>

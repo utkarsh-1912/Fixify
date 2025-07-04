@@ -4,7 +4,7 @@ import Link from 'next/link';
 const Footer = () => {
     const currentYear = new Date().getFullYear();
   return (
-    <footer className="bg-white m-4">
+    <footer className="p-4 bg-gray-50">
       <div className="w-full mx-auto max-w-screen-xl p-4 md:flex md:items-center md:justify-between">
         <span className="text-sm text-gray-500 sm:text-center">
           © {currentYear} <Link href="/" className="hover:underline">FIXify™</Link>. All Rights Reserved.

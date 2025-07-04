@@ -234,7 +234,7 @@ export default function Home() {
                   className="flex justify-between items-center border px-1.5 py-1 bg-white rounded mb-2 cursor-pointer hover:bg-gray-100"
                 >
                   <span
-                    className="flex-1 text-blue-600 hover:underline"
+                    className="flex-1 text-gray-600 hover:underline"
                     onClick={() => setPreviewFile(file)}
                   >
                     {file.name}
