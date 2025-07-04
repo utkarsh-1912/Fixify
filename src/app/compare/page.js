@@ -191,7 +191,7 @@ export default function FIXComparePage() {
 
           {fileDiff && (
             <div className="mt-4 space-y-2">
-              <p className="font-semibold text-green-700 cursor-pointer underline" onClick={() => { setModalContent({ data: fileDiff.matches, title: 'Common Messages - File 1 & File 2', type:'matched' }); setShowModal(true); console.log(fileDiff.matches)}}>✅ Matches Found: {fileDiff.matches.length}</p>
+              {fileDiff.matches.length > 0 ? (<p className="font-semibold text-green-700 cursor-pointer underline" onClick={() => { setModalContent({ data: fileDiff.matches, title: 'Common Messages - File 1 & File 2', type:'matched' }); setShowModal(true); console.log(fileDiff.matches)}}>✅ Matches Found: {fileDiff.matches.length}</p>):(<p className="font-semibold text-green-700">✅ Matches Found: {fileDiff.matches.length}</p>)}
               {fileDiff.unmatched1.length > 0 && (<p className="font-semibold text-red-600 cursor-pointer underline" onClick={() => { setModalContent({ data: fileDiff.unmatched1, title: 'Unmatched Messages - File 1' }); setShowModal(true); }}>❌ File 1 unmatched: {fileDiff.unmatched1.length}</p>)}
               {fileDiff.unmatched2.length > 0 && (<p className="font-semibold text-red-600 cursor-pointer underline" onClick={() => { setModalContent({ data: fileDiff.unmatched2, title: 'Unmatched Messages - File 2' }); setShowModal(true); }}>❌ File 2 unmatched: {fileDiff.unmatched2.length}</p>)}
             </div>
@@ -209,13 +209,13 @@ export default function FIXComparePage() {
                 {modalContent?.type==='matched' ? (modalContent.data.map(({msg1,msg2}, idx) => (
                   <div key={idx} className="border border-gray-300 rounded p-2 bg-gray-50 space-y-2 text-xs mb-1">
                     <div className="text-gray-500 font-semibold">Message {msg1.lineNumber || idx + 1}</div>
-                    <div className="bg-green-50 text-green-800 p-2 rounded break-words whitespace-pre-wrap">{msg1.line || Object.entries(msg1.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
-                    <div className="bg-gray-50 text-gray-800 p-2 rounded break-words whitespace-pre-wrap">{msg2.line || Object.entries(msg2.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
+                    <div className="bg-green-50 text-green-800 p-2 rounded break-words">{msg1.line || Object.entries(msg1.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
+                    <div className="bg-gray-50 text-gray-800 p-2 rounded break-words">{msg2.line || Object.entries(msg2.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
                   </div>
                 ))):(modalContent.data.map((msg, idx) => (
-                  <div key={idx} className="flex border-b border-dashed border-gray-300 py-1">
-                    <div className="w-12 text-right pr-2 text-gray-500">{msg.lineNumber || idx + 1}</div>
-                    <div className="flex-1 text-red-700">{msg.line || Object.entries(msg.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
+                  <div key={idx} className="grid grid-cols-[1rem_1fr] border-b border-dashed border-gray-300 py-1 gap-2">
+                    <div className="text-right text-gray-500 leading-snug">{msg.lineNumber || idx + 1}</div>
+                    <div className="text-red-700 break-words whitespace-pre-wrap leading-snug">{msg.line || Object.entries(msg.tags).map(([k, v]) => `${k}=${v}`).join("|")}</div>
                   </div>
                 )))}
               </pre>              
