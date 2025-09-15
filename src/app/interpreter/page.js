@@ -6,6 +6,7 @@ export default function InterpreterPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
+  const [hfConnected, setHfConnected] = useState(false);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,6 +40,10 @@ export default function InterpreterPage() {
       };
 
       setMessages([...newMessages, botMsg]);
+      if (data.hfConnected !== undefined) {
+          setHfConnected(data.hfConnected);
+       }
+
     } catch (err) {
       setMessages([
         ...newMessages,
