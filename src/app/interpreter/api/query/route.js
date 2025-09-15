@@ -14,59 +14,81 @@ function parseFIX(message) {
     return [tag, value, tagName, mappedValue];
   });
 
-  const summary = [];
-  for (const [tag, value, tagName, mappedValue] of rows) {
-    if (tag === "35") summary.push(`Type: ${mappedValue}`);
-    if (tag === "54") summary.push(`Side: ${mappedValue}`);
-    if (tag === "55") summary.push(`Symbol: ${value}`);
-    if (tag === "38") summary.push(`Qty: ${value}`);
-  }
+  // Meaningful interpretation
+  let summary = [];
+  let ordType = FIX_VALUES["40"]?.[rows.find(r => r[0]==="40")?.[1]] || "—";
+  let side = FIX_VALUES["54"]?.[rows.find(r => r[0]==="54")?.[1]] || "—";
+  let qty = rows.find(r => r[0]==="38")?.[1] || "—";
+  let symbol = rows.find(r => r[0]==="55")?.[1] || "—";
+  let msgType = FIX_VALUES["35"]?.[rows.find(r => r[0]==="35")?.[1]] || "—";
+
+  summary.push(`${msgType} → ${side} ${qty} ${symbol} at ${ordType}`);
 
   return { rows, summary: summary.join(", ") };
+}
+
+// Ping HF model to check connection
+async function checkHFConnection() {
+  if (!process.env.HF_API_KEY) return false;
+  try {
+    const res = await fetch(`https://api-inference.huggingface.co/models/${MODEL_MAP[MODEL]}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.HF_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ inputs: "Hello", parameters: { max_new_tokens: 1 } }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function queryHF(prompt) {
+  try {
+    const res = await fetch(`https://api-inference.huggingface.co/models/${MODEL_MAP[MODEL]}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.HF_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 300, temperature: 0.2 } }),
+    });
+
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      return { answer: "⚠️ HF returned non-JSON response", connected: false };
+    }
+
+    let output = "No response generated.";
+    if (Array.isArray(data) && data[0]?.generated_text) output = data[0].generated_text.trim();
+    else if (typeof data === "object" && data.generated_text) output = data.generated_text.trim();
+    else if (data.error) output = `⚠️ Model error: ${data.error}`;
+
+    return { answer: output, connected: true };
+  } catch (err) {
+    return { answer: `⚠️ HF request failed: ${err.message}`, connected: false };
+  }
 }
 
 export async function POST(req) {
   try {
     const { query } = await req.json();
 
-    // Handle FIX messages
+    // --- FIX message path
     if (looksLikeFIX(query)) {
       const { rows, summary } = parseFIX(query);
-      return NextResponse.json({ answer: summary, table: rows });
+      const hfConnected = await checkHFConnection(); // optional ping
+      return NextResponse.json({ answer: summary, table: rows, hfConnected });
     }
 
-    // Otherwise call Hugging Face model
-    const response = await fetch(
-      `https://api-inference.huggingface.co/models/${MODEL_MAP[MODEL]}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.HF_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inputs: query,
-          parameters: { max_new_tokens: 300, temperature: 0.2 },
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    let output = "No response generated.";
-    if (Array.isArray(data) && data[0]?.generated_text) {
-      output = data[0].generated_text.trim();
-    } else if (typeof data === "object" && data.generated_text) {
-      output = data.generated_text.trim();
-    } else if (data.error) {
-      output = `⚠️ Model error: ${data.error}`;
-    }
-
-    return NextResponse.json({ answer: output, table: null });
+    // --- Non-FIX → Hugging Face
+    const hfRes = await queryHF(query);
+    return NextResponse.json({ answer: hfRes.answer, table: null, hfConnected: hfRes.connected });
   } catch (err) {
-    return NextResponse.json(
-      { error: err.message || "Unknown server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message || "Unknown error", hfConnected: false }, { status: 500 });
   }
 }
