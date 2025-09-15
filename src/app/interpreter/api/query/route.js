@@ -65,20 +65,26 @@ async function getMarketData(symbol) {
 // Hugging Face query
 async function queryHF(prompt) {
   if (!process.env.HF_API_KEY) return { answer: "HF not configured", connected: false };
+
+  const modelId = MODEL_MAP[MODEL];
+  if (!modelId) return { answer: `⚠️ Unknown model: ${MODEL}`, connected: false };
+
   try {
-    const res = await fetch(`https://api-inference.huggingface.co/models/${MODEL_MAP[MODEL]}`, {
+    const res = await fetch(`https://api-inference.huggingface.co/models/${modelId}`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${process.env.HF_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${process.env.HF_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 300, temperature: 0.2 } }),
     });
 
-    let data;
-    try { data = await res.json(); } catch { return { answer: "⚠️ HF returned non-JSON response", connected: false }; }
+    const data = await res.json().catch(() => null);
 
     let output = "No response generated.";
     if (Array.isArray(data) && data[0]?.generated_text) output = data[0].generated_text.trim();
     else if (typeof data === "object" && data.generated_text) output = data.generated_text.trim();
-    else if (data.error) output = `⚠️ Model error: ${data.error}`;
+    else if (data?.error) output = `⚠️ Model error: ${data.error}`;
 
     return { answer: output, connected: true };
   } catch (err) {
