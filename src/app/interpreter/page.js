@@ -25,7 +25,7 @@ export default function InterpreterPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/interpreter/query", {
+      const res = await fetch("/interpreter/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: input }),
