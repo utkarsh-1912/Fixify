@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { MODEL, MODEL_MAP } from "@/lib/config";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
-import yfinance from "yfinance";
+import yahooFinance from 'yahoo-finance2';
 
 // Detect FIX messages
 function looksLikeFIX(input) {
@@ -55,7 +55,7 @@ function interpretFIX(rows) {
 // Fetch market data via yfinance
 async function getMarketData(symbol) {
   try {
-    const quote = await yfinance.quote({ symbol });
+    const quote = await yahoofinance.quote({ symbol });
     return quote?.price ? `Current Price of ${symbol}: ${quote.price}` : `Market data not found for ${symbol}`;
   } catch {
     return `Market data not found for ${symbol}`;
