@@ -76,21 +76,30 @@ async function queryHF(prompt) {
         Authorization: `Bearer ${process.env.HF_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 300, temperature: 0.2 } }),
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: { max_new_tokens: 300, temperature: 0.2 },
+      }),
     });
 
     const data = await res.json().catch(() => null);
 
-    let output = "No response generated.";
-    if (Array.isArray(data) && data[0]?.generated_text) output = data[0].generated_text.trim();
-    else if (typeof data === "object" && data.generated_text) output = data.generated_text.trim();
-    else if (data?.error) output = `⚠️ Model error: ${data.error}`;
+    // Defensive parsing
+    let output = "⚠️ No response generated.";
+    if (Array.isArray(data) && data.length > 0) {
+      if (data[0]?.generated_text) output = data[0].generated_text.trim();
+      else if (typeof data[0] === "string") output = data[0];
+    } else if (typeof data === "object" && data) {
+      if (data.generated_text) output = data.generated_text.trim();
+      else if (data.error) output = `⚠️ Model error: ${data.error}`;
+    }
 
     return { answer: output, connected: true };
   } catch (err) {
     return { answer: `⚠️ HF request failed: ${err.message}`, connected: false };
   }
 }
+
 
 // Optional HF connectivity check
 async function checkHFConnection() {
