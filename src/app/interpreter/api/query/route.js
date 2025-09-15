@@ -1,67 +1,79 @@
 import { NextResponse } from "next/server";
 import { MODEL, MODEL_MAP } from "@/lib/config";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
+import yfinance from "yfinance";
 
+// Detect FIX messages
 function looksLikeFIX(input) {
   return /^8=FIX\./.test(input);
 }
 
+// Parse FIX message into table
 function parseFIX(message) {
-  const rows = message.split("|").map((pair) => {
+  return message.split("|").map((pair) => {
     const [tag, value] = pair.split("=");
     const tagName = FIX_TAGS[tag] || "";
     const mappedValue = FIX_VALUES[tag]?.[value] || value;
     return [tag, value, tagName, mappedValue];
   });
-
-  // Meaningful interpretation
-  let summary = [];
-  let ordType = FIX_VALUES["40"]?.[rows.find(r => r[0]==="40")?.[1]] || "—";
-  let side = FIX_VALUES["54"]?.[rows.find(r => r[0]==="54")?.[1]] || "—";
-  let qty = rows.find(r => r[0]==="38")?.[1] || "—";
-  let symbol = rows.find(r => r[0]==="55")?.[1] || "—";
-  let msgType = FIX_VALUES["35"]?.[rows.find(r => r[0]==="35")?.[1]] || "—";
-
-  summary.push(`${msgType} → ${side} ${qty} ${symbol} at ${ordType}`);
-
-  return { rows, summary: summary.join(", ") };
 }
 
-// Ping HF model to check connection
-async function checkHFConnection() {
-  if (!process.env.HF_API_KEY) return false;
+// Generate human-readable summary for multiple FIX types
+function interpretFIX(rows) {
+  const msgTypeTag = rows.find((r) => r[0] === "35");
+  const msgType = msgTypeTag ? msgTypeTag[3] || msgTypeTag[1] : "Unknown";
+  let summary = msgType;
+
+  switch (msgTypeTag?.[1]) {
+    case "D": // New Order Single
+      const sideD = rows.find((r) => r[0] === "54")?.[3] || "—";
+      const qtyD = rows.find((r) => r[0] === "38")?.[1] || "—";
+      const symbolD = rows.find((r) => r[0] === "55")?.[1] || "—";
+      const ordType = rows.find((r) => r[0] === "40")?.[3] || "—";
+      summary += ` → ${sideD} ${qtyD} ${symbolD} at ${ordType}`;
+      break;
+    case "P": // Allocation
+      const allocRef = rows.find((r) => r[0] === "70")?.[1] || "—";
+      const allocDate = rows.find((r) => r[0] === "75")?.[1] || "—";
+      const allocQty = rows.find((r) => r[0] === "87")?.[1] || "—";
+      summary += ` → AllocationRef: ${allocRef}, Date: ${allocDate}, Qty: ${allocQty}`;
+      break;
+    case "F": // Order Cancel Request
+    case "G": // Order Cancel/Replace Request
+    case "J": // Allocation Instruction
+    case "AK": // Allocation Report Ack
+    case "AU": // Allocation Report
+      summary += " → Fields not mapped, see table for details";
+      break;
+    default:
+      summary += " → Unknown FIX type, see table for details";
+  }
+
+  return summary;
+}
+
+// Fetch market data via yfinance
+async function getMarketData(symbol) {
   try {
-    const res = await fetch(`https://api-inference.huggingface.co/models/${MODEL_MAP[MODEL]}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.HF_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ inputs: "Hello", parameters: { max_new_tokens: 1 } }),
-    });
-    return res.ok;
+    const quote = await yfinance.quote({ symbol });
+    return quote?.price ? `Current Price of ${symbol}: ${quote.price}` : `Market data not found for ${symbol}`;
   } catch {
-    return false;
+    return `Market data not found for ${symbol}`;
   }
 }
 
+// Hugging Face query
 async function queryHF(prompt) {
+  if (!process.env.HF_API_KEY) return { answer: "HF not configured", connected: false };
   try {
     const res = await fetch(`https://api-inference.huggingface.co/models/${MODEL_MAP[MODEL]}`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.HF_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${process.env.HF_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 300, temperature: 0.2 } }),
     });
 
     let data;
-    try {
-      data = await res.json();
-    } catch {
-      return { answer: "⚠️ HF returned non-JSON response", connected: false };
-    }
+    try { data = await res.json(); } catch { return { answer: "⚠️ HF returned non-JSON response", connected: false }; }
 
     let output = "No response generated.";
     if (Array.isArray(data) && data[0]?.generated_text) output = data[0].generated_text.trim();
@@ -74,21 +86,49 @@ async function queryHF(prompt) {
   }
 }
 
+// Optional HF connectivity check
+async function checkHFConnection() {
+  try {
+    const res = await fetch(`https://api-inference.huggingface.co/models/${MODEL_MAP[MODEL]}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.HF_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ inputs: "Hello", parameters: { max_new_tokens: 1 } }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Main POST handler
 export async function POST(req) {
   try {
     const { query } = await req.json();
+    let table = null;
+    let answer = "";
+    let hfConnected = false;
 
-    // --- FIX message path
     if (looksLikeFIX(query)) {
-      const { rows, summary } = parseFIX(query);
-      const hfConnected = await checkHFConnection(); // optional ping
-      return NextResponse.json({ answer: summary, table: rows, hfConnected });
+      table = parseFIX(query);
+      answer = interpretFIX(table);
+
+      // Get market price if symbol exists
+      const symbol = table.find((r) => r[0] === "55")?.[1];
+      if (symbol) {
+        const marketInfo = await getMarketData(symbol);
+        answer += ` | ${marketInfo}`;
+      }
+
+      hfConnected = await checkHFConnection();
+    } else {
+      // Non-FIX query → HF fallback
+      const hfRes = await queryHF(query);
+      answer = hfRes.answer;
+      hfConnected = hfRes.connected;
     }
 
-    // --- Non-FIX → Hugging Face
-    const hfRes = await queryHF(query);
-    return NextResponse.json({ answer: hfRes.answer, table: null, hfConnected: hfRes.connected });
+    return NextResponse.json({ answer, table, hfConnected });
   } catch (err) {
-    return NextResponse.json({ error: err.message || "Unknown error", hfConnected: false }, { status: 500 });
+    return NextResponse.json({ answer: err.message || "Unknown error", table: null, hfConnected: false }, { status: 500 });
   }
 }
