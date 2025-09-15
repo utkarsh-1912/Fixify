@@ -74,7 +74,7 @@ export default function InterpreterPage() {
             <div
               className={`max-w-xl rounded-2xl px-4 py-3 shadow ${
                 msg.role === "user"
-                  ? "bg-blue-600 text-white rounded-br-none"
+                  ? "bg-gray-600 text-white rounded-br-none"
                   : "bg-white text-gray-800 border rounded-bl-none"
               }`}
             >
@@ -125,7 +125,7 @@ export default function InterpreterPage() {
         <button
           type="submit"
           disabled={loading}
-          className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 disabled:bg-gray-400"
+          className="bg-gray-600 text-white px-5 py-2 rounded-xl hover:bg-gray-700 disabled:bg-gray-400"
         >
           Send
         </button>
