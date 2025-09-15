@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDropzone } from "react-dropzone";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
-import { ArrowDownTrayIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { ArrowDownTrayIcon, ArrowRightIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import FileModal from "@/components/FileModal";
 
 export default function Home() {
@@ -254,9 +254,10 @@ export default function Home() {
         {rawFiles.length > 0 && processedFiles.length === 0 && (
           <button
             onClick={handleProcess}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mb-4 shadow-inner"
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 flex rounded items-center gap-1 mb-4 shadow-inner"
           >
             Process
+            <ArrowRightIcon className="h-5 w-5" />
           </button>
         )}
 

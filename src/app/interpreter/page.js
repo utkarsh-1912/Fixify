@@ -56,23 +56,23 @@ export default function InterpreterPage() {
 
   return (
     <main className="p-6 max-w-4xl mx-auto flex flex-col h-screen">
-<div className="mb-4 flex items-center justify-between">
-  <h1 className="text-3xl font-bold">Fixify - FIX Interpreter</h1>
-  <div className="flex items-center gap-2">
-    <span className={`w-3 h-3 rounded-full ${hfConnected ? "bg-green-400" : "bg-red-400"}`} />
-    <span className="text-sm">{hfConnected ? "HF Connected" : "HF Offline"}</span>
-    <button
-      onClick={handleNewChat}
-      className="ml-4 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium"
-    >
-      + New Chat
-    </button>
-  </div>
-</div>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Fixify - FIX Interpreter</h1>
+        <div className="flex items-center gap-2">
+          <span className={`w-3 h-3 rounded-full ${hfConnected ? "bg-green-400" : "bg-red-400"}`} />
+          <span className="text-sm">{hfConnected ? "HF Connected" : "HF Offline"}</span>
+          <button
+            onClick={handleNewChat}
+            className="ml-4 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium"
+          >
+            + New Chat
+          </button>
+        </div>
+      </div>
 
 
       {/* Chat area */}
-      <div className="flex-1 overflow-y-auto border rounded bg-gray-50 p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto overflow-x-auto border rounded bg-gray-50 p-4 space-y-4">
         {messages.map((msg, idx) => (
           <div
             key={idx}
@@ -83,7 +83,7 @@ export default function InterpreterPage() {
             <div
               className={`max-w-xl rounded-2xl px-4 py-3 shadow ${
                 msg.role === "user"
-                  ? "bg-gray-600 text-white rounded-br-none"
+                  ? "bg-gray-800 text-white rounded-br-none"
                   : "bg-white text-gray-800 border rounded-bl-none"
               }`}
             >
@@ -126,7 +126,7 @@ export default function InterpreterPage() {
         className="mt-4 w-full flex gap-2 items-center"
       >
         <input
-          className="flex-1 border rounded-xl p-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          className="flex-1 border rounded p-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a FIX message or question..."
@@ -134,7 +134,7 @@ export default function InterpreterPage() {
         <button
           type="submit"
           disabled={loading}
-          className="bg-gray-600 text-white px-5 py-2 rounded-xl hover:bg-gray-700 disabled:bg-gray-400"
+          className="bg-gray-800 text-white px-5 py-3 rounded hover:bg-gray-700 disabled:bg-gray-500"
         >
           Send
         </button>

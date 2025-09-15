@@ -10,7 +10,7 @@ function FileModal({ file, onClose }) {
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
-        <pre className="p-4 whitespace-pre-wrap break-words font-mono text-sm">
+        <pre className="p-4 whitespace-pre-wrap break-words font-mono text-sm bg-gray-50">
           {file.content}
         </pre>
       </div>
