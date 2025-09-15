@@ -83,6 +83,7 @@ async function queryHF(prompt) {
     });
 
     const data = await res.json().catch(() => null);
+    console.log("HF response:", data);
 
     // Defensive parsing
     let output = "⚠️ No response generated.";
