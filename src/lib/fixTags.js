@@ -198,7 +198,7 @@ export const FIX_TAGS = {
   90052: "CustomTimeStamp",
 };
 
-// Enumerated values for common fields
+// Enumerated values for common FIX tags
 export const FIX_VALUES = {
   35: {
     "0": "Heartbeat",
@@ -207,23 +207,172 @@ export const FIX_VALUES = {
     "3": "Reject",
     "4": "Sequence Reset",
     "5": "Logout",
-    D: "New Order Single",
-    8: "Execution Report",
-    F: "Order Cancel Request",
-    G: "Order Cancel/Replace Request",
-    J: "Allocation Instruction",
-    P: "Allocation",
-    AK: "Allocation Report Ack",
-    AU: "Allocation Report",
+    "6": "Indication of Interest",
+    "7": "Advertisement",
+    "8": "Execution Report",
+    "9": "Order Cancel Reject",
+    "A": "Logon",
+    "D": "New Order Single",
+    "F": "Order Cancel Request",
+    "G": "Order Cancel/Replace Request",
+    "H": "Order Status Request",
+    "J": "Allocation Instruction",
+    "P": "Allocation",
+    "AK": "Allocation Report Ack",
+    "AU": "Allocation Report",
   },
-  54: { 1: "Buy", 2: "Sell", 5: "Sell Short" },
-  40: { 1: "Market", 2: "Limit", 3: "Stop", 4: "Stop Limit", 5: "Trailing Stop" },
-  59: { 0: "Day", 1: "GTC", 2: "At the Opening", 3: "IOC", 4: "FOK" },
-  39: { 0: "New", 1: "Partially Filled", 2: "Filled", 4: "Canceled", 8: "Rejected", 9: "Suspended" },
-  150: { 0: "New", 1: "Partial Fill", 2: "Fill", 4: "Canceled", 5: "Replaced", 8: "Rejected" },
-  47: { A: "Agency", G: "Proprietary", I: "Individual" },
-  18: { 1: "Automated Execution", 2: "Manual" },
+
+  // Side
+  54: {
+    1: "Buy",
+    2: "Sell",
+    3: "Buy minus",
+    4: "Sell plus",
+    5: "Sell short",
+    6: "Sell short exempt",
+    7: "Undisclosed",
+    8: "Cross",
+    9: "Cross short",
+  },
+
+  // OrdType
+  40: {
+    1: "Market",
+    2: "Limit",
+    3: "Stop",
+    4: "Stop Limit",
+    5: "Market on Close",
+    6: "With or Without",
+    7: "Limit or Better",
+    8: "Limit with or Without",
+    9: "On Basis",
+    "D": "Stop on Bid/Offer",
+    "P": "Pegged",
+  },
+
+  // TimeInForce
+  59: {
+    0: "Day",
+    1: "Good Till Cancel (GTC)",
+    2: "At the Opening",
+    3: "Immediate or Cancel (IOC)",
+    4: "Fill or Kill (FOK)",
+    5: "Good Till Crossing",
+    6: "Good Till Date",
+  },
+
+  // OrdStatus
+  39: {
+    0: "New",
+    1: "Partially Filled",
+    2: "Filled",
+    3: "Done for Day",
+    4: "Canceled",
+    5: "Replaced",
+    6: "Pending Cancel",
+    7: "Stopped",
+    8: "Rejected",
+    9: "Suspended",
+    "A": "Pending New",
+    "B": "Calculated",
+    "C": "Expired",
+    "D": "Accepted for Bidding",
+    "E": "Pending Replace",
+  },
+
+  // ExecType
+  150: {
+    0: "New",
+    1: "Partial Fill",
+    2: "Fill",
+    3: "Done for Day",
+    4: "Canceled",
+    5: "Replaced",
+    6: "Pending Cancel",
+    7: "Stopped",
+    8: "Rejected",
+    9: "Suspended",
+    "A": "Pending New",
+    "B": "Calculated",
+    "C": "Expired",
+    "D": "Restated",
+    "E": "Pending Replace",
+    "F": "Trade",
+    "G": "Trade Correct",
+    "H": "Trade Cancel",
+    "I": "Order Status",
+  },
+
+  // Rule 47 - Rule80A (OrderCapacity)
+  47: {
+    "A": "Agency single order",
+    "C": "Agency batch order",
+    "G": "Proprietary",
+    "I": "Individual Investor",
+    "N": "Proprietary firm",
+    "R": "Riskless Principal",
+    "W": "Agent for Other Member",
+  },
+
+  // ExecInst
+  18: {
+    1: "Not held",
+    2: "Work",
+    3: "Go along",
+    4: "Over the day",
+    5: "Held",
+    6: "Participate don’t initiate",
+    7: "Strict scale",
+    8: "Try to scale",
+    9: "Stay on bidside",
+    "0": "Stay on offerside",
+    "A": "No cross",
+    "B": "OK to cross",
+    "C": "Call first",
+    "D": "Percent of volume",
+    "E": "Do not increase",
+    "F": "Do not reduce",
+    "G": "All or none",
+  },
+
+  // HandlInst (21)
+  21: {
+    1: "Automated execution order, private, no broker intervention",
+    2: "Automated execution order, public broker intervention OK",
+    3: "Manual order, best execution",
+  },
+
+  // SecurityIDSource (22)
+  22: {
+    "1": "CUSIP",
+    "2": "SEDOL",
+    "3": "QUIK",
+    "4": "ISIN number",
+    "5": "RIC code",
+    "6": "ISO Currency Code",
+    "7": "ISO Country Code",
+    "8": "Exchange Symbol",
+    "9": "CTA Symbol",
+    "A": "Bloomberg Symbol",
+    "B": "Wertpapier",
+    "C": "Dutch",
+    "D": "Valoren",
+    "E": "Sicovam",
+    "F": "Belgian",
+    "G": "Common",
+    "H": "Clearing House / Clearing Organization",
+    "I": "ISDA/FpML",
+    "J": "Option Price Reporting Authority",
+  },
+
+  // BookingType (775)
+  775: {
+    0: "Regular booking",
+    1: "CFD (Contract for Difference)",
+    2: "Total Return Swap",
+  },
+
+  // Custom (Your example)
   7620: { 1: "VWAP", 2: "TWAP", 3: "CustomAlgo" },
   7722: { N: "Normal", Y: "Special" },
 };
-
