@@ -179,46 +179,31 @@ async function checkHFConnection() {
 export async function POST(req) {
   try {
     const { query } = await req.json();
+    let table = null;
+    let answer = "";
     let hfConnected = false;
 
-    // Split into multiple FIX messages if present
-    const messages = query.split(/\r?\n/).filter(Boolean);
+    if (looksLikeFIX(query)) {
+      table = parseFIX(query);
+      answer = interpretFIX(table);
 
-    let results = [];
-    for (const msg of messages) {
-      if (looksLikeFIX(msg)) {
-        const table = parseFIX(msg);
-        let answer = interpretFIX(table);
-
-        // Get market price if symbol exists
-        const symbol = table.find((r) => r[0] === "55")?.[1];
-        if (symbol) {
-          const marketInfo = await getMarketData(symbol);
-          answer += ` | ${marketInfo}`;
-        }
-
-        results.push({ answer, table });
-        hfConnected = await checkHFConnection();
-      } else {
-        // Non-FIX query → HF fallback
-        const hfRes = await queryHF(msg);
-        results.push({ answer: hfRes.answer, table: null });
-        hfConnected = hfRes.connected;
+      // Get market price if symbol exists
+      const symbol = table.find((r) => r[0] === "55")?.[1];
+      if (symbol) {
+        const marketInfo = await getMarketData(symbol);
+        answer += ` | ${marketInfo}`;
       }
+
+      hfConnected = await checkHFConnection();
+    } else {
+      // Non-FIX query → HF fallback
+      const hfRes = await queryHF(query);
+      answer = hfRes.answer;
+      hfConnected = hfRes.connected;
     }
 
-    // Top-level answer (combine all summaries)
-    const combinedAnswer = results.map(r => r.answer).join("\n");
-
-    return NextResponse.json({
-      answer: combinedAnswer,
-      results,
-      hfConnected
-    });
+    return NextResponse.json({ answer, table, hfConnected });
   } catch (err) {
-    return NextResponse.json(
-      { answer: err.message || "Unknown error", results: [], hfConnected: false },
-      { status: 500 }
-    );
+    return NextResponse.json({ answer: err.message || "Unknown error", table: null, hfConnected: false }, { status: 500 });
   }
 }
