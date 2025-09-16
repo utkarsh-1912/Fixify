@@ -25,26 +25,67 @@ function interpretFIX(rows) {
   let summary = msgType;
 
   switch (msgTypeTag?.[1]) {
-    case "D": // New Order Single
+    case "D": { // New Order Single
       const sideD = rows.find((r) => r[0] === "54")?.[3] || "—";
       const qtyD = rows.find((r) => r[0] === "38")?.[1] || "—";
       const symbolD = rows.find((r) => r[0] === "55")?.[1] || "—";
       const ordType = rows.find((r) => r[0] === "40")?.[3] || "—";
-      summary += ` → ${sideD} ${qtyD} ${symbolD} at ${ordType}`;
+      const priceD = rows.find((r) => r[0] === "44")?.[1] || "—";
+      summary += ` → ${sideD} ${qtyD} ${symbolD} at ${ordType} (Price: ${priceD})`;
       break;
-    case "P": // Allocation
+    }
+
+    case "F": { // Order Cancel Request
+      const origClOrdID = rows.find((r) => r[0] === "41")?.[1] || "—";
+      const clOrdID = rows.find((r) => r[0] === "11")?.[1] || "—";
+      const symbolF = rows.find((r) => r[0] === "55")?.[1] || "—";
+      const sideF = rows.find((r) => r[0] === "54")?.[3] || "—";
+      summary += ` → Cancel request for ${origClOrdID}, new ID ${clOrdID}, ${sideF} ${symbolF}`;
+      break;
+    }
+
+    case "G": { // Order Cancel/Replace Request
+      const origClOrdID = rows.find((r) => r[0] === "41")?.[1] || "—";
+      const newClOrdID  = rows.find((r) => r[0] === "11")?.[1] || "—";
+      const symbolG     = rows.find((r) => r[0] === "55")?.[1] || "—";
+      const sideG       = rows.find((r) => r[0] === "54")?.[3] || "—";
+      const qtyG        = rows.find((r) => r[0] === "38")?.[1] || "—";
+      const priceG      = rows.find((r) => r[0] === "44")?.[1] || "—";
+      summary += ` → Replace ${origClOrdID} with ${newClOrdID}, ${sideG} ${qtyG} ${symbolG} @ ${priceG}`;
+      break;
+    }
+
+    case "P": { // Allocation
       const allocRef = rows.find((r) => r[0] === "70")?.[1] || "—";
       const allocDate = rows.find((r) => r[0] === "75")?.[1] || "—";
       const allocQty = rows.find((r) => r[0] === "87")?.[1] || "—";
       summary += ` → AllocationRef: ${allocRef}, Date: ${allocDate}, Qty: ${allocQty}`;
       break;
-    case "F": // Order Cancel Request
-    case "G": // Order Cancel/Replace Request
-    case "J": // Allocation Instruction
-    case "AK": // Allocation Report Ack
-    case "AU": // Allocation Report
-      summary += " → Fields not mapped, see table for details";
+    }
+
+    case "J": { // Allocation Instruction
+      const allocID = rows.find((r) => r[0] === "70")?.[1] || "—";
+      const tradeDate = rows.find((r) => r[0] === "75")?.[1] || "—";
+      const totalQty = rows.find((r) => r[0] === "53")?.[1] || "—";
+      summary += ` → Allocation Instruction ${allocID}, TradeDate: ${tradeDate}, TotalQty: ${totalQty}`;
       break;
+    }
+
+    case "AK": { // Allocation Report Ack
+      const allocID = rows.find((r) => r[0] === "70")?.[1] || "—";
+      const status = rows.find((r) => r[0] === "87")?.[3] || rows.find((r) => r[0] === "87")?.[1] || "—";
+      summary += ` → Allocation Report Ack for ${allocID}, Status: ${status}`;
+      break;
+    }
+
+    case "AU": { // Allocation Report
+      const allocID = rows.find((r) => r[0] === "70")?.[1] || "—";
+      const tradeDate = rows.find((r) => r[0] === "75")?.[1] || "—";
+      const allocQty = rows.find((r) => r[0] === "53")?.[1] || "—";
+      summary += ` → Allocation Report ${allocID}, TradeDate: ${tradeDate}, Qty: ${allocQty}`;
+      break;
+    }
+
     default:
       summary += " → Unknown FIX type, see table for details";
   }
