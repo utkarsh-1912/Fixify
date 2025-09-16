@@ -85,7 +85,25 @@ function interpretFIX(rows) {
       summary += ` → Allocation Report ${allocID}, TradeDate: ${tradeDate}, Qty: ${allocQty}`;
       break;
     }
+    case "8": { // Execution Report
+      const execType = rows.find((r) => r[0] === "150")?.[3] || rows.find((r) => r[0] === "150")?.[1] || "—";
+      const ordStatus = rows.find((r) => r[0] === "39")?.[3] || rows.find((r) => r[0] === "39")?.[1] || "—";
+      const clOrdID   = rows.find((r) => r[0] === "11")?.[1] || "—";
+      const execID    = rows.find((r) => r[0] === "17")?.[1] || "—";
+      const symbol    = rows.find((r) => r[0] === "55")?.[1] || "—";
+      const side      = rows.find((r) => r[0] === "54")?.[3] || "—";
+      const orderQty  = rows.find((r) => r[0] === "38")?.[1] || "—";
+      const leavesQty = rows.find((r) => r[0] === "151")?.[1] || "—";
+      const cumQty    = rows.find((r) => r[0] === "14")?.[1] || "—";
+      const lastQty   = rows.find((r) => r[0] === "32")?.[1] || "—";
+      const lastPx    = rows.find((r) => r[0] === "31")?.[1] || "—";
 
+      summary += ` → ExecID: ${execID}, Order: ${clOrdID}, ${side} ${orderQty} ${symbol}, 
+      ExecType: ${execType}, OrdStatus: ${ordStatus}, 
+      LastFill: ${lastQty} @ ${lastPx}, CumQty: ${cumQty}, Leaves: ${leavesQty}`;
+      break;
+    }
+      
     default:
       summary += " → Unknown FIX type, see table for details";
   }
