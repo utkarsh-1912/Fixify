@@ -192,6 +192,8 @@ export const FIX_TAGS = {
   198: "NoNested2PartySubIDs",
   199: "Nested2PartySubID",
   200: "Nested2PartySubIDType",
+  207: "SecurityExchange",
+  775: "BookingType",
   7620: "StrategyType",
   7657: "StrategyVersion",
   7722: "AlgoParamFlag",
