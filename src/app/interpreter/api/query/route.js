@@ -114,8 +114,8 @@ function interpretFIX(rows) {
 // Fetch market data via yfinance
 async function getMarketData(symbol) {
   try {
-    const quote = await yahooFinance.quote({ symbol });
-    return quote?.price ? `Current Price of ${symbol}: ${quote.price}` : `Market data not found for ${symbol}`;
+    const quote = await yahooFinance.quote( symbol );
+    return quote?.regularMarketPrice ? `Current Price of ${symbol}: ${quote.regularMarketPrice}` : `Market data not found for ${symbol}`;
   } catch {
     return `Market data not found for ${symbol}`;
   }
