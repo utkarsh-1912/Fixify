@@ -16,7 +16,7 @@ int main(){
   public static void main(String[] args){ 
     System.out.println("Hello from Java"); 
   } 
-  }`,
+}`,
   python: `print("Hello from Python")`,
 };
 
@@ -27,6 +27,7 @@ export default function CodeRunnerPage() {
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [statusInfo, setStatusInfo] = useState(null);
 
   const run = async () => {
     setRunning(true);
@@ -40,15 +41,20 @@ export default function CodeRunnerPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Execution failed");
       if (!res.ok) throw new Error(data.error || "Execution failed");
-      const result = [
-     `Status: ${data.status?.description || "Unknown"}`,
-      data.stdout ? `\nOutput:\n${data.stdout}` : "",
-      data.stderr ? `\nError:\n${data.stderr}` : "",
-      data.compile_output ? `\nCompile Output:\n${data.compile_output}` : "",
-      `\nTime: ${data.time || "-"}s`,
-      `Memory: ${data.memory || "-"} KB`,
-      ].join("\n");
-    setOutput(result);
+      const outputText = [
+        data.stdout ? data.stdout : "",
+        data.stderr ? `Error:\n${data.stderr}` : "",
+        data.compile_output ? `Compiler Output:\n${data.compile_output}` : "",
+      ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    setOutput(outputText || "");
+    setStatusInfo({
+      status: data.status?.description || "Unknown",
+      time: data.time || "-",
+      memory: data.memory || "-",
+    });
 
     } catch (err) {
       setOutput(String(err));
@@ -67,6 +73,7 @@ export default function CodeRunnerPage() {
     setCode(templates[lang]);
     setStdin("");
     setOutput("");
+    setStatusInfo(null);
   };
 
   return (
@@ -123,12 +130,27 @@ export default function CodeRunnerPage() {
         {/* Output Section */}
         <div className="flex flex-col relative">
           <label className="font-semibold mb-2 px-1">🧾 Program Output</label>
-          <textarea
-            className="w-full h-[40vh] p-3 border border-gray-200 rounded bg-gray-50 shadow-inner text-sm font-mono overflow-auto"
-            placeholder="Program output will appear here..."
-            value={output}
-            readOnly
-          />
+          {/* Output Section */}
+  <div className="relative border border-gray-400 rounded bg-gray-50 shadow-inner text-sm font-mono p-3 h-[40vh] overflow-auto whitespace-pre-wrap">
+    {output ? output : <span className="text-gray-400">No output</span>}
+  </div>
+
+  {/* Status/Time/Memory Row */}
+  {statusInfo && (
+    <div className="flex justify-between items-center mt-2 text-sm p-1 bg-gray-50 p-2 rounded">
+      <div  className={`font-medium ${statusInfo.status?.toLowerCase().includes("accepted")? "text-green-600": statusInfo.status?.toLowerCase().includes("error") ||  statusInfo.status?.toLowerCase().includes("failed")? "text-red-600": "text-gray-700" }`}>
+         {statusInfo.status}
+      </div>
+
+      {statusInfo.time && statusInfo.memory && (
+        <div className="text-gray-500 text-xs flex gap-4">
+          <span>Time: {statusInfo.time}s</span>
+          <span>Memory: {statusInfo.memory} KB</span>
+        </div>
+      )}
+    </div>
+  )}
+
           <label className="font-semibold mb-2 mt-2 px-1">📥 Stdin</label>
           <textarea
             className="w-full h-28 p-3 border border-gray-200 rounded shadow-sm text-sm font-mono"
@@ -139,7 +161,7 @@ export default function CodeRunnerPage() {
           {output && (
             <button
               onClick={handleCopy}
-              className="absolute top-0 right-0 mt-8 mr-2 bg-white border rounded p-1 hover:bg-gray-100"
+              className="absolute top-[-30] right-0 mt-8 mr-2 bg-white border rounded p-1 hover:bg-gray-100"
               title="Copy to clipboard"
             >
               {copied ? (
