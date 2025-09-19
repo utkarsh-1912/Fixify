@@ -69,7 +69,7 @@ export default function Navbar() {
               key={href}
               href={href}
               className={`hover:underline px-3 py-1 rounded ${
-                pathname === href ? 'bg-red-500 text-gray-900' : ''
+                pathname === href ? 'bg-red-500 text-white' : ''
               }`}
               onClick={() => setIsOpen(false)}
             >
