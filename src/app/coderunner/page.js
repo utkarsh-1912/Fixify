@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { ClipboardDocumentIcon, ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
 
@@ -28,6 +28,22 @@ export default function CodeRunnerPage() {
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
   const [statusInfo, setStatusInfo] = useState(null);
+  const [editorTheme, setEditorTheme] = useState("vs-light");
+
+  useEffect(() => {
+    const updateTheme = () => {
+      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setEditorTheme(isDark ? "vs-dark" : "vs-light");
+    };
+  
+    updateTheme(); // Set on mount
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", updateTheme);
+  
+    // Cleanup listener on unmount
+    return () => {
+      window.matchMedia("(prefers-color-scheme: dark)").removeEventListener("change", updateTheme);
+    };
+  }, []);
 
   const run = async () => {
     setRunning(true);
@@ -122,7 +138,7 @@ export default function CodeRunnerPage() {
             language={lang === "cpp" ? "cpp" : lang}
             value={code}
             onChange={(value) => setCode(value || "")}
-            theme="vs-system"
+            theme={editorTheme}
             options={{ fontSize: 14, minimap: { enabled: false } }}
           />
         </div>
@@ -130,26 +146,25 @@ export default function CodeRunnerPage() {
         {/* Output Section */}
         <div className="flex flex-col relative">
           <label className="font-semibold mb-2 px-1">🧾 Program Output</label>
-          {/* Output Section */}
-  <div className="relative border border-gray-200 rounded bg-gray-50 shadow-inner text-sm font-mono p-3 h-[40vh] overflow-auto whitespace-pre-wrap">
-    {output ? output : <span className="text-gray-400">No output</span>}
-  </div>
-
-  {/* Status/Time/Memory Row */}
-  {statusInfo && (
-    <div className="flex justify-between items-center mt-2 text-sm p-1 bg-gray-50 p-2 rounded border border-gray-200">
-      <div  className={`font-medium ${statusInfo.status?.toLowerCase().includes("accepted")? "text-green-600": statusInfo.status?.toLowerCase().includes("error") ||  statusInfo.status?.toLowerCase().includes("failed")? "text-red-600": "text-gray-700" }`}>
-         {statusInfo.status}
-      </div>
-
-      {statusInfo.status==="Accepted" && statusInfo.time && statusInfo.memory && (
-        <div className="text-gray-500 text-xs flex gap-4">
-          <span>Time: {statusInfo.time}s</span>
-          <span>Memory: {statusInfo.memory} KB</span>
-        </div>
-      )}
-    </div>
-  )}
+          <div className="relative border border-gray-200 rounded bg-gray-50 shadow-inner text-sm font-mono p-3 h-[40vh] overflow-auto whitespace-pre-wrap">
+            {output ? output : <span className="text-gray-400">No output</span>}
+          </div>
+        
+          {/* Status/Time/Memory Row */}
+          {statusInfo && (
+            <div className="flex justify-between items-center mt-2 text-sm p-1 bg-gray-50 p-2 rounded border border-gray-200">
+              <div  className={`font-medium ${statusInfo.status?.toLowerCase().includes("accepted")? "text-green-600": statusInfo.status?.toLowerCase().includes("error") ||  statusInfo.status?.toLowerCase().includes("failed")? "text-red-600": "text-gray-700" }`}>
+                 {statusInfo.status}
+              </div>
+        
+              {statusInfo.status==="Accepted" && statusInfo.time && statusInfo.memory && (
+                <div className="text-gray-500 text-xs flex gap-4">
+                  <span>Time: {statusInfo.time}s</span>
+                  <span>Memory: {statusInfo.memory} KB</span>
+                </div>
+              )}
+            </div>
+          )}
 
           <label className="font-semibold mb-2 mt-2 px-1">📥 Stdin</label>
           <textarea
