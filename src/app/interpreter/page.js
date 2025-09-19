@@ -57,7 +57,7 @@ export default function InterpreterPage() {
   return (
     <main className="p-6 max-w-5xl mx-auto flex flex-col h-screen">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">FIX Interpreter</h1>
+        <h1 className="text-3xl font-bold">🧠FIXi</h1>
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${hfConnected ? "bg-green-400" : "bg-red-400"}`} />
           <span className="text-sm">{hfConnected ? "Connected" : "Offline"}</span>

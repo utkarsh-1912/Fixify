@@ -345,7 +345,7 @@ function FlowchartPage() {
 
   return (
     <main className="p-4">
-      <h1 className="text-2xl font-semibold mb-4 text-center text-gray-800">Flowchart Maker</h1>
+      <h1 className="text-2xl font-semibold mb-4 text-center text-gray-800 py-2">🎨Flowchart Maker</h1>
       <div className="grid grid-cols-1 md:grid-cols-6 gap-y-4 sm:gap-x-4">
         {/* Palette */}
         <aside className="col-span-1 p-3 border rounded bg-white shadow-sm">
