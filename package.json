@@ -10,13 +10,17 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@monaco-editor/react": "^4.7.0",
     "file-saver": "^2.0.5",
     "heroicons": "^2.2.0",
     "jszip": "^3.10.1",
+    "monaco-editor": "^0.53.0",
     "next": "15.3.4",
+    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.8",
+    "reactflow": "^11.11.4",
     "yahoo-finance2": "^2.13.3"
   },
   "devDependencies": {
