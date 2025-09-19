@@ -14,6 +14,8 @@ export default function Navbar() {
     { href: '/xml', label: 'XML Formatter' },
     { href: '/compare', label: 'Comparator' },
     { href: '/interpreter', label: 'Interpreter' },
+    { href: '/flowchart', label: 'Flowchart' },
+    { href: '/coderunner', label: 'Code' },
   ];
 
   return (
