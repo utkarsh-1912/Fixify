@@ -47,14 +47,14 @@ function InlineLabel({ node, updateLabel }) {
   ) : (
     <div
       onDoubleClick={() => setEditing(true)}
-      onClick={() => setEditing(true)}
-      className="text-sm text-gray-800 select-none"
+      className="text-sm text-gray-800 select-none cursor-pointer"
     >
       {node.data.label}
     </div>
   );
 }
 
+/* Node types */
 const StartNode = ({ id, data }) => (
   <div className="px-4 py-2 bg-white border border-gray-300 rounded-full text-gray-800 text-sm font-medium shadow-sm">
     <Handle type="source" position={Position.Right} />
@@ -75,15 +75,15 @@ const DecisionNode = ({ id, data }) => (
   <div style={{ width: 110, height: 110 }} className="flex items-center justify-center">
     <div
       style={{ transform: "rotate(45deg)" }}
-      className="w-24 h-24 flex items-center justify-center border border-gray-300 bg-white shadow-sm"
+      className="w-20 h-20 flex items-center justify-center border border-gray-300 bg-white shadow-sm"
     >
       <div style={{ transform: "rotate(-45deg)" }}>
         <InlineLabel node={{ id, data }} updateLabel={data.updateLabel} />
       </div>
     </div>
-    <Handle type="target" position={Position.Left} style={{ left: -10 }} />
-    <Handle type="source" position={Position.Right} style={{ right: -10 }} />
-    <Handle type="source" position={Position.Bottom} style={{ bottom: -10 }} />
+    <Handle type="target" position={Position.Left} style={{ left: -6 }} />
+    <Handle type="source" position={Position.Right} style={{ right: -6 }} />
+    <Handle type="source" position={Position.Bottom} style={{ bottom: -6 }} />
   </div>
 );
 
@@ -117,7 +117,6 @@ const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
 function getDagreLayout(nodes, edges, direction = "LR") {
-  const isHorizontal = direction === "LR";
   dagreGraph.setGraph({ rankdir: direction });
 
   nodes.forEach((n) => {
@@ -152,6 +151,7 @@ function FlowchartPage() {
   const [rfInstance, setRfInstance] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
 
+  /* Node Label Update */
   const updateNodeLabel = useCallback((id, label) => {
     setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)));
   }, []);
@@ -169,6 +169,7 @@ function FlowchartPage() {
     setNodes((nds) => stampUpdateLabel(nds));
   }, [stampUpdateLabel]);
 
+  /* Node Creation & Drag/Drop */
   const createNodeOfType = useCallback(
     (type, position) => {
       const id = `${Date.now()}`;
@@ -209,6 +210,7 @@ function FlowchartPage() {
     [rfInstance, createNodeOfType]
   );
 
+  /* Edge Handling */
   const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), []);
 
   const deleteSelected = useCallback(() => {
@@ -217,6 +219,15 @@ function FlowchartPage() {
     setSelectedNode(null);
   }, []);
 
+  const deleteSelectedEdge = useCallback(() => {
+    setEdges((eds) => eds.filter((e) => !e.selected));
+  }, []);
+
+  const updateEdgeLabel = useCallback((id, label) => {
+    setEdges((eds) => eds.map((e) => (e.id === id ? { ...e, label } : e)));
+  }, []);
+
+  /* Selected Node / Edge */
   const updateSelectedMeta = useCallback(
     (patch) => {
       if (!selectedNode) return;
@@ -225,6 +236,13 @@ function FlowchartPage() {
     [selectedNode]
   );
 
+  const handleSelectionChange = useCallback((sel) => {
+    const selNodes = sel?.nodes || [];
+    if (selNodes.length) setSelectedNode(selNodes[0]);
+    else setSelectedNode(null);
+  }, []);
+
+  /* Auto Arrange */
   const autoArrange = useCallback(
     (dir = "LR") => {
       if (!nodes.length) return;
@@ -235,15 +253,10 @@ function FlowchartPage() {
     [nodes, edges, rfInstance]
   );
 
+  /* Init */
   const onInit = useCallback((instance) => setRfInstance(instance), []);
 
-  const handleSelectionChange = useCallback((sel) => {
-    const selNodes = sel && sel.nodes ? sel.nodes : [];
-    if (selNodes && selNodes.length) setSelectedNode(selNodes[0]);
-    else setSelectedNode(null);
-  }, []);
-
-  /* JSON export/import */
+  /* JSON Export/Import */
   const exportJSON = useCallback(() => {
     const blob = new Blob([JSON.stringify({ nodes, edges }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -286,32 +299,55 @@ function FlowchartPage() {
     setSelectedNode(null);
   }, []);
 
-  /* metadata pane */
+  /* Properties Pane */
   const MetaPane = () => {
-    if (!selectedNode) return <div className="p-3 text-sm text-gray-600">No node selected.</div>;
-    const node = selectedNode;
-    const meta = node.data.meta || {};
-    return (
-      <div className="p-3 space-y-2 border border-gray-200 rounded bg-gray-50">
-        <div className="text-xs text-gray-700 font-medium">Label</div>
-        <input
-          value={node.data.label || ""}
-          onChange={(e) => updateSelectedMeta({ label: e.target.value })}
-          className="w-full px-2 py-1 border border-gray-200 bg-white rounded text-sm"
-        />
-        <div className="flex gap-2 mt-2">
-          <button onClick={deleteSelected} className="px-2 py-1 text-sm bg-red-600 text-white rounded">
-            Delete
-          </button>
+    if (selectedNode) {
+      const node = selectedNode;
+      return (
+        <div className="p-3 space-y-2 border border-gray-200 rounded bg-gray-50">
+          <div className="text-xs text-gray-700 font-medium">Label</div>
+          <input
+            value={node.data.label || ""}
+            onChange={(e) => updateSelectedMeta({ label: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-200 bg-white rounded text-sm"
+          />
+          <div className="flex gap-2 mt-2">
+            <button onClick={deleteSelected} className="px-2 py-1 text-sm bg-red-600 text-white rounded">
+              Delete Node
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+
+    const selectedEdge = edges.find((e) => e.selected);
+    if (selectedEdge) {
+      return (
+        <div className="p-3 space-y-2 border border-gray-200 rounded bg-gray-50">
+          <div className="text-xs text-gray-700 font-medium">Label</div>
+          <input
+            value={selectedEdge.label || ""}
+            onChange={(e) => updateEdgeLabel(selectedEdge.id, e.target.value)}
+            placeholder="Add label"
+            className="w-full px-2 py-1 border border-gray-200 bg-white rounded text-sm"
+          />
+          <div className="flex gap-2 mt-2">
+            <button onClick={deleteSelectedEdge} className="px-2 py-1 text-sm bg-red-600 text-white rounded">
+              Delete Edge
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return <div className="p-3 text-sm text-gray-600">No node or edge selected.</div>;
   };
 
   return (
     <main className="p-4">
       <h1 className="text-2xl font-semibold mb-4 text-center text-gray-800">Flowchart Maker</h1>
       <div className="grid grid-cols-1 md:grid-cols-6 gap-y-4 sm:gap-x-4">
+        {/* Palette */}
         <aside className="col-span-1 p-3 border rounded bg-white shadow-sm">
           <div className="text-sm font-medium text-gray-800">Palette</div>
           <div className="text-xs font-medium text-gray-400 mb-2">(Drag and drop in panel)</div>
@@ -327,30 +363,19 @@ function FlowchartPage() {
           ))}
           <hr className="my-3 border-gray-200" />
           <div className="space-y-2 mt-4">
-            {/* Export Button */}
             <button
               onClick={exportJSON}
               className="w-full px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-400"
             >
               Export
             </button>
-          
-            {/* Import Button + Hidden Input */}
-            <input
-              type="file"
-              id="jsonFileInput"
-              accept="application/json"
-              onChange={importJSON}
-              className="hidden"
-            />
+            <input type="file" id="jsonFileInput" accept="application/json" onChange={importJSON} className="hidden" />
             <button
               onClick={() => document.getElementById("jsonFileInput")?.click()}
               className="w-full px-3 py-2 bg-gray-700 text-white text-sm rounded hover:bg-gray-600"
             >
               Import
             </button>
-          
-            {/* Reset Button */}
             <button
               onClick={resetChart}
               className="w-full px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100"
@@ -360,6 +385,7 @@ function FlowchartPage() {
           </div>
         </aside>
 
+        {/* Flowchart Canvas */}
         <section className="col-span-3 md:col-span-4 h-[72vh] border rounded shadow-sm bg-white" ref={reactFlowWrapper}>
           <ReactFlow
             nodes={nodes}
@@ -380,6 +406,7 @@ function FlowchartPage() {
           </ReactFlow>
         </section>
 
+        {/* Properties Pane */}
         <aside className="col-span-1 p-3 border rounded bg-white shadow-sm">
           <div className="text-sm font-medium text-gray-800 mb-2">Properties</div>
           <MetaPane />
