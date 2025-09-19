@@ -310,8 +310,8 @@ function FlowchartPage() {
 
   return (
     <main className="p-4">
-      <h1 className="text-2xl font-semibold mb-4 text-center text-gray-800">Flowchart / Roadmap</h1>
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <h1 className="text-2xl font-semibold mb-4 text-center text-gray-800">Flowchart Maker</h1>
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-y-4 sm:gap-x-4">
         <aside className="col-span-1 p-3 border rounded bg-white shadow-sm">
           <div className="text-sm font-medium text-gray-800 mb-2">Palette</div>
           {[{ key: "start" }, { key: "process" }, { key: "decision" }, { key: "milestone" }, { key: "end" }].map((s) => (
