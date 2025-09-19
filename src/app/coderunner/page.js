@@ -6,8 +6,17 @@ import { ClipboardDocumentIcon, ClipboardDocumentCheckIcon } from "@heroicons/re
 const templates = {
   cpp: `#include <bits/stdc++.h>
 using namespace std;
-int main(){ ios::sync_with_stdio(false); cin.tie(NULL); cout << "Hello from C++\\n"; return 0; }`,
-  java: `public class Main { public static void main(String[] args){ System.out.println("Hello from Java"); } }`,
+int main(){ 
+  ios::sync_with_stdio(false); 
+  cin.tie(NULL); 
+  cout << "Hello from C++\\n"; 
+  return 0; 
+}`,
+  java: `public class Main { 
+  public static void main(String[] args){ 
+    System.out.println("Hello from Java"); 
+  } 
+  }`,
   python: `print("Hello from Python")`,
 };
 
