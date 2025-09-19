@@ -131,13 +131,13 @@ export default function CodeRunnerPage() {
         <div className="flex flex-col relative">
           <label className="font-semibold mb-2 px-1">🧾 Program Output</label>
           {/* Output Section */}
-  <div className="relative border border-gray-400 rounded bg-gray-50 shadow-inner text-sm font-mono p-3 h-[40vh] overflow-auto whitespace-pre-wrap">
+  <div className="relative border border-gray-200 rounded bg-gray-50 shadow-inner text-sm font-mono p-3 h-[40vh] overflow-auto whitespace-pre-wrap">
     {output ? output : <span className="text-gray-400">No output</span>}
   </div>
 
   {/* Status/Time/Memory Row */}
   {statusInfo && (
-    <div className="flex justify-between items-center mt-2 text-sm p-1 bg-gray-50 p-2 rounded">
+    <div className="flex justify-between items-center mt-2 text-sm p-1 bg-gray-50 p-2 rounded border border-gray-200">
       <div  className={`font-medium ${statusInfo.status?.toLowerCase().includes("accepted")? "text-green-600": statusInfo.status?.toLowerCase().includes("error") ||  statusInfo.status?.toLowerCase().includes("failed")? "text-red-600": "text-gray-700" }`}>
          {statusInfo.status}
       </div>
