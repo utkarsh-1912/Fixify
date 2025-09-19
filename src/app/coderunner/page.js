@@ -44,7 +44,7 @@ export default function CodeRunnerPage() {
       const outputText = [
         data.stdout ? data.stdout : "",
         data.stderr ? `Error:\n${data.stderr}` : "",
-        data.compile_output ? `Compiler Output:\n${data.compile_output}` : "",
+        data.compile_output ? `${data.compile_output}` : "",
       ]
       .filter(Boolean)
       .join("\n\n");
@@ -142,7 +142,7 @@ export default function CodeRunnerPage() {
          {statusInfo.status}
       </div>
 
-      {statusInfo.time && statusInfo.memory && (
+      {statusInfo.status==="Accepted" && statusInfo.time && statusInfo.memory && (
         <div className="text-gray-500 text-xs flex gap-4">
           <span>Time: {statusInfo.time}s</span>
           <span>Memory: {statusInfo.memory} KB</span>
