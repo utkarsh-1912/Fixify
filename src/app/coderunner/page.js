@@ -39,7 +39,17 @@ export default function CodeRunnerPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Execution failed");
-      setOutput(JSON.stringify(data, null, 2));
+      if (!res.ok) throw new Error(data.error || "Execution failed");
+      const result = [
+     `Status: ${data.status?.description || "Unknown"}`,
+      data.stdout ? `\nOutput:\n${data.stdout}` : "",
+      data.stderr ? `\nError:\n${data.stderr}` : "",
+      data.compile_output ? `\nCompile Output:\n${data.compile_output}` : "",
+      `\nTime: ${data.time || "-"}s`,
+      `Memory: ${data.memory || "-"} KB`,
+      ].join("\n");
+    setOutput(result);
+
     } catch (err) {
       setOutput(String(err));
     } finally {
