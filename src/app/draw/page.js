@@ -1,5 +1,11 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
+import {
+  ArrowPathIcon,
+  TrashIcon,
+  ArrowUturnLeftIcon,
+  ArrowUturnRightIcon,
+} from "@heroicons/react/24/outline";
 
 export default function WhiteboardPage() {
   const canvasRef = useRef(null);
@@ -10,6 +16,9 @@ export default function WhiteboardPage() {
   const [lineWidth, setLineWidth] = useState(3);
   const [text, setText] = useState("");
 
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     canvas.width = window.innerWidth * 0.9;
@@ -19,6 +28,7 @@ export default function WhiteboardPage() {
     ctx.strokeStyle = color;
     ctx.lineWidth = lineWidth;
     ctxRef.current = ctx;
+    saveState();
   }, []);
 
   useEffect(() => {
@@ -28,17 +38,37 @@ export default function WhiteboardPage() {
     }
   }, [color, lineWidth]);
 
+  const saveState = () => {
+    undoStack.current.push(canvasRef.current.toDataURL());
+    if (undoStack.current.length > 50) undoStack.current.shift(); // limit history
+  };
+
+  const restoreState = (stack, oppositeStack) => {
+    if (!stack.current.length) return;
+    const lastState = stack.current.pop();
+    const img = new Image();
+    img.src = lastState;
+    img.onload = () => {
+      ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      ctxRef.current.drawImage(img, 0, 0);
+      oppositeStack.current.push(lastState);
+    };
+  };
+
+  const undo = () => restoreState(undoStack, redoStack);
+  const redo = () => restoreState(redoStack, undoStack);
+
   const startDraw = ({ nativeEvent }) => {
+    const { offsetX, offsetY } = nativeEvent;
     if (tool === "pen") {
-      const { offsetX, offsetY } = nativeEvent;
       ctxRef.current.beginPath();
       ctxRef.current.moveTo(offsetX, offsetY);
       setDrawing(true);
     } else if (tool === "text" && text) {
-      const { offsetX, offsetY } = nativeEvent;
       ctxRef.current.fillStyle = color;
       ctxRef.current.font = `${lineWidth * 5}px Arial`;
       ctxRef.current.fillText(text, offsetX, offsetY);
+      saveState();
     }
   };
 
@@ -50,12 +80,17 @@ export default function WhiteboardPage() {
   };
 
   const stopDraw = () => {
-    if (drawing) ctxRef.current.closePath();
-    setDrawing(false);
+    if (drawing) {
+      ctxRef.current.closePath();
+      setDrawing(false);
+      saveState();
+      redoStack.current = []; // clear redo stack on new action
+    }
   };
 
   const clearCanvas = () => {
     ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    saveState();
   };
 
   const downloadCanvas = () => {
@@ -66,15 +101,15 @@ export default function WhiteboardPage() {
   };
 
   return (
-    <main className="min-h-screen bg-white p-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4  text-center">🖊 Whiteboard</h1>
+    <main className="min-h-screen bg-white p-6 flex flex-col gap-4">
+      <h1 className="text-2xl font-bold text-gray-800 mb-2">🖊 Whiteboard</h1>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap gap-4 mb-4 items-center">
+      <div className="flex flex-wrap gap-3 items-center bg-gray-50 p-3 rounded-xl shadow border border-gray-200">
         <select
           value={tool}
           onChange={(e) => setTool(e.target.value)}
-          className="border px-2 py-1 rounded"
+          className="border px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-red-600"
         >
           <option value="pen">Pen</option>
           <option value="text">Text</option>
@@ -86,7 +121,7 @@ export default function WhiteboardPage() {
             placeholder="Enter text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="border px-2 py-1 rounded"
+            className="border px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-red-600"
           />
         )}
 
@@ -96,7 +131,7 @@ export default function WhiteboardPage() {
             type="color"
             value={color}
             onChange={(e) => setColor(e.target.value)}
-            className="w-10 h-8 p-0 border-0"
+            className="w-10 h-8 p-0 border-0 cursor-pointer"
           />
         </label>
 
@@ -112,17 +147,31 @@ export default function WhiteboardPage() {
         </label>
 
         <button
-          onClick={clearCanvas}
-          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 shadow"
+          onClick={undo}
+          className="flex items-center gap-1 px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded shadow"
         >
-          Clear
+          <ArrowUturnLeftIcon className="w-5 h-5 text-gray-700" /> Undo
+        </button>
+
+        <button
+          onClick={redo}
+          className="flex items-center gap-1 px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded shadow"
+        >
+          <ArrowUturnRightIcon className="w-5 h-5 text-gray-700" /> Redo
+        </button>
+
+        <button
+          onClick={clearCanvas}
+          className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded shadow hover:bg-red-700"
+        >
+          <TrashIcon className="w-5 h-5" /> Clear
         </button>
 
         <button
           onClick={downloadCanvas}
-          className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 shadow"
+          className="flex items-center gap-1 px-3 py-1 bg-gray-800 text-white rounded shadow hover:bg-gray-700"
         >
-          Download
+          <ArrowPathIcon className="w-5 h-5" /> Download
         </button>
       </div>
 
