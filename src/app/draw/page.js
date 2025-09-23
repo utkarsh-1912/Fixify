@@ -113,14 +113,14 @@ export default function WhiteboardPage() {
 
         <button
           onClick={clearCanvas}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-gray-700 shadow"
+          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 shadow"
         >
           Clear
         </button>
 
         <button
           onClick={downloadCanvas}
-          className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-red-700 shadow"
+          className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 shadow"
         >
           Download
         </button>
