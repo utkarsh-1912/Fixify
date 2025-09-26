@@ -13,7 +13,6 @@ import {
 export default function WhiteboardPage() {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
-  const imageBackup = useRef(null);
 
   const [drawing, setDrawing] = useState(false);
   const [tool, setTool] = useState("pen");
@@ -24,6 +23,7 @@ export default function WhiteboardPage() {
 
   const undoStack = useRef([]);
   const redoStack = useRef([]);
+  const imageBackup = useRef(null);
 
   // ✅ init once
   useEffect(() => {
@@ -55,40 +55,57 @@ export default function WhiteboardPage() {
     restoreBackup();
   };
 
+  // ✅ backup & restore use ImageData
   const backupCanvas = () => {
-    imageBackup.current = canvasRef.current.toDataURL();
+    const canvas = canvasRef.current;
+    imageBackup.current = ctxRef.current.getImageData(0, 0, canvas.width, canvas.height);
   };
 
   const restoreBackup = () => {
     if (!imageBackup.current) return;
-    const img = new Image();
-    img.src = imageBackup.current;
-    img.onload = () => {
-      ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      ctxRef.current.drawImage(img, 0, 0);
-      ctxRef.current.strokeStyle = color; // ✅ restore pen color
-      ctxRef.current.lineWidth = lineWidth;
-    };
+    ctxRef.current.putImageData(imageBackup.current, 0, 0);
   };
 
+  // ✅ resize without distortion
   const resizeCanvas = () => {
     const canvas = canvasRef.current;
+    const temp = document.createElement("canvas");
+    const tempCtx = temp.getContext("2d");
+
+    // backup before resize
+    temp.width = canvas.width;
+    temp.height = canvas.height;
+    tempCtx.drawImage(canvas, 0, 0);
+
     if (fullscreen) {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
       canvas.style.position = "fixed";
       canvas.style.left = "0";
       canvas.style.top = "0";
       canvas.style.zIndex = "40";
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
     } else {
-      canvas.style.position = "static";
-      canvas.style.zIndex = "1";
       canvas.width = Math.round(window.innerWidth * 0.9);
       canvas.height = Math.round(window.innerHeight * 0.75);
+      canvas.style.position = "static";
+      canvas.style.zIndex = "1";
     }
+
+    // restore scaled content
+    ctxRef.current.drawImage(
+      temp,
+      0,
+      0,
+      temp.width,
+      temp.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
   };
 
-  // ✅ always use boundingRect for correct sync
+  // ✅ always recalc bounding rect
   const getPointerPos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     if (e.touches && e.touches.length > 0) {
@@ -104,23 +121,19 @@ export default function WhiteboardPage() {
     }
   };
 
+  // ✅ use ImageData for undo/redo
   const saveState = () => {
-    undoStack.current.push(canvasRef.current.toDataURL());
+    const canvas = canvasRef.current;
+    undoStack.current.push(ctxRef.current.getImageData(0, 0, canvas.width, canvas.height));
     if (undoStack.current.length > 50) undoStack.current.shift();
   };
 
   const restoreState = (stack, opposite) => {
     if (!stack.current.length) return;
     const last = stack.current.pop();
-    const img = new Image();
-    img.src = last;
-    img.onload = () => {
-      ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      ctxRef.current.drawImage(img, 0, 0);
-      ctxRef.current.strokeStyle = color;
-      ctxRef.current.lineWidth = lineWidth;
-      opposite.current.push(last);
-    };
+    ctxRef.current.putImageData(last, 0, 0);
+    const canvas = canvasRef.current;
+    opposite.current.push(ctxRef.current.getImageData(0, 0, canvas.width, canvas.height));
   };
 
   const undo = () => restoreState(undoStack, redoStack);
@@ -173,10 +186,10 @@ export default function WhiteboardPage() {
   const toggleFullscreen = () => {
     backupCanvas();
     setFullscreen((prev) => !prev);
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       resizeCanvas();
       restoreBackup();
-    }, 50);
+    });
   };
 
   return (
@@ -200,7 +213,7 @@ export default function WhiteboardPage() {
         </button>
       </div>
 
-      {/* Toolbox (always same state) */}
+      {/* Toolbox (normal mode) */}
       {!fullscreen && (
         <div className="flex flex-wrap gap-3 items-center bg-gray-50 p-3 rounded-xl shadow border border-gray-200">
           <select
@@ -266,11 +279,25 @@ export default function WhiteboardPage() {
       {/* Floating toolbox in fullscreen */}
       {fullscreen && (
         <div className="absolute top-4 left-4 z-50 flex flex-col gap-2 bg-white p-2 rounded-lg shadow">
-          <button onClick={() => setTool("pen")} className={`p-2 rounded ${tool === "pen" ? "bg-gray-200" : ""}`}>
+          <button
+            onClick={() => setTool("pen")}
+            className={`p-2 rounded ${tool === "pen" ? "bg-gray-200" : ""}`}
+          >
             <PencilIcon className="w-6 h-6" />
           </button>
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-8 h-8" />
-          <input type="range" min="1" max="10" value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} />
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className="w-8 h-8"
+          />
+          <input
+            type="range"
+            min="1"
+            max="10"
+            value={lineWidth}
+            onChange={(e) => setLineWidth(Number(e.target.value))}
+          />
           <button onClick={undo} className="p-2 rounded hover:bg-gray-200">
             <ArrowUturnLeftIcon className="w-6 h-6" />
           </button>
