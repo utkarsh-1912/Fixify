@@ -13,10 +13,10 @@ import {
 export default function WhiteboardPage() {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
-  const imageBackup = useRef(null); // store image when switching/resizing
-  
+  const imageBackup = useRef(null);
+
   const [drawing, setDrawing] = useState(false);
-  const [tool, setTool] = useState("pen"); // "pen" or "text"
+  const [tool, setTool] = useState("pen");
   const [color, setColor] = useState("#dc2626");
   const [lineWidth, setLineWidth] = useState(3);
   const [text, setText] = useState("");
@@ -25,6 +25,7 @@ export default function WhiteboardPage() {
   const undoStack = useRef([]);
   const redoStack = useRef([]);
 
+  // ✅ init once
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -33,16 +34,14 @@ export default function WhiteboardPage() {
     ctx.lineWidth = lineWidth;
     ctxRef.current = ctx;
 
-    // initial size
     resizeCanvas();
     saveState();
 
     window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // ✅ reapply styles whenever state changes
   useEffect(() => {
     if (ctxRef.current) {
       ctxRef.current.strokeStyle = color;
@@ -51,25 +50,24 @@ export default function WhiteboardPage() {
   }, [color, lineWidth]);
 
   const handleResize = () => {
-    // preserve the drawing before resizing
-    backupCanvasImage();
+    backupCanvas();
     resizeCanvas();
-    restoreBackupImage();
+    restoreBackup();
   };
 
-  const backupCanvasImage = () => {
-    const canvas = canvasRef.current;
-    imageBackup.current = canvas.toDataURL();
+  const backupCanvas = () => {
+    imageBackup.current = canvasRef.current.toDataURL();
   };
 
-  const restoreBackupImage = () => {
+  const restoreBackup = () => {
     if (!imageBackup.current) return;
     const img = new Image();
     img.src = imageBackup.current;
     img.onload = () => {
-      const canvas = canvasRef.current;
-      ctxRef.current.clearRect(0, 0, canvas.width, canvas.height);
+      ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       ctxRef.current.drawImage(img, 0, 0);
+      ctxRef.current.strokeStyle = color; // ✅ restore pen color
+      ctxRef.current.lineWidth = lineWidth;
     };
   };
 
@@ -80,20 +78,17 @@ export default function WhiteboardPage() {
       canvas.style.left = "0";
       canvas.style.top = "0";
       canvas.style.zIndex = "40";
-      canvas.style.width = "100vw";
-      canvas.style.height = "100vh";
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     } else {
-      // default size, you can adjust as needed
       canvas.style.position = "static";
-      canvas.style.width = "";
-      canvas.style.height = "";
+      canvas.style.zIndex = "1";
       canvas.width = Math.round(window.innerWidth * 0.9);
       canvas.height = Math.round(window.innerHeight * 0.75);
     }
   };
 
+  // ✅ always use boundingRect for correct sync
   const getPointerPos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     if (e.touches && e.touches.length > 0) {
@@ -111,24 +106,19 @@ export default function WhiteboardPage() {
 
   const saveState = () => {
     undoStack.current.push(canvasRef.current.toDataURL());
-    if (undoStack.current.length > 50) {
-      undoStack.current.shift();
-    }
+    if (undoStack.current.length > 50) undoStack.current.shift();
   };
 
   const restoreState = (stack, opposite) => {
-    if (stack.current.length === 0) return;
+    if (!stack.current.length) return;
     const last = stack.current.pop();
     const img = new Image();
     img.src = last;
     img.onload = () => {
-      ctxRef.current.clearRect(
-        0,
-        0,
-        canvasRef.current.width,
-        canvasRef.current.height
-      );
+      ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       ctxRef.current.drawImage(img, 0, 0);
+      ctxRef.current.strokeStyle = color;
+      ctxRef.current.lineWidth = lineWidth;
       opposite.current.push(last);
     };
   };
@@ -143,13 +133,11 @@ export default function WhiteboardPage() {
       ctxRef.current.beginPath();
       ctxRef.current.moveTo(x, y);
       setDrawing(true);
-    } else if (tool === "text") {
-      if (text) {
-        ctxRef.current.fillStyle = color;
-        ctxRef.current.font = `${lineWidth * 5}px Arial`;
-        ctxRef.current.fillText(text, x, y);
-        saveState();
-      }
+    } else if (tool === "text" && text) {
+      ctxRef.current.fillStyle = color;
+      ctxRef.current.font = `${lineWidth * 5}px Arial`;
+      ctxRef.current.fillText(text, x, y);
+      saveState();
     }
   };
 
@@ -171,12 +159,7 @@ export default function WhiteboardPage() {
   };
 
   const clearCanvas = () => {
-    ctxRef.current.clearRect(
-      0,
-      0,
-      canvasRef.current.width,
-      canvasRef.current.height
-    );
+    ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     saveState();
   };
 
@@ -188,18 +171,17 @@ export default function WhiteboardPage() {
   };
 
   const toggleFullscreen = () => {
-    // backup content, toggle, resize, restore content
-    backupCanvasImage();
+    backupCanvas();
     setFullscreen((prev) => !prev);
-    // after DOM updates, do resize + restore
     setTimeout(() => {
       resizeCanvas();
-      restoreBackupImage();
+      restoreBackup();
     }, 50);
   };
 
   return (
     <main className="min-h-screen bg-white p-6 flex flex-col gap-4 relative">
+      {/* Header */}
       <div className="flex justify-between items-center mb-2">
         <h1 className="text-2xl font-bold text-gray-800">🖊 Whiteboard</h1>
         <button
@@ -218,6 +200,7 @@ export default function WhiteboardPage() {
         </button>
       </div>
 
+      {/* Toolbox (always same state) */}
       {!fullscreen && (
         <div className="flex flex-wrap gap-3 items-center bg-gray-50 p-3 rounded-xl shadow border border-gray-200">
           <select
@@ -234,49 +217,38 @@ export default function WhiteboardPage() {
               placeholder="Enter text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="border px-3 py-1 rounded focus:outline-none focus:ring-2 focus:ring-red-600"
+              className="border px-3 py-1 rounded"
             />
           )}
           <input
             type="color"
             value={color}
             onChange={(e) => setColor(e.target.value)}
-            className="w-10 h-8 p-0 border-0 cursor-pointer"
+            className="w-10 h-8 cursor-pointer"
           />
           <input
             type="range"
             min="1"
             max="10"
             value={lineWidth}
-            onChange={(e) => setLineWidth(e.target.value)}
+            onChange={(e) => setLineWidth(Number(e.target.value))}
           />
-          <button
-            onClick={undo}
-            className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded shadow"
-          >
+          <button onClick={undo} className="px-3 py-1 bg-gray-200 rounded">
             <ArrowUturnLeftIcon className="w-5 h-5" />
           </button>
-          <button
-            onClick={redo}
-            className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded shadow"
-          >
+          <button onClick={redo} className="px-3 py-1 bg-gray-200 rounded">
             <ArrowUturnRightIcon className="w-5 h-5" />
           </button>
-          <button
-            onClick={clearCanvas}
-            className="px-3 py-1 bg-red-600 text-white rounded shadow hover:bg-red-700"
-          >
+          <button onClick={clearCanvas} className="px-3 py-1 bg-red-600 text-white rounded">
             <TrashIcon className="w-5 h-5" />
           </button>
-          <button
-            onClick={downloadCanvas}
-            className="px-3 py-1 bg-gray-800 text-white rounded shadow hover:bg-gray-700"
-          >
+          <button onClick={downloadCanvas} className="px-3 py-1 bg-gray-800 text-white rounded">
             <ArrowPathIcon className="w-5 h-5" />
           </button>
         </div>
       )}
 
+      {/* Canvas */}
       <canvas
         ref={canvasRef}
         onMouseDown={handleStart}
@@ -291,28 +263,14 @@ export default function WhiteboardPage() {
         }`}
       />
 
+      {/* Floating toolbox in fullscreen */}
       {fullscreen && (
-        <div className="absolute top-4 left-4 z-50 flex flex-col gap-2 bg-gray-100 p-2 rounded-lg shadow">
-          <button
-            onClick={() => setTool("pen")}
-            className={`p-2 rounded ${tool === "pen" ? "bg-gray-300" : ""}`}
-          >
+        <div className="absolute top-4 left-4 z-50 flex flex-col gap-2 bg-white p-2 rounded-lg shadow">
+          <button onClick={() => setTool("pen")} className={`p-2 rounded ${tool === "pen" ? "bg-gray-200" : ""}`}>
             <PencilIcon className="w-6 h-6" />
           </button>
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className="w-8 h-8 p-0 border-0 cursor-pointer rounded"
-          />
-          <input
-            type="range"
-            min="1"
-            max="10"
-            value={lineWidth}
-            onChange={(e) => setLineWidth(e.target.value)}
-            className="w-20"
-          />
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-8 h-8" />
+          <input type="range" min="1" max="10" value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} />
           <button onClick={undo} className="p-2 rounded hover:bg-gray-200">
             <ArrowUturnLeftIcon className="w-6 h-6" />
           </button>
@@ -326,7 +284,7 @@ export default function WhiteboardPage() {
             <ArrowPathIcon className="w-6 h-6" />
           </button>
           <button onClick={toggleFullscreen} className="p-2 rounded hover:bg-gray-200">
-            <XMarkIcon className="w-6 h-6 text-gray-700" />
+            <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
       )}
