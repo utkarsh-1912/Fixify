@@ -21,14 +21,16 @@ export default function WhiteboardPage() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    canvas.width = window.innerWidth * 0.9;
-    canvas.height = window.innerHeight * 0.75;
+    resizeCanvas();
     const ctx = canvas.getContext("2d");
     ctx.lineCap = "round";
     ctx.strokeStyle = color;
     ctx.lineWidth = lineWidth;
     ctxRef.current = ctx;
     saveState();
+
+    window.addEventListener("resize", resizeCanvas);
+    return () => window.removeEventListener("resize", resizeCanvas);
   }, []);
 
   useEffect(() => {
@@ -38,9 +40,32 @@ export default function WhiteboardPage() {
     }
   }, [color, lineWidth]);
 
+  const resizeCanvas = () => {
+    const canvas = canvasRef.current;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  };
+
+  const getPos = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+
+    if (e.touches) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top,
+      };
+    } else {
+      return {
+        x: e.nativeEvent.offsetX,
+        y: e.nativeEvent.offsetY,
+      };
+    }
+  };
+
   const saveState = () => {
     undoStack.current.push(canvasRef.current.toDataURL());
-    if (undoStack.current.length > 50) undoStack.current.shift(); // limit history
+    if (undoStack.current.length > 50) undoStack.current.shift(); // history limit
   };
 
   const restoreState = (stack, oppositeStack) => {
@@ -58,33 +83,37 @@ export default function WhiteboardPage() {
   const undo = () => restoreState(undoStack, redoStack);
   const redo = () => restoreState(redoStack, undoStack);
 
-  const startDraw = ({ nativeEvent }) => {
-    const { offsetX, offsetY } = nativeEvent;
+  const startDraw = (e) => {
+    e.preventDefault();
+    const { x, y } = getPos(e);
+
     if (tool === "pen") {
       ctxRef.current.beginPath();
-      ctxRef.current.moveTo(offsetX, offsetY);
+      ctxRef.current.moveTo(x, y);
       setDrawing(true);
     } else if (tool === "text" && text) {
       ctxRef.current.fillStyle = color;
       ctxRef.current.font = `${lineWidth * 5}px Arial`;
-      ctxRef.current.fillText(text, offsetX, offsetY);
+      ctxRef.current.fillText(text, x, y);
       saveState();
     }
   };
 
-  const draw = ({ nativeEvent }) => {
+  const draw = (e) => {
     if (!drawing) return;
-    const { offsetX, offsetY } = nativeEvent;
-    ctxRef.current.lineTo(offsetX, offsetY);
+    e.preventDefault();
+    const { x, y } = getPos(e);
+    ctxRef.current.lineTo(x, y);
     ctxRef.current.stroke();
   };
 
-  const stopDraw = () => {
+  const stopDraw = (e) => {
     if (drawing) {
+      e.preventDefault();
       ctxRef.current.closePath();
       setDrawing(false);
       saveState();
-      redoStack.current = []; // clear redo stack on new action
+      redoStack.current = [];
     }
   };
 
@@ -101,11 +130,9 @@ export default function WhiteboardPage() {
   };
 
   return (
-    <main className="min-h-screen bg-white p-6 flex flex-col gap-4">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">🖊 Whiteboard</h1>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-3 items-center bg-gray-50 p-3 rounded-xl shadow border border-gray-200">
+    <main className="w-screen h-screen bg-white relative overflow-hidden">
+      {/* Toolbar - fixed top */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-10 flex flex-wrap gap-3 items-center bg-gray-50 p-3 rounded-xl shadow border border-gray-200">
         <select
           value={tool}
           onChange={(e) => setTool(e.target.value)}
@@ -126,7 +153,7 @@ export default function WhiteboardPage() {
         )}
 
         <label className="flex items-center gap-2">
-          Color:
+          🎨
           <input
             type="color"
             value={color}
@@ -136,7 +163,7 @@ export default function WhiteboardPage() {
         </label>
 
         <label className="flex items-center gap-2">
-          Size:
+          ✏️
           <input
             type="range"
             min="1"
@@ -175,14 +202,17 @@ export default function WhiteboardPage() {
         </button>
       </div>
 
-      {/* Canvas */}
+      {/* Canvas - full screen */}
       <canvas
         ref={canvasRef}
         onMouseDown={startDraw}
         onMouseMove={draw}
         onMouseUp={stopDraw}
         onMouseLeave={stopDraw}
-        className="border border-gray-300 rounded shadow bg-gray-50 cursor-crosshair"
+        onTouchStart={startDraw}
+        onTouchMove={draw}
+        onTouchEnd={stopDraw}
+        className="w-full h-full touch-none cursor-crosshair"
       />
     </main>
   );
