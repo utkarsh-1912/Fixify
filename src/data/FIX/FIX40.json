@@ -1,0 +1,3505 @@
+{
+  "version": "FIX.4.0",
+  "header": [
+    8,
+    9,
+    35,
+    49,
+    56,
+    115,
+    128,
+    90,
+    91,
+    34,
+    50,
+    57,
+    116,
+    129,
+    43,
+    97,
+    52,
+    122
+  ],
+  "trailer": [
+    93,
+    89,
+    10
+  ],
+  "fields": [
+    {
+      "tag": "1",
+      "name": "Account",
+      "type": "STRING"
+    },
+    {
+      "tag": "2",
+      "name": "AdvId",
+      "type": "INT"
+    },
+    {
+      "tag": "3",
+      "name": "AdvRefID",
+      "type": "INT"
+    },
+    {
+      "tag": "4",
+      "name": "AdvSide",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "B",
+          "description": "BUY"
+        },
+        {
+          "enum": "S",
+          "description": "SELL"
+        },
+        {
+          "enum": "X",
+          "description": "CROSS"
+        },
+        {
+          "enum": "T",
+          "description": "TRADE"
+        }
+      ]
+    },
+    {
+      "tag": "5",
+      "name": "AdvTransType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "N",
+          "description": "NEW"
+        },
+        {
+          "enum": "C",
+          "description": "CANCEL"
+        },
+        {
+          "enum": "R",
+          "description": "REPLACE"
+        }
+      ]
+    },
+    {
+      "tag": "6",
+      "name": "AvgPx",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "7",
+      "name": "BeginSeqNo",
+      "type": "INT"
+    },
+    {
+      "tag": "8",
+      "name": "BeginString",
+      "type": "STRING"
+    },
+    {
+      "tag": "9",
+      "name": "BodyLength",
+      "type": "INT"
+    },
+    {
+      "tag": "10",
+      "name": "CheckSum",
+      "type": "STRING"
+    },
+    {
+      "tag": "11",
+      "name": "ClOrdID",
+      "type": "STRING"
+    },
+    {
+      "tag": "12",
+      "name": "Commission",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "13",
+      "name": "CommType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "1",
+          "description": "PER_SHARE"
+        },
+        {
+          "enum": "2",
+          "description": "PERCENTAGE"
+        },
+        {
+          "enum": "3",
+          "description": "ABSOLUTE"
+        }
+      ]
+    },
+    {
+      "tag": "14",
+      "name": "CumQty",
+      "type": "INT"
+    },
+    {
+      "tag": "15",
+      "name": "Currency",
+      "type": "STRING"
+    },
+    {
+      "tag": "16",
+      "name": "EndSeqNo",
+      "type": "INT"
+    },
+    {
+      "tag": "17",
+      "name": "ExecID",
+      "type": "INT"
+    },
+    {
+      "tag": "18",
+      "name": "ExecInst",
+      "type": "MULTIPLEVALUESTRING",
+      "values": [
+        {
+          "enum": "1",
+          "description": "NOT_HELD"
+        },
+        {
+          "enum": "2",
+          "description": "WORK"
+        },
+        {
+          "enum": "3",
+          "description": "GO_ALONG"
+        },
+        {
+          "enum": "4",
+          "description": "OVER_THE_DAY"
+        },
+        {
+          "enum": "5",
+          "description": "HELD"
+        },
+        {
+          "enum": "6",
+          "description": "PARTICIPATE_DONT_INITIATE"
+        },
+        {
+          "enum": "7",
+          "description": "STRICT_SCALE"
+        },
+        {
+          "enum": "8",
+          "description": "TRY_TO_SCALE"
+        },
+        {
+          "enum": "9",
+          "description": "STAY_ON_BIDSIDE"
+        },
+        {
+          "enum": "0",
+          "description": "STAY_ON_OFFERSIDE"
+        },
+        {
+          "enum": "A",
+          "description": "NO_CROSS"
+        },
+        {
+          "enum": "B",
+          "description": "OK_TO_CROSS"
+        },
+        {
+          "enum": "C",
+          "description": "CALL_FIRST"
+        },
+        {
+          "enum": "D",
+          "description": "PERCENT_OF_VOLUME"
+        },
+        {
+          "enum": "E",
+          "description": "DO_NOT_INCREASE_DNI"
+        },
+        {
+          "enum": "F",
+          "description": "DO_NOT_REDUCE_DNR"
+        },
+        {
+          "enum": "G",
+          "description": "ALL_OR_NONE_AON"
+        },
+        {
+          "enum": "I",
+          "description": "INSTITUTIONS_ONLY"
+        },
+        {
+          "enum": "L",
+          "description": "LAST_PEG"
+        },
+        {
+          "enum": "M",
+          "description": "MIDPRICE_PEG"
+        },
+        {
+          "enum": "N",
+          "description": "NONNEGOTIABLE"
+        },
+        {
+          "enum": "O",
+          "description": "OPENING_PEG"
+        },
+        {
+          "enum": "P",
+          "description": "MARKET_PEG"
+        },
+        {
+          "enum": "R",
+          "description": "PRIMARY_PEG"
+        },
+        {
+          "enum": "S",
+          "description": "SUSPEND"
+        }
+      ]
+    },
+    {
+      "tag": "19",
+      "name": "ExecRefID",
+      "type": "INT"
+    },
+    {
+      "tag": "20",
+      "name": "ExecTransType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "NEW"
+        },
+        {
+          "enum": "1",
+          "description": "CANCEL"
+        },
+        {
+          "enum": "2",
+          "description": "CORRECT"
+        },
+        {
+          "enum": "3",
+          "description": "STATUS"
+        }
+      ]
+    },
+    {
+      "tag": "21",
+      "name": "HandlInst",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "1",
+          "description": "AUTOMATED_EXECUTION_ORDER_PRIVATE_NO_BROKER_INTERVENTION"
+        },
+        {
+          "enum": "2",
+          "description": "AUTOMATED_EXECUTION_ORDER_PUBLIC_BROKER_INTERVENTION_OK"
+        },
+        {
+          "enum": "3",
+          "description": "MANUAL_ORDER_BEST_EXECUTION"
+        }
+      ]
+    },
+    {
+      "tag": "22",
+      "name": "IDSource",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "1",
+          "description": "CUSIP"
+        },
+        {
+          "enum": "2",
+          "description": "SEDOL"
+        },
+        {
+          "enum": "3",
+          "description": "QUIK"
+        },
+        {
+          "enum": "4",
+          "description": "ISIN_NUMBER"
+        },
+        {
+          "enum": "5",
+          "description": "RIC_CODE"
+        }
+      ]
+    },
+    {
+      "tag": "23",
+      "name": "IOIID",
+      "type": "INT"
+    },
+    {
+      "tag": "24",
+      "name": "IOIOthSvc",
+      "type": "STRING"
+    },
+    {
+      "tag": "25",
+      "name": "IOIQltyInd",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "L",
+          "description": "LOW"
+        },
+        {
+          "enum": "M",
+          "description": "MEDIUM"
+        },
+        {
+          "enum": "H",
+          "description": "HIGH"
+        }
+      ]
+    },
+    {
+      "tag": "26",
+      "name": "IOIRefID",
+      "type": "INT"
+    },
+    {
+      "tag": "27",
+      "name": "IOIShares",
+      "type": "STRING"
+    },
+    {
+      "tag": "28",
+      "name": "IOITransType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "N",
+          "description": "NEW"
+        },
+        {
+          "enum": "C",
+          "description": "CANCEL"
+        },
+        {
+          "enum": "R",
+          "description": "REPLACE"
+        }
+      ]
+    },
+    {
+      "tag": "29",
+      "name": "LastCapacity",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "1",
+          "description": "AGENT"
+        },
+        {
+          "enum": "2",
+          "description": "CROSS_AS_AGENT"
+        },
+        {
+          "enum": "3",
+          "description": "CROSS_AS_PRINCIPAL"
+        },
+        {
+          "enum": "4",
+          "description": "PRINCIPAL"
+        }
+      ]
+    },
+    {
+      "tag": "30",
+      "name": "LastMkt",
+      "type": "STRING"
+    },
+    {
+      "tag": "31",
+      "name": "LastPx",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "32",
+      "name": "LastShares",
+      "type": "INT"
+    },
+    {
+      "tag": "33",
+      "name": "LinesOfText",
+      "type": "INT"
+    },
+    {
+      "tag": "34",
+      "name": "MsgSeqNum",
+      "type": "INT"
+    },
+    {
+      "tag": "35",
+      "name": "MsgType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "HEARTBEAT"
+        },
+        {
+          "enum": "1",
+          "description": "TEST_REQUEST"
+        },
+        {
+          "enum": "2",
+          "description": "RESEND_REQUEST"
+        },
+        {
+          "enum": "3",
+          "description": "REJECT"
+        },
+        {
+          "enum": "4",
+          "description": "SEQUENCE_RESET"
+        },
+        {
+          "enum": "5",
+          "description": "LOGOUT"
+        },
+        {
+          "enum": "6",
+          "description": "INDICATION_OF_INTEREST"
+        },
+        {
+          "enum": "7",
+          "description": "ADVERTISEMENT"
+        },
+        {
+          "enum": "8",
+          "description": "EXECUTION_REPORT"
+        },
+        {
+          "enum": "9",
+          "description": "ORDER_CANCEL_REJECT"
+        },
+        {
+          "enum": "A",
+          "description": "LOGON"
+        },
+        {
+          "enum": "B",
+          "description": "NEWS"
+        },
+        {
+          "enum": "C",
+          "description": "EMAIL"
+        },
+        {
+          "enum": "D",
+          "description": "ORDER_SINGLE"
+        },
+        {
+          "enum": "E",
+          "description": "ORDER_LIST"
+        },
+        {
+          "enum": "F",
+          "description": "ORDER_CANCEL_REQUEST"
+        },
+        {
+          "enum": "G",
+          "description": "ORDER_CANCEL"
+        },
+        {
+          "enum": "H",
+          "description": "ORDER_STATUS_REQUEST"
+        },
+        {
+          "enum": "J",
+          "description": "ALLOCATION"
+        },
+        {
+          "enum": "K",
+          "description": "LIST_CANCEL_REQUEST"
+        },
+        {
+          "enum": "L",
+          "description": "LIST_EXECUTE"
+        },
+        {
+          "enum": "M",
+          "description": "LIST_STATUS_REQUEST"
+        },
+        {
+          "enum": "N",
+          "description": "LIST_STATUS"
+        },
+        {
+          "enum": "P",
+          "description": "ALLOCATION_ACK"
+        },
+        {
+          "enum": "Q",
+          "description": "DONT_KNOW_TRADE"
+        },
+        {
+          "enum": "R",
+          "description": "QUOTE_REQUEST"
+        },
+        {
+          "enum": "S",
+          "description": "QUOTE"
+        }
+      ]
+    },
+    {
+      "tag": "36",
+      "name": "NewSeqNo",
+      "type": "INT"
+    },
+    {
+      "tag": "37",
+      "name": "OrderID",
+      "type": "STRING"
+    },
+    {
+      "tag": "38",
+      "name": "OrderQty",
+      "type": "INT"
+    },
+    {
+      "tag": "39",
+      "name": "OrdStatus",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "NEW"
+        },
+        {
+          "enum": "1",
+          "description": "PARTIALLY_FILLED"
+        },
+        {
+          "enum": "2",
+          "description": "FILLED"
+        },
+        {
+          "enum": "3",
+          "description": "DONE_FOR_DAY"
+        },
+        {
+          "enum": "4",
+          "description": "CANCELED"
+        },
+        {
+          "enum": "5",
+          "description": "REPLACED"
+        },
+        {
+          "enum": "6",
+          "description": "PENDING_CANCELREPLACE"
+        },
+        {
+          "enum": "7",
+          "description": "STOPPED"
+        },
+        {
+          "enum": "8",
+          "description": "REJECTED"
+        },
+        {
+          "enum": "9",
+          "description": "SUSPENDED"
+        },
+        {
+          "enum": "A",
+          "description": "PENDING_NEW"
+        },
+        {
+          "enum": "B",
+          "description": "CALCULATED"
+        },
+        {
+          "enum": "C",
+          "description": "EXPIRED"
+        }
+      ]
+    },
+    {
+      "tag": "40",
+      "name": "OrdType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "1",
+          "description": "MARKET"
+        },
+        {
+          "enum": "2",
+          "description": "LIMIT"
+        },
+        {
+          "enum": "3",
+          "description": "STOP"
+        },
+        {
+          "enum": "4",
+          "description": "STOP_LIMIT"
+        },
+        {
+          "enum": "5",
+          "description": "MARKET_ON_CLOSE"
+        },
+        {
+          "enum": "6",
+          "description": "WITH_OR_WITHOUT"
+        },
+        {
+          "enum": "7",
+          "description": "LIMIT_OR_BETTER"
+        },
+        {
+          "enum": "8",
+          "description": "LIMIT_WITH_OR_WITHOUT"
+        },
+        {
+          "enum": "9",
+          "description": "ON_BASIS"
+        },
+        {
+          "enum": "A",
+          "description": "ON_CLOSE"
+        },
+        {
+          "enum": "B",
+          "description": "LIMIT_ON_CLOSE"
+        },
+        {
+          "enum": "C",
+          "description": "FOREX"
+        },
+        {
+          "enum": "D",
+          "description": "PREVIOUSLY_QUOTED"
+        },
+        {
+          "enum": "E",
+          "description": "PREVIOUSLY_INDICATED"
+        },
+        {
+          "enum": "P",
+          "description": "PEGGED"
+        }
+      ]
+    },
+    {
+      "tag": "41",
+      "name": "OrigClOrdID",
+      "type": "STRING"
+    },
+    {
+      "tag": "42",
+      "name": "OrigTime",
+      "type": "TIME"
+    },
+    {
+      "tag": "43",
+      "name": "PossDupFlag",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "Y",
+          "description": "POSSIBLE_DUPLICATE"
+        },
+        {
+          "enum": "N",
+          "description": "ORIGINAL_TRANSMISSION"
+        }
+      ]
+    },
+    {
+      "tag": "44",
+      "name": "Price",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "45",
+      "name": "RefSeqNum",
+      "type": "INT"
+    },
+    {
+      "tag": "46",
+      "name": "RelatdSym",
+      "type": "STRING"
+    },
+    {
+      "tag": "47",
+      "name": "Rule80A",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "A",
+          "description": "AGENCY_SINGLE_ORDER"
+        },
+        {
+          "enum": "D",
+          "description": "PROGRAM_ORDER_INDEX_ARB_FOR_MEMBER_FIRMORG"
+        },
+        {
+          "enum": "C",
+          "description": "PROGRAM_ORDER_NONINDEX_ARB_FOR_MEMBER_FIRMORG"
+        },
+        {
+          "enum": "I",
+          "description": "INDIVIDUAL_INVESTOR"
+        },
+        {
+          "enum": "J",
+          "description": "PROGRAM_ORDER_INDEX_ARB_FOR_INDIVIDUAL_CUSTOMER"
+        },
+        {
+          "enum": "K",
+          "description": "PROGRAM_ORDER_NONINDEX_ARB_FOR_INDIVIDUAL_CUSTOMER"
+        },
+        {
+          "enum": "U",
+          "description": "PROGRAM_ORDER_INDEX_ARB_FOR_OTHER_AGENCY"
+        },
+        {
+          "enum": "Y",
+          "description": "PROGRAM_ORDER_NONINDEX_ARB_FOR_OTHER_AGENCY"
+        },
+        {
+          "enum": "M",
+          "description": "PROGRAM_ORDER_INDEX_ARB_FOR_OTHER_MEMBER"
+        },
+        {
+          "enum": "N",
+          "description": "PROGRAM_ORDER_NONINDEX_ARB_FOR_OTHER_MEMBER"
+        },
+        {
+          "enum": "W",
+          "description": "ALL_OTHER_ORDERS_AS_AGENT_FOR_OTHER_MEMBER"
+        }
+      ]
+    },
+    {
+      "tag": "48",
+      "name": "SecurityID",
+      "type": "STRING"
+    },
+    {
+      "tag": "49",
+      "name": "SenderCompID",
+      "type": "STRING"
+    },
+    {
+      "tag": "50",
+      "name": "SenderSubID",
+      "type": "STRING"
+    },
+    {
+      "tag": "52",
+      "name": "SendingTime",
+      "type": "TIME"
+    },
+    {
+      "tag": "53",
+      "name": "Shares",
+      "type": "INT"
+    },
+    {
+      "tag": "54",
+      "name": "Side",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "1",
+          "description": "BUY"
+        },
+        {
+          "enum": "2",
+          "description": "SELL"
+        },
+        {
+          "enum": "3",
+          "description": "BUY_MINUS"
+        },
+        {
+          "enum": "4",
+          "description": "SELL_PLUS"
+        },
+        {
+          "enum": "5",
+          "description": "SELL_SHORT"
+        },
+        {
+          "enum": "6",
+          "description": "SELL_SHORT_EXEMPT"
+        }
+      ]
+    },
+    {
+      "tag": "55",
+      "name": "Symbol",
+      "type": "STRING"
+    },
+    {
+      "tag": "56",
+      "name": "TargetCompID",
+      "type": "STRING"
+    },
+    {
+      "tag": "57",
+      "name": "TargetSubID",
+      "type": "STRING"
+    },
+    {
+      "tag": "58",
+      "name": "Text",
+      "type": "STRING"
+    },
+    {
+      "tag": "59",
+      "name": "TimeInForce",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "DAY"
+        },
+        {
+          "enum": "1",
+          "description": "GOOD_TILL_CANCEL"
+        },
+        {
+          "enum": "2",
+          "description": "AT_THE_OPENING"
+        },
+        {
+          "enum": "3",
+          "description": "IMMEDIATE_OR_CANCEL"
+        },
+        {
+          "enum": "4",
+          "description": "FILL_OR_KILL"
+        },
+        {
+          "enum": "5",
+          "description": "GOOD_TILL_CROSSING"
+        },
+        {
+          "enum": "6",
+          "description": "GOOD_TILL_DATE"
+        }
+      ]
+    },
+    {
+      "tag": "60",
+      "name": "TransactTime",
+      "type": "TIME"
+    },
+    {
+      "tag": "61",
+      "name": "Urgency",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "NORMAL"
+        },
+        {
+          "enum": "1",
+          "description": "FLASH"
+        },
+        {
+          "enum": "2",
+          "description": "BACKGROUND"
+        }
+      ]
+    },
+    {
+      "tag": "62",
+      "name": "ValidUntilTime",
+      "type": "TIME"
+    },
+    {
+      "tag": "63",
+      "name": "SettlmntTyp",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "REGULAR"
+        },
+        {
+          "enum": "1",
+          "description": "CASH"
+        },
+        {
+          "enum": "2",
+          "description": "NEXT_DAY"
+        },
+        {
+          "enum": "3",
+          "description": "TPLUS2"
+        },
+        {
+          "enum": "4",
+          "description": "TPLUS3"
+        },
+        {
+          "enum": "5",
+          "description": "TPLUS4"
+        },
+        {
+          "enum": "6",
+          "description": "FUTURE"
+        },
+        {
+          "enum": "7",
+          "description": "WHEN_ISSUED"
+        },
+        {
+          "enum": "8",
+          "description": "SELLERS_OPTION"
+        },
+        {
+          "enum": "9",
+          "description": "TPLUS5"
+        }
+      ]
+    },
+    {
+      "tag": "64",
+      "name": "FutSettDate",
+      "type": "DATE"
+    },
+    {
+      "tag": "65",
+      "name": "SymbolSfx",
+      "type": "STRING"
+    },
+    {
+      "tag": "66",
+      "name": "ListID",
+      "type": "STRING"
+    },
+    {
+      "tag": "67",
+      "name": "ListSeqNo",
+      "type": "INT"
+    },
+    {
+      "tag": "68",
+      "name": "ListNoOrds",
+      "type": "INT"
+    },
+    {
+      "tag": "69",
+      "name": "ListExecInst",
+      "type": "STRING"
+    },
+    {
+      "tag": "70",
+      "name": "AllocID",
+      "type": "INT"
+    },
+    {
+      "tag": "71",
+      "name": "AllocTransType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "NEW"
+        },
+        {
+          "enum": "1",
+          "description": "REPLACE"
+        },
+        {
+          "enum": "2",
+          "description": "CANCEL"
+        }
+      ]
+    },
+    {
+      "tag": "72",
+      "name": "RefAllocID",
+      "type": "INT"
+    },
+    {
+      "tag": "73",
+      "name": "NoOrders",
+      "type": "INT"
+    },
+    {
+      "tag": "74",
+      "name": "AvgPrxPrecision",
+      "type": "INT"
+    },
+    {
+      "tag": "75",
+      "name": "TradeDate",
+      "type": "DATE"
+    },
+    {
+      "tag": "76",
+      "name": "ExecBroker",
+      "type": "STRING"
+    },
+    {
+      "tag": "77",
+      "name": "OpenClose",
+      "type": "STRING"
+    },
+    {
+      "tag": "78",
+      "name": "NoAllocs",
+      "type": "INT"
+    },
+    {
+      "tag": "79",
+      "name": "AllocAccount",
+      "type": "STRING"
+    },
+    {
+      "tag": "80",
+      "name": "AllocShares",
+      "type": "INT"
+    },
+    {
+      "tag": "81",
+      "name": "ProcessCode",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "REGULAR"
+        },
+        {
+          "enum": "1",
+          "description": "SOFT_DOLLAR"
+        },
+        {
+          "enum": "2",
+          "description": "STEPIN"
+        },
+        {
+          "enum": "3",
+          "description": "STEPOUT"
+        },
+        {
+          "enum": "4",
+          "description": "SOFTDOLLAR_STEPIN"
+        },
+        {
+          "enum": "5",
+          "description": "SOFTDOLLAR_STEPOUT"
+        },
+        {
+          "enum": "6",
+          "description": "PLAN_SPONSOR"
+        }
+      ]
+    },
+    {
+      "tag": "82",
+      "name": "NoRpts",
+      "type": "INT"
+    },
+    {
+      "tag": "83",
+      "name": "RptSeq",
+      "type": "INT"
+    },
+    {
+      "tag": "84",
+      "name": "CxlQty",
+      "type": "INT"
+    },
+    {
+      "tag": "85",
+      "name": "NoDlvyInst",
+      "type": "INT"
+    },
+    {
+      "tag": "86",
+      "name": "DlvyInst",
+      "type": "STRING"
+    },
+    {
+      "tag": "87",
+      "name": "AllocStatus",
+      "type": "INT",
+      "values": [
+        {
+          "enum": "0",
+          "description": "ACCEPTED"
+        },
+        {
+          "enum": "1",
+          "description": "REJECTED"
+        },
+        {
+          "enum": "2",
+          "description": "PARTIAL_ACCEPT"
+        },
+        {
+          "enum": "3",
+          "description": "RECEIVED"
+        }
+      ]
+    },
+    {
+      "tag": "88",
+      "name": "AllocRejCode",
+      "type": "INT",
+      "values": [
+        {
+          "enum": "0",
+          "description": "UNKNOWN_ACCOUNT"
+        },
+        {
+          "enum": "1",
+          "description": "INCORRECT_QUANTITY"
+        },
+        {
+          "enum": "2",
+          "description": "INCORRECT_AVERAGE_PRICE"
+        },
+        {
+          "enum": "3",
+          "description": "UNKNOWN_EXECUTING_BROKER_MNEMONIC"
+        },
+        {
+          "enum": "4",
+          "description": "COMMISSION_DIFFERENCE"
+        },
+        {
+          "enum": "5",
+          "description": "UNKNOWN_ORDERID"
+        },
+        {
+          "enum": "6",
+          "description": "UNKNOWN_LISTID"
+        },
+        {
+          "enum": "7",
+          "description": "OTHER"
+        }
+      ]
+    },
+    {
+      "tag": "89",
+      "name": "Signature",
+      "type": "DATA"
+    },
+    {
+      "tag": "90",
+      "name": "SecureDataLen",
+      "type": "INT"
+    },
+    {
+      "tag": "91",
+      "name": "SecureData",
+      "type": "DATA"
+    },
+    {
+      "tag": "92",
+      "name": "BrokerOfCredit",
+      "type": "STRING"
+    },
+    {
+      "tag": "93",
+      "name": "SignatureLength",
+      "type": "INT"
+    },
+    {
+      "tag": "94",
+      "name": "EmailType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "NEW"
+        },
+        {
+          "enum": "1",
+          "description": "REPLY"
+        },
+        {
+          "enum": "2",
+          "description": "ADMIN_REPLY"
+        }
+      ]
+    },
+    {
+      "tag": "95",
+      "name": "RawDataLength",
+      "type": "INT"
+    },
+    {
+      "tag": "96",
+      "name": "RawData",
+      "type": "DATA"
+    },
+    {
+      "tag": "97",
+      "name": "PossResend",
+      "type": "STRING"
+    },
+    {
+      "tag": "98",
+      "name": "EncryptMethod",
+      "type": "INT",
+      "values": [
+        {
+          "enum": "0",
+          "description": "NONE_OTHER"
+        },
+        {
+          "enum": "1",
+          "description": "PKCS"
+        },
+        {
+          "enum": "2",
+          "description": "DES"
+        },
+        {
+          "enum": "3",
+          "description": "PKCSDES"
+        },
+        {
+          "enum": "4",
+          "description": "PGPDES"
+        },
+        {
+          "enum": "5",
+          "description": "PGPDESMD5"
+        },
+        {
+          "enum": "6",
+          "description": "PEMDESMD5"
+        }
+      ]
+    },
+    {
+      "tag": "99",
+      "name": "StopPx",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "100",
+      "name": "ExDestination",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "0",
+          "description": "NONE"
+        },
+        {
+          "enum": "4",
+          "description": "POSIT"
+        }
+      ]
+    },
+    {
+      "tag": "102",
+      "name": "CxlRejReason",
+      "type": "INT",
+      "values": [
+        {
+          "enum": "0",
+          "description": "TOO_LATE_TO_CANCEL"
+        },
+        {
+          "enum": "1",
+          "description": "UNKNOWN_ORDER"
+        }
+      ]
+    },
+    {
+      "tag": "103",
+      "name": "OrdRejReason",
+      "type": "INT",
+      "values": [
+        {
+          "enum": "0",
+          "description": "BROKER_OPTION"
+        },
+        {
+          "enum": "1",
+          "description": "UNKNOWN_SYMBOL"
+        },
+        {
+          "enum": "2",
+          "description": "EXCHANGE_CLOSED"
+        },
+        {
+          "enum": "3",
+          "description": "ORDER_EXCEEDS_LIMIT"
+        },
+        {
+          "enum": "4",
+          "description": "TOO_LATE_TO_ENTER"
+        }
+      ]
+    },
+    {
+      "tag": "104",
+      "name": "IOIQualifier",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "X",
+          "description": "CROSSING_OPPORTUNITY"
+        },
+        {
+          "enum": "O",
+          "description": "AT_THE_OPEN"
+        },
+        {
+          "enum": "M",
+          "description": "MORE_BEHIND"
+        },
+        {
+          "enum": "P",
+          "description": "TAKING_A_POSITION"
+        },
+        {
+          "enum": "V",
+          "description": "VERSUS"
+        },
+        {
+          "enum": "Q",
+          "description": "CURRENT_QUOTE"
+        },
+        {
+          "enum": "C",
+          "description": "AT_THE_CLOSE"
+        },
+        {
+          "enum": "S",
+          "description": "PORTFOLIO_SHOWN"
+        },
+        {
+          "enum": "I",
+          "description": "IN_TOUCH_WITH"
+        },
+        {
+          "enum": "W",
+          "description": "INDICATION_WORKING_AWAY"
+        },
+        {
+          "enum": "A",
+          "description": "ALL_OR_NONE"
+        },
+        {
+          "enum": "L",
+          "description": "LIMIT"
+        },
+        {
+          "enum": "T",
+          "description": "THROUGH_THE_DAY"
+        }
+      ]
+    },
+    {
+      "tag": "105",
+      "name": "WaveNo",
+      "type": "STRING"
+    },
+    {
+      "tag": "106",
+      "name": "Issuer",
+      "type": "STRING"
+    },
+    {
+      "tag": "107",
+      "name": "SecurityDesc",
+      "type": "STRING"
+    },
+    {
+      "tag": "108",
+      "name": "HeartBtInt",
+      "type": "INT"
+    },
+    {
+      "tag": "109",
+      "name": "ClientID",
+      "type": "STRING"
+    },
+    {
+      "tag": "110",
+      "name": "MinQty",
+      "type": "INT"
+    },
+    {
+      "tag": "111",
+      "name": "MaxFloor",
+      "type": "INT"
+    },
+    {
+      "tag": "112",
+      "name": "TestReqID",
+      "type": "STRING"
+    },
+    {
+      "tag": "113",
+      "name": "ReportToExch",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "Y",
+          "description": "YES"
+        },
+        {
+          "enum": "N",
+          "description": "NO"
+        }
+      ]
+    },
+    {
+      "tag": "114",
+      "name": "LocateReqd",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "Y",
+          "description": "YES"
+        },
+        {
+          "enum": "N",
+          "description": "NO"
+        }
+      ]
+    },
+    {
+      "tag": "115",
+      "name": "OnBehalfOfCompID",
+      "type": "STRING"
+    },
+    {
+      "tag": "116",
+      "name": "OnBehalfOfSubID",
+      "type": "STRING"
+    },
+    {
+      "tag": "117",
+      "name": "QuoteID",
+      "type": "STRING"
+    },
+    {
+      "tag": "118",
+      "name": "NetMoney",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "119",
+      "name": "SettlCurrAmt",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "120",
+      "name": "SettlCurrency",
+      "type": "STRING"
+    },
+    {
+      "tag": "121",
+      "name": "ForexReq",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "Y",
+          "description": "YES"
+        },
+        {
+          "enum": "N",
+          "description": "NO"
+        }
+      ]
+    },
+    {
+      "tag": "122",
+      "name": "OrigSendingTime",
+      "type": "TIME"
+    },
+    {
+      "tag": "123",
+      "name": "GapFillFlag",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "Y",
+          "description": "GAP_FILL_MESSAGE_MSGSEQNUM_FIELD_VALID"
+        },
+        {
+          "enum": "N",
+          "description": "SEQUENCE_RESET_IGNORE_MSGSEQNUM"
+        }
+      ]
+    },
+    {
+      "tag": "124",
+      "name": "NoExecs",
+      "type": "INT"
+    },
+    {
+      "tag": "125",
+      "name": "CxlType",
+      "type": "CHAR",
+      "values": [
+        {
+          "enum": "P",
+          "description": "PARTIAL_CANCEL"
+        },
+        {
+          "enum": "F",
+          "description": "FULL_REMAINING_QUANTITY"
+        }
+      ]
+    },
+    {
+      "tag": "126",
+      "name": "ExpireTime",
+      "type": "TIME"
+    },
+    {
+      "tag": "127",
+      "name": "DKReason",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "A",
+          "description": "UNKNOWN_SYMBOL"
+        },
+        {
+          "enum": "B",
+          "description": "WRONG_SIDE"
+        },
+        {
+          "enum": "C",
+          "description": "QUANTITY_EXCEEDS_ORDER"
+        },
+        {
+          "enum": "D",
+          "description": "NO_MATCHING_ORDER"
+        },
+        {
+          "enum": "E",
+          "description": "PRICE_EXCEEDS_LIMIT"
+        },
+        {
+          "enum": "Z",
+          "description": "OTHER"
+        }
+      ]
+    },
+    {
+      "tag": "128",
+      "name": "DeliverToCompID",
+      "type": "STRING"
+    },
+    {
+      "tag": "129",
+      "name": "DeliverToSubID",
+      "type": "STRING"
+    },
+    {
+      "tag": "130",
+      "name": "IOINaturalFlag",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "Y",
+          "description": "NATURAL"
+        },
+        {
+          "enum": "N",
+          "description": "NOT_NATURAL"
+        }
+      ]
+    },
+    {
+      "tag": "131",
+      "name": "QuoteReqID",
+      "type": "STRING"
+    },
+    {
+      "tag": "132",
+      "name": "BidPx",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "133",
+      "name": "OfferPx",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "134",
+      "name": "BidSize",
+      "type": "INT"
+    },
+    {
+      "tag": "135",
+      "name": "OfferSize",
+      "type": "INT"
+    },
+    {
+      "tag": "136",
+      "name": "NoMiscFees",
+      "type": "INT"
+    },
+    {
+      "tag": "137",
+      "name": "MiscFeeAmt",
+      "type": "FLOAT"
+    },
+    {
+      "tag": "138",
+      "name": "MiscFeeCurr",
+      "type": "STRING"
+    },
+    {
+      "tag": "139",
+      "name": "MiscFeeType",
+      "type": "STRING",
+      "values": [
+        {
+          "enum": "1",
+          "description": "REGULATORY"
+        },
+        {
+          "enum": "2",
+          "description": "TAX"
+        },
+        {
+          "enum": "3",
+          "description": "LOCAL_COMMISSION"
+        },
+        {
+          "enum": "4",
+          "description": "EXCHANGE_FEES"
+        },
+        {
+          "enum": "5",
+          "description": "STAMP"
+        },
+        {
+          "enum": "6",
+          "description": "LEVY"
+        },
+        {
+          "enum": "7",
+          "description": "OTHER"
+        }
+      ]
+    },
+    {
+      "tag": "140",
+      "name": "PrevClosePx",
+      "type": "FLOAT"
+    }
+  ],
+  "messages": [
+    {
+      "name": "Heartbeat",
+      "msgtype": "0",
+      "category": "admin",
+      "fields": [
+        {
+          "tag": "112",
+          "name": "TestReqID",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "Logon",
+      "msgtype": "A",
+      "category": "admin",
+      "fields": [
+        {
+          "tag": "98",
+          "name": "EncryptMethod",
+          "required": true
+        },
+        {
+          "tag": "108",
+          "name": "HeartBtInt",
+          "required": true
+        },
+        {
+          "tag": "95",
+          "name": "RawDataLength",
+          "required": false
+        },
+        {
+          "tag": "96",
+          "name": "RawData",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "TestRequest",
+      "msgtype": "1",
+      "category": "admin",
+      "fields": [
+        {
+          "tag": "112",
+          "name": "TestReqID",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ResendRequest",
+      "msgtype": "2",
+      "category": "admin",
+      "fields": [
+        {
+          "tag": "7",
+          "name": "BeginSeqNo",
+          "required": true
+        },
+        {
+          "tag": "16",
+          "name": "EndSeqNo",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Reject",
+      "msgtype": "3",
+      "category": "admin",
+      "fields": [
+        {
+          "tag": "45",
+          "name": "RefSeqNum",
+          "required": true
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "SequenceReset",
+      "msgtype": "4",
+      "category": "admin",
+      "fields": [
+        {
+          "tag": "123",
+          "name": "GapFillFlag",
+          "required": false
+        },
+        {
+          "tag": "36",
+          "name": "NewSeqNo",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Logout",
+      "msgtype": "5",
+      "category": "admin",
+      "fields": [
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "Advertisement",
+      "msgtype": "7",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "2",
+          "name": "AdvId",
+          "required": true
+        },
+        {
+          "tag": "5",
+          "name": "AdvTransType",
+          "required": true
+        },
+        {
+          "tag": "3",
+          "name": "AdvRefID",
+          "required": false
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "4",
+          "name": "AdvSide",
+          "required": true
+        },
+        {
+          "tag": "53",
+          "name": "Shares",
+          "required": true
+        },
+        {
+          "tag": "44",
+          "name": "Price",
+          "required": false
+        },
+        {
+          "tag": "15",
+          "name": "Currency",
+          "required": false
+        },
+        {
+          "tag": "60",
+          "name": "TransactTime",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "IndicationofInterest",
+      "msgtype": "6",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "23",
+          "name": "IOIID",
+          "required": true
+        },
+        {
+          "tag": "28",
+          "name": "IOITransType",
+          "required": true
+        },
+        {
+          "tag": "26",
+          "name": "IOIRefID",
+          "required": false
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        },
+        {
+          "tag": "27",
+          "name": "IOIShares",
+          "required": true
+        },
+        {
+          "tag": "44",
+          "name": "Price",
+          "required": false
+        },
+        {
+          "tag": "15",
+          "name": "Currency",
+          "required": false
+        },
+        {
+          "tag": "62",
+          "name": "ValidUntilTime",
+          "required": false
+        },
+        {
+          "tag": "25",
+          "name": "IOIQltyInd",
+          "required": false
+        },
+        {
+          "tag": "24",
+          "name": "IOIOthSvc",
+          "required": false
+        },
+        {
+          "tag": "130",
+          "name": "IOINaturalFlag",
+          "required": false
+        },
+        {
+          "tag": "104",
+          "name": "IOIQualifier",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "News",
+      "msgtype": "B",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "42",
+          "name": "OrigTime",
+          "required": false
+        },
+        {
+          "tag": "61",
+          "name": "Urgency",
+          "required": false
+        },
+        {
+          "tag": "46",
+          "name": "RelatdSym",
+          "required": false
+        },
+        {
+          "tag": "95",
+          "name": "RawDataLength",
+          "required": false
+        },
+        {
+          "tag": "96",
+          "name": "RawData",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "Email",
+      "msgtype": "C",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "94",
+          "name": "EmailType",
+          "required": true
+        },
+        {
+          "tag": "42",
+          "name": "OrigTime",
+          "required": false
+        },
+        {
+          "tag": "46",
+          "name": "RelatdSym",
+          "required": false
+        },
+        {
+          "tag": "37",
+          "name": "OrderID",
+          "required": false
+        },
+        {
+          "tag": "11",
+          "name": "ClOrdID",
+          "required": false
+        },
+        {
+          "tag": "95",
+          "name": "RawDataLength",
+          "required": false
+        },
+        {
+          "tag": "96",
+          "name": "RawData",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "QuoteRequest",
+      "msgtype": "R",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "131",
+          "name": "QuoteReqID",
+          "required": true
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "140",
+          "name": "PrevClosePx",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": false
+        },
+        {
+          "tag": "38",
+          "name": "OrderQty",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "Quote",
+      "msgtype": "S",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "131",
+          "name": "QuoteReqID",
+          "required": false
+        },
+        {
+          "tag": "117",
+          "name": "QuoteID",
+          "required": true
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "132",
+          "name": "BidPx",
+          "required": true
+        },
+        {
+          "tag": "133",
+          "name": "OfferPx",
+          "required": false
+        },
+        {
+          "tag": "134",
+          "name": "BidSize",
+          "required": false
+        },
+        {
+          "tag": "135",
+          "name": "OfferSize",
+          "required": false
+        },
+        {
+          "tag": "62",
+          "name": "ValidUntilTime",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "NewOrderSingle",
+      "msgtype": "D",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "11",
+          "name": "ClOrdID",
+          "required": true
+        },
+        {
+          "tag": "109",
+          "name": "ClientID",
+          "required": false
+        },
+        {
+          "tag": "76",
+          "name": "ExecBroker",
+          "required": false
+        },
+        {
+          "tag": "1",
+          "name": "Account",
+          "required": false
+        },
+        {
+          "tag": "63",
+          "name": "SettlmntTyp",
+          "required": false
+        },
+        {
+          "tag": "64",
+          "name": "FutSettDate",
+          "required": false
+        },
+        {
+          "tag": "21",
+          "name": "HandlInst",
+          "required": true
+        },
+        {
+          "tag": "18",
+          "name": "ExecInst",
+          "required": false
+        },
+        {
+          "tag": "110",
+          "name": "MinQty",
+          "required": false
+        },
+        {
+          "tag": "111",
+          "name": "MaxFloor",
+          "required": false
+        },
+        {
+          "tag": "100",
+          "name": "ExDestination",
+          "required": false
+        },
+        {
+          "tag": "81",
+          "name": "ProcessCode",
+          "required": false
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "140",
+          "name": "PrevClosePx",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        },
+        {
+          "tag": "114",
+          "name": "LocateReqd",
+          "required": false
+        },
+        {
+          "tag": "38",
+          "name": "OrderQty",
+          "required": true
+        },
+        {
+          "tag": "40",
+          "name": "OrdType",
+          "required": true
+        },
+        {
+          "tag": "44",
+          "name": "Price",
+          "required": false
+        },
+        {
+          "tag": "99",
+          "name": "StopPx",
+          "required": false
+        },
+        {
+          "tag": "15",
+          "name": "Currency",
+          "required": false
+        },
+        {
+          "tag": "23",
+          "name": "IOIID",
+          "required": false
+        },
+        {
+          "tag": "117",
+          "name": "QuoteID",
+          "required": false
+        },
+        {
+          "tag": "59",
+          "name": "TimeInForce",
+          "required": false
+        },
+        {
+          "tag": "126",
+          "name": "ExpireTime",
+          "required": false
+        },
+        {
+          "tag": "12",
+          "name": "Commission",
+          "required": false
+        },
+        {
+          "tag": "13",
+          "name": "CommType",
+          "required": false
+        },
+        {
+          "tag": "47",
+          "name": "Rule80A",
+          "required": false
+        },
+        {
+          "tag": "121",
+          "name": "ForexReq",
+          "required": false
+        },
+        {
+          "tag": "120",
+          "name": "SettlCurrency",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "ExecutionReport",
+      "msgtype": "8",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "37",
+          "name": "OrderID",
+          "required": true
+        },
+        {
+          "tag": "11",
+          "name": "ClOrdID",
+          "required": false
+        },
+        {
+          "tag": "109",
+          "name": "ClientID",
+          "required": false
+        },
+        {
+          "tag": "76",
+          "name": "ExecBroker",
+          "required": false
+        },
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": false
+        },
+        {
+          "tag": "17",
+          "name": "ExecID",
+          "required": true
+        },
+        {
+          "tag": "20",
+          "name": "ExecTransType",
+          "required": true
+        },
+        {
+          "tag": "19",
+          "name": "ExecRefID",
+          "required": false
+        },
+        {
+          "tag": "39",
+          "name": "OrdStatus",
+          "required": true
+        },
+        {
+          "tag": "103",
+          "name": "OrdRejReason",
+          "required": false
+        },
+        {
+          "tag": "1",
+          "name": "Account",
+          "required": false
+        },
+        {
+          "tag": "63",
+          "name": "SettlmntTyp",
+          "required": false
+        },
+        {
+          "tag": "64",
+          "name": "FutSettDate",
+          "required": false
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        },
+        {
+          "tag": "38",
+          "name": "OrderQty",
+          "required": true
+        },
+        {
+          "tag": "40",
+          "name": "OrdType",
+          "required": false
+        },
+        {
+          "tag": "44",
+          "name": "Price",
+          "required": false
+        },
+        {
+          "tag": "99",
+          "name": "StopPx",
+          "required": false
+        },
+        {
+          "tag": "15",
+          "name": "Currency",
+          "required": false
+        },
+        {
+          "tag": "59",
+          "name": "TimeInForce",
+          "required": false
+        },
+        {
+          "tag": "126",
+          "name": "ExpireTime",
+          "required": false
+        },
+        {
+          "tag": "18",
+          "name": "ExecInst",
+          "required": false
+        },
+        {
+          "tag": "47",
+          "name": "Rule80A",
+          "required": false
+        },
+        {
+          "tag": "32",
+          "name": "LastShares",
+          "required": true
+        },
+        {
+          "tag": "31",
+          "name": "LastPx",
+          "required": true
+        },
+        {
+          "tag": "30",
+          "name": "LastMkt",
+          "required": false
+        },
+        {
+          "tag": "29",
+          "name": "LastCapacity",
+          "required": false
+        },
+        {
+          "tag": "14",
+          "name": "CumQty",
+          "required": true
+        },
+        {
+          "tag": "6",
+          "name": "AvgPx",
+          "required": true
+        },
+        {
+          "tag": "75",
+          "name": "TradeDate",
+          "required": false
+        },
+        {
+          "tag": "60",
+          "name": "TransactTime",
+          "required": false
+        },
+        {
+          "tag": "113",
+          "name": "ReportToExch",
+          "required": false
+        },
+        {
+          "tag": "12",
+          "name": "Commission",
+          "required": false
+        },
+        {
+          "tag": "13",
+          "name": "CommType",
+          "required": false
+        },
+        {
+          "tag": "118",
+          "name": "NetMoney",
+          "required": false
+        },
+        {
+          "tag": "119",
+          "name": "SettlCurrAmt",
+          "required": false
+        },
+        {
+          "tag": "120",
+          "name": "SettlCurrency",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "DontKnowTrade",
+      "msgtype": "Q",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "37",
+          "name": "OrderID",
+          "required": false
+        },
+        {
+          "tag": "17",
+          "name": "ExecID",
+          "required": false
+        },
+        {
+          "tag": "127",
+          "name": "DKReason",
+          "required": true
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        },
+        {
+          "tag": "38",
+          "name": "OrderQty",
+          "required": true
+        },
+        {
+          "tag": "32",
+          "name": "LastShares",
+          "required": true
+        },
+        {
+          "tag": "31",
+          "name": "LastPx",
+          "required": true
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "OrderCancelReplaceRequest",
+      "msgtype": "G",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "37",
+          "name": "OrderID",
+          "required": false
+        },
+        {
+          "tag": "109",
+          "name": "ClientID",
+          "required": false
+        },
+        {
+          "tag": "76",
+          "name": "ExecBroker",
+          "required": false
+        },
+        {
+          "tag": "41",
+          "name": "OrigClOrdID",
+          "required": true
+        },
+        {
+          "tag": "11",
+          "name": "ClOrdID",
+          "required": true
+        },
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": false
+        },
+        {
+          "tag": "1",
+          "name": "Account",
+          "required": false
+        },
+        {
+          "tag": "63",
+          "name": "SettlmntTyp",
+          "required": false
+        },
+        {
+          "tag": "64",
+          "name": "FutSettDate",
+          "required": false
+        },
+        {
+          "tag": "21",
+          "name": "HandlInst",
+          "required": true
+        },
+        {
+          "tag": "18",
+          "name": "ExecInst",
+          "required": false
+        },
+        {
+          "tag": "110",
+          "name": "MinQty",
+          "required": false
+        },
+        {
+          "tag": "111",
+          "name": "MaxFloor",
+          "required": false
+        },
+        {
+          "tag": "100",
+          "name": "ExDestination",
+          "required": false
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        },
+        {
+          "tag": "38",
+          "name": "OrderQty",
+          "required": true
+        },
+        {
+          "tag": "40",
+          "name": "OrdType",
+          "required": true
+        },
+        {
+          "tag": "44",
+          "name": "Price",
+          "required": false
+        },
+        {
+          "tag": "99",
+          "name": "StopPx",
+          "required": false
+        },
+        {
+          "tag": "15",
+          "name": "Currency",
+          "required": false
+        },
+        {
+          "tag": "59",
+          "name": "TimeInForce",
+          "required": false
+        },
+        {
+          "tag": "126",
+          "name": "ExpireTime",
+          "required": false
+        },
+        {
+          "tag": "12",
+          "name": "Commission",
+          "required": false
+        },
+        {
+          "tag": "13",
+          "name": "CommType",
+          "required": false
+        },
+        {
+          "tag": "47",
+          "name": "Rule80A",
+          "required": false
+        },
+        {
+          "tag": "121",
+          "name": "ForexReq",
+          "required": false
+        },
+        {
+          "tag": "120",
+          "name": "SettlCurrency",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "OrderCancelRequest",
+      "msgtype": "F",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "41",
+          "name": "OrigClOrdID",
+          "required": true
+        },
+        {
+          "tag": "37",
+          "name": "OrderID",
+          "required": false
+        },
+        {
+          "tag": "11",
+          "name": "ClOrdID",
+          "required": true
+        },
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": false
+        },
+        {
+          "tag": "125",
+          "name": "CxlType",
+          "required": true
+        },
+        {
+          "tag": "109",
+          "name": "ClientID",
+          "required": false
+        },
+        {
+          "tag": "76",
+          "name": "ExecBroker",
+          "required": false
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        },
+        {
+          "tag": "38",
+          "name": "OrderQty",
+          "required": true
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "OrderCancelReject",
+      "msgtype": "9",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "37",
+          "name": "OrderID",
+          "required": true
+        },
+        {
+          "tag": "11",
+          "name": "ClOrdID",
+          "required": true
+        },
+        {
+          "tag": "109",
+          "name": "ClientID",
+          "required": false
+        },
+        {
+          "tag": "76",
+          "name": "ExecBroker",
+          "required": false
+        },
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": false
+        },
+        {
+          "tag": "102",
+          "name": "CxlRejReason",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "OrderStatusRequest",
+      "msgtype": "H",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "37",
+          "name": "OrderID",
+          "required": false
+        },
+        {
+          "tag": "11",
+          "name": "ClOrdID",
+          "required": true
+        },
+        {
+          "tag": "109",
+          "name": "ClientID",
+          "required": false
+        },
+        {
+          "tag": "76",
+          "name": "ExecBroker",
+          "required": false
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Allocation",
+      "msgtype": "J",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "70",
+          "name": "AllocID",
+          "required": true
+        },
+        {
+          "tag": "71",
+          "name": "AllocTransType",
+          "required": true
+        },
+        {
+          "tag": "72",
+          "name": "RefAllocID",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "53",
+          "name": "Shares",
+          "required": true
+        },
+        {
+          "tag": "6",
+          "name": "AvgPx",
+          "required": true
+        },
+        {
+          "tag": "15",
+          "name": "Currency",
+          "required": false
+        },
+        {
+          "tag": "74",
+          "name": "AvgPrxPrecision",
+          "required": false
+        },
+        {
+          "tag": "75",
+          "name": "TradeDate",
+          "required": true
+        },
+        {
+          "tag": "60",
+          "name": "TransactTime",
+          "required": false
+        },
+        {
+          "tag": "63",
+          "name": "SettlmntTyp",
+          "required": false
+        },
+        {
+          "tag": "64",
+          "name": "FutSettDate",
+          "required": false
+        },
+        {
+          "tag": "118",
+          "name": "NetMoney",
+          "required": false
+        },
+        {
+          "tag": "119",
+          "name": "SettlCurrAmt",
+          "required": false
+        },
+        {
+          "tag": "120",
+          "name": "SettlCurrency",
+          "required": false
+        },
+        {
+          "tag": "77",
+          "name": "OpenClose",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "AllocationACK",
+      "msgtype": "P",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "109",
+          "name": "ClientID",
+          "required": false
+        },
+        {
+          "tag": "76",
+          "name": "ExecBroker",
+          "required": false
+        },
+        {
+          "tag": "70",
+          "name": "AllocID",
+          "required": true
+        },
+        {
+          "tag": "75",
+          "name": "TradeDate",
+          "required": true
+        },
+        {
+          "tag": "60",
+          "name": "TransactTime",
+          "required": false
+        },
+        {
+          "tag": "87",
+          "name": "AllocStatus",
+          "required": true
+        },
+        {
+          "tag": "88",
+          "name": "AllocRejCode",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "NewOrderList",
+      "msgtype": "E",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": true
+        },
+        {
+          "tag": "105",
+          "name": "WaveNo",
+          "required": false
+        },
+        {
+          "tag": "67",
+          "name": "ListSeqNo",
+          "required": true
+        },
+        {
+          "tag": "68",
+          "name": "ListNoOrds",
+          "required": true
+        },
+        {
+          "tag": "69",
+          "name": "ListExecInst",
+          "required": false
+        },
+        {
+          "tag": "11",
+          "name": "ClOrdID",
+          "required": true
+        },
+        {
+          "tag": "109",
+          "name": "ClientID",
+          "required": false
+        },
+        {
+          "tag": "76",
+          "name": "ExecBroker",
+          "required": false
+        },
+        {
+          "tag": "1",
+          "name": "Account",
+          "required": false
+        },
+        {
+          "tag": "63",
+          "name": "SettlmntTyp",
+          "required": false
+        },
+        {
+          "tag": "64",
+          "name": "FutSettDate",
+          "required": false
+        },
+        {
+          "tag": "21",
+          "name": "HandlInst",
+          "required": true
+        },
+        {
+          "tag": "18",
+          "name": "ExecInst",
+          "required": false
+        },
+        {
+          "tag": "110",
+          "name": "MinQty",
+          "required": false
+        },
+        {
+          "tag": "111",
+          "name": "MaxFloor",
+          "required": false
+        },
+        {
+          "tag": "100",
+          "name": "ExDestination",
+          "required": false
+        },
+        {
+          "tag": "81",
+          "name": "ProcessCode",
+          "required": false
+        },
+        {
+          "tag": "55",
+          "name": "Symbol",
+          "required": true
+        },
+        {
+          "tag": "65",
+          "name": "SymbolSfx",
+          "required": false
+        },
+        {
+          "tag": "48",
+          "name": "SecurityID",
+          "required": false
+        },
+        {
+          "tag": "22",
+          "name": "IDSource",
+          "required": false
+        },
+        {
+          "tag": "106",
+          "name": "Issuer",
+          "required": false
+        },
+        {
+          "tag": "107",
+          "name": "SecurityDesc",
+          "required": false
+        },
+        {
+          "tag": "140",
+          "name": "PrevClosePx",
+          "required": false
+        },
+        {
+          "tag": "54",
+          "name": "Side",
+          "required": true
+        },
+        {
+          "tag": "114",
+          "name": "LocateReqd",
+          "required": false
+        },
+        {
+          "tag": "38",
+          "name": "OrderQty",
+          "required": true
+        },
+        {
+          "tag": "40",
+          "name": "OrdType",
+          "required": true
+        },
+        {
+          "tag": "44",
+          "name": "Price",
+          "required": false
+        },
+        {
+          "tag": "99",
+          "name": "StopPx",
+          "required": false
+        },
+        {
+          "tag": "15",
+          "name": "Currency",
+          "required": false
+        },
+        {
+          "tag": "59",
+          "name": "TimeInForce",
+          "required": false
+        },
+        {
+          "tag": "126",
+          "name": "ExpireTime",
+          "required": false
+        },
+        {
+          "tag": "12",
+          "name": "Commission",
+          "required": false
+        },
+        {
+          "tag": "13",
+          "name": "CommType",
+          "required": false
+        },
+        {
+          "tag": "47",
+          "name": "Rule80A",
+          "required": false
+        },
+        {
+          "tag": "121",
+          "name": "ForexReq",
+          "required": false
+        },
+        {
+          "tag": "120",
+          "name": "SettlCurrency",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "ListStatus",
+      "msgtype": "N",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": true
+        },
+        {
+          "tag": "105",
+          "name": "WaveNo",
+          "required": false
+        },
+        {
+          "tag": "82",
+          "name": "NoRpts",
+          "required": true
+        },
+        {
+          "tag": "83",
+          "name": "RptSeq",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ListExecute",
+      "msgtype": "L",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": true
+        },
+        {
+          "tag": "105",
+          "name": "WaveNo",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "ListCancelRequest",
+      "msgtype": "K",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": true
+        },
+        {
+          "tag": "105",
+          "name": "WaveNo",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "ListStatusRequest",
+      "msgtype": "M",
+      "category": "app",
+      "fields": [
+        {
+          "tag": "66",
+          "name": "ListID",
+          "required": true
+        },
+        {
+          "tag": "105",
+          "name": "WaveNo",
+          "required": false
+        },
+        {
+          "tag": "58",
+          "name": "Text",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,724 @@
+'use client';
+
+import { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+import {
+  UploadCloud,
+  FileText,
+  Trash2,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle,
+  ArrowUpDown,
+  Download,
+  Search,
+  Eye,
+  ChevronDown,
+  Info,
+  ClipboardList
+} from "lucide-react";
+import {
+  extractTimestamp,
+  getTagValue,
+  validateFIXMessage,
+  FIX_ORDER_MAP
+} from "@/lib/fixParser";
+
+export default function LogsProcessorPage() {
+  const [files, setFiles] = useState([]);
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [delimiter, setDelimiter] = useState('|');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [inputMode, setInputMode] = useState('file');
+  const [pastedText, setPastedText] = useState('');
+  const [selectedLineInfo, setSelectedLineInfo] = useState(null);
+  const [stats, setStats] = useState({
+    totalMessages: 0,
+    validMessages: 0,
+    checksumErrors: 0,
+    bodyLengthErrors: 0,
+    msgTypeCount: {},
+  });
+
+  const onDrop = useCallback((acceptedFiles) => {
+    let completed = 0;
+    const tempFiles = [];
+    acceptedFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const textContent = reader.result;
+        const lines = textContent.split(/\r?\n/).filter(Boolean);
+        const parsedLines = lines.map((line, idx) => {
+          const validation = validateFIXMessage(line, delimiter);
+          return {
+            id: `${file.name}-${idx}-${Date.now()}`,
+            content: line,
+            timestampObj: extractTimestamp(line, delimiter),
+            clOrdID: getTagValue(line, '11', delimiter),
+            msgType: getTagValue(line, '35', delimiter),
+            validation
+          };
+        });
+        tempFiles.push({ name: file.name, content: textContent, parsedLines });
+        completed++;
+        if (completed === acceptedFiles.length) {
+          setFiles((prev) => [...prev, ...tempFiles]);
+        }
+      };
+      reader.readAsText(file);
+    });
+  }, [delimiter]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { "text/plain": [".txt", ".fix", ".log"] },
+    multiple: true,
+  });
+
+  const removeFile = (name) => setFiles((prev) => prev.filter((f) => f.name !== name));
+
+  const clearAll = () => {
+    setFiles([]);
+    setPastedText('');
+    setStats({ totalMessages: 0, validMessages: 0, checksumErrors: 0, bodyLengthErrors: 0, msgTypeCount: {} });
+    setSelectedLineInfo(null);
+  };
+
+  const processLogs = useCallback(() => {
+    let activeFiles = [];
+    if (inputMode === 'paste') {
+      if (!pastedText.trim()) return;
+      const lines = pastedText.split(/\r?\n/).filter(Boolean);
+      const parsedLines = lines.map((line, idx) => {
+        const validation = validateFIXMessage(line, delimiter);
+        return {
+          id: `pasted-${idx}-${Date.now()}`,
+          content: line,
+          timestampObj: extractTimestamp(line, delimiter),
+          clOrdID: getTagValue(line, '11', delimiter),
+          msgType: getTagValue(line, '35', delimiter),
+          validation
+        };
+      });
+      activeFiles = [{ name: "pasted_logs.txt", content: pastedText, parsedLines }];
+    } else {
+      activeFiles = files.map(f => {
+        const lines = f.content.split(/\r?\n/).filter(Boolean);
+        const parsedLines = lines.map((line, idx) => {
+          const validation = validateFIXMessage(line, delimiter);
+          return {
+            id: `${f.name}-${idx}-${Date.now()}`,
+            content: line,
+            timestampObj: extractTimestamp(line, delimiter),
+            clOrdID: getTagValue(line, '11', delimiter),
+            msgType: getTagValue(line, '35', delimiter),
+            validation
+          };
+        });
+        return { ...f, parsedLines };
+      });
+    }
+    if (activeFiles.length === 0) return;
+    setIsProcessing(true);
+
+    let aggTotal = 0, aggValid = 0, aggChecksumErr = 0, aggLengthErr = 0;
+    const aggMsgTypes = {};
+
+    const updatedFiles = activeFiles.map((fileObj) => {
+      const sortedLines = [...fileObj.parsedLines];
+      sortedLines.sort((a, b) => {
+        const timeA = a.timestampObj.getTime();
+        const timeB = b.timestampObj.getTime();
+        if (timeA !== timeB) return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+        if (a.clOrdID && b.clOrdID && a.clOrdID !== b.clOrdID) return a.clOrdID.localeCompare(b.clOrdID);
+        const orderA = FIX_ORDER_MAP[a.msgType] || 99;
+        const orderB = FIX_ORDER_MAP[b.msgType] || 99;
+        if (orderA !== orderB) return orderA - orderB;
+        return 0;
+      });
+
+      sortedLines.forEach(({ validation }) => {
+        if (!validation) return;
+        aggTotal++;
+        if (validation.isValid) aggValid++;
+        if (validation.errors.some(e => e.toLowerCase().includes("checksum"))) aggChecksumErr++;
+        if (validation.errors.some(e => e.toLowerCase().includes("bodylength"))) aggLengthErr++;
+        const typeName = validation.msgTypeName || "Other";
+        aggMsgTypes[typeName] = (aggMsgTypes[typeName] || 0) + 1;
+      });
+
+      return { ...fileObj, parsedLines: sortedLines, sortedContent: sortedLines.map((l) => l.content).join('\n') };
+    });
+
+    setFiles(updatedFiles);
+    setStats({ totalMessages: aggTotal, validMessages: aggValid, checksumErrors: aggChecksumErr, bodyLengthErrors: aggLengthErr, msgTypeCount: aggMsgTypes });
+    setIsProcessing(false);
+  }, [files, sortOrder, inputMode, pastedText, delimiter]);
+
+  const downloadFile = (fileObj) => {
+    const content = fileObj.sortedContent || fileObj.parsedLines.map((l) => l.content).join('\n');
+    saveAs(new Blob([content], { type: "text/plain;charset=utf-8" }), `sorted_${fileObj.name}`);
+  };
+
+  const downloadAll = async () => {
+    if (files.length === 1) { downloadFile(files[0]); return; }
+    const zip = new JSZip();
+    files.forEach((f) => zip.file(`sorted_${f.name}`, f.sortedContent || f.parsedLines.map(l => l.content).join('\n')));
+    saveAs(await zip.generateAsync({ type: "blob" }), "sorted_FIX_logs.zip");
+  };
+
+  const statCards = stats.totalMessages > 0 ? [
+    {
+      label: 'Total Messages',
+      value: stats.totalMessages,
+      icon: TrendingUp,
+      color: 'var(--foreground)',
+      bg: 'var(--card-hover)'
+    },
+    {
+      label: 'Validation Rate',
+      value: `${((stats.validMessages / stats.totalMessages) * 100).toFixed(1)}%`,
+      icon: CheckCircle,
+      color: 'var(--primary)',
+      bg: 'var(--primary-faint)'
+    },
+    {
+      label: 'Checksum Errors',
+      value: stats.checksumErrors,
+      icon: AlertTriangle,
+      color: '#f87171',
+      bg: 'rgba(239,68,68,0.08)'
+    },
+    {
+      label: 'Length Errors',
+      value: stats.bodyLengthErrors,
+      icon: AlertTriangle,
+      color: '#fb923c',
+      bg: 'rgba(251,146,60,0.08)'
+    },
+  ] : [];
+
+  return (
+    <div className="space-y-8 max-w-screen-2xl mx-auto">
+
+      {/* Page Header */}
+      <div className="fx-page-header flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
+            FIX Logs Processor
+          </h1>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Upload session logs and sort chronologically by order flow priority using the FIX protocol standard.
+          </p>
+        </div>
+        {files.length > 0 && (
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={clearAll} className="fx-btn-secondary">
+              Reset Console
+            </button>
+            <button onClick={downloadAll} className="fx-btn-primary">
+              <Download className="h-3.5 w-3.5" /> Download Sorted
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Stats Dashboard */}
+      {statCards.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {statCards.map((card) => (
+            <div
+              key={card.label}
+              className="flex items-center gap-4 p-5 rounded-xl"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+            >
+              <div
+                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: card.bg }}
+              >
+                <card.icon className="h-5 w-5" style={{ color: card.color }} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xl font-bold font-mono" style={{ color: card.color }}>
+                  {card.value}
+                </div>
+                <div className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>
+                  {card.label}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        {/* Left: Controls (4/12) */}
+        <div className="lg:col-span-4 space-y-4">
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
+          >
+            {/* Toolbar */}
+            <div
+              className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3"
+              style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
+            >
+              {/* Input mode toggle */}
+              <div className="fx-tab-group">
+                <button
+                  className={`fx-tab${inputMode === 'file' ? ' active' : ''}`}
+                  onClick={() => setInputMode('file')}
+                >
+                  <UploadCloud className="h-3 w-3" /> File
+                </button>
+                <button
+                  className={`fx-tab${inputMode === 'paste' ? ' active' : ''}`}
+                  onClick={() => setInputMode('paste')}
+                >
+                  <ClipboardList className="h-3 w-3" /> Paste
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Delimiter input */}
+                <div className="flex items-center gap-1.5">
+                  <span className="fx-section-label text-[10px]">Delim:</span>
+                  <input
+                    type="text"
+                    value={delimiter}
+                    onChange={(e) => setDelimiter(e.target.value)}
+                    className="fx-input py-1 text-center w-12"
+                    title="Enter custom delimiter (e.g. |, SOH, or leave empty for Auto)"
+                    placeholder="Auto"
+                    maxLength={10}
+                  />
+                </div>
+
+                {/* Sort select */}
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  className="fx-input py-1.5 text-[11px]"
+                  title="Sort Order"
+                >
+                  <option value="asc">Asc</option>
+                  <option value="desc">Desc</option>
+                </select>
+
+                {/* Process button */}
+                <button
+                  onClick={processLogs}
+                  disabled={inputMode === "file" ? (files.length === 0 || isProcessing) : (!pastedText.trim() || isProcessing)}
+                  className="fx-btn-primary py-1.5 px-3"
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  {isProcessing ? 'Sorting…' : 'Process'}
+                </button>
+              </div>
+            </div>
+
+            {/* Input area */}
+            <div className="p-5 space-y-4">
+              {inputMode === "file" ? (
+                <div className="space-y-3">
+                  <div
+                    {...getRootProps()}
+                    className="border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all"
+                    style={{
+                      borderColor: isDragActive ? 'var(--primary)' : 'var(--border)',
+                      background: isDragActive ? 'var(--primary-faint)' : 'var(--background)',
+                    }}
+                  >
+                    <input {...getInputProps()} />
+                    <UploadCloud
+                      className="h-10 w-10 mx-auto mb-3"
+                      style={{ color: isDragActive ? 'var(--primary)' : 'var(--text-muted)' }}
+                    />
+                    <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                      {isDragActive ? 'Drop files here' : 'Drag & drop session logs'}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      Accepts .txt · .fix · .log
+                    </p>
+                  </div>
+
+                  {files.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="fx-section-label">Queue ({files.length})</p>
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {files.map((f) => (
+                          <div
+                            key={f.name}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                            style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+                          >
+                            <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--primary)' }} />
+                            <span className="truncate flex-1 font-mono" style={{ color: 'var(--foreground)' }}>
+                              {f.name}
+                            </span>
+                            <button
+                              onClick={() => removeFile(f.name)}
+                              className="transition-colors"
+                              style={{ color: 'var(--text-muted)' }}
+                              onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+                              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <textarea
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  placeholder={"Paste raw FIX logs (one per line)…\ne.g. 8=FIX.4.2|9=65|35=A|...\n    8=FIX.4.2\x019=85\x0135=D|..."}
+                  className="w-full h-64 p-4 rounded-xl resize-none text-xs font-mono"
+                  style={{
+                    background: 'var(--background)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--foreground)',
+                    outline: 'none',
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                />
+              )}
+            </div>
+
+            {/* Sorting rules hint */}
+            <div
+              className="mx-5 mb-5 p-4 rounded-xl space-y-2"
+              style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+            >
+              <div className="flex items-center gap-1.5 fx-section-label">
+                <Info className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
+                Sorting Rules Applied
+              </div>
+              <ol className="space-y-1 text-xs pl-1" style={{ color: 'var(--text-muted)' }}>
+                <li>1. Timestamp (tag 90052, fallback tag 52)</li>
+                <li>2. ClOrderID cluster grouping (tag 11)</li>
+                <li>3. Message execution flow hierarchy</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Output (8/12) */}
+        <div className="lg:col-span-8">
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
+          >
+            {/* Output panel header */}
+            <div
+              className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
+            >
+              <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                Processed Logs View
+              </h2>
+              <div className="relative w-full sm:w-60">
+                <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none" style={{ color: 'var(--text-muted)' }}>
+                  <Search className="h-3.5 w-3.5" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Filter messages (tag=val)…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs font-mono"
+                  style={{
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--foreground)',
+                    outline: 'none',
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                />
+              </div>
+            </div>
+
+            <div className="p-5">
+              {files.length > 0 ? (
+                <div className="space-y-3">
+                  {files.map((fileObj, fIdx) => {
+                    const filteredLines = fileObj.parsedLines.filter((l) =>
+                      l.content.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+                    return (
+                      <details
+                        key={fileObj.name}
+                        open={fIdx === 0}
+                        className="group rounded-xl overflow-hidden"
+                        style={{ border: '1px solid var(--border)' }}
+                      >
+                        <summary
+                          className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none transition-all"
+                          style={{ background: 'var(--background)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--card-hover)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'var(--background)'}
+                        >
+                          <div className="flex items-center gap-2 text-sm font-semibold font-mono" style={{ color: 'var(--foreground)' }}>
+                            <FileText className="h-4 w-4" style={{ color: 'var(--primary)' }} />
+                            <span>{fileObj.name}</span>
+                            <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+                              ({filteredLines.length} msgs)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => { e.preventDefault(); downloadFile(fileObj); }}
+                              className="p-1.5 rounded-lg transition-all"
+                              title="Download file"
+                              style={{ color: 'var(--text-muted)' }}
+                              onMouseEnter={e => { e.stopPropagation(); e.currentTarget.style.color = 'var(--foreground)'; }}
+                              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                            <ChevronDown
+                              className="h-4 w-4 group-open:rotate-180 transition-transform duration-200"
+                              style={{ color: 'var(--text-muted)' }}
+                            />
+                          </div>
+                        </summary>
+
+                        <div className="p-3" style={{ borderTop: '1px solid var(--border)' }}>
+                          {filteredLines.length === 0 ? (
+                            <p className="text-xs text-center py-6 italic" style={{ color: 'var(--text-muted)' }}>
+                              No messages matching filter.
+                            </p>
+                          ) : (
+                            <div className="font-mono text-[11px] leading-relaxed max-h-96 overflow-y-auto space-y-0.5 pr-1">
+                              {filteredLines.map((lineObj, lineIdx) => {
+                                const hasErr = lineObj.validation && !lineObj.validation.isValid;
+                                const isSelected = selectedLineInfo?.id === lineObj.id;
+                                return (
+                                  <div
+                                    key={lineObj.id}
+                                    onClick={() => setSelectedLineInfo(lineObj)}
+                                    className="group/line flex items-start gap-3 px-2 py-1.5 rounded-lg cursor-pointer transition-all"
+                                    style={{
+                                      background: isSelected
+                                        ? 'var(--primary-faint)'
+                                        : hasErr
+                                          ? 'rgba(239,68,68,0.05)'
+                                          : 'transparent',
+                                      border: isSelected
+                                        ? '1px solid var(--primary-border)'
+                                        : hasErr
+                                          ? '1px solid rgba(239,68,68,0.15)'
+                                          : '1px solid transparent',
+                                      color: isSelected ? 'var(--primary)' : hasErr ? '#fca5a5' : 'var(--text-muted)',
+                                    }}
+                                  >
+                                    <span className="text-[10px] min-w-[22px] text-right mt-0.5 select-none" style={{ color: 'var(--text-faint)' }}>
+                                      {lineIdx + 1}
+                                    </span>
+                                    <span className="mt-1.5 select-none">
+                                      {hasErr ? (
+                                        <span className="block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                      ) : (
+                                        <span
+                                          className="block w-1.5 h-1.5 rounded-full transition-colors"
+                                          style={{ background: isSelected ? 'var(--primary)' : 'var(--border)' }}
+                                        />
+                                      )}
+                                    </span>
+                                    <span className="break-all flex-1" style={{ color: isSelected ? 'var(--primary)' : 'var(--foreground)' }}>
+                                      {lineObj.content}
+                                    </span>
+                                    <span
+                                      className="opacity-0 group-hover/line:opacity-100 transition-opacity shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
+                                      style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--primary)' }}
+                                    >
+                                      <Eye className="h-3 w-3" /> Inspect
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  className="flex flex-col items-center justify-center py-20 rounded-xl"
+                  style={{ border: '2px dashed var(--border)' }}
+                >
+                  <FileText className="h-12 w-12 mb-4" style={{ color: 'var(--text-faint)' }} />
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+                    No log files uploaded yet
+                  </p>
+                  <p className="text-xs mt-1 text-center max-w-xs" style={{ color: 'var(--text-faint)' }}>
+                    Drag and drop a FIX trading session log or paste raw messages in the panel on the left.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating Inspector Panel */}
+      {selectedLineInfo && (
+        <div
+          className="fixed inset-y-0 right-0 w-full sm:w-[480px] shadow-2xl z-50 flex flex-col"
+          style={{
+            background: 'var(--card)',
+            borderLeft: '1px solid var(--border)',
+          }}
+        >
+          {/* Inspector header */}
+          <div
+            className="flex items-center justify-between px-6 py-4"
+            style={{ borderBottom: '1px solid var(--border)' }}
+          >
+            <div>
+              <h3 className="text-base font-bold" style={{ color: 'var(--foreground)' }}>
+                Message Inspector
+              </h3>
+              <p className="text-xs font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                Seq: {selectedLineInfo.validation?.msgSeqNum || 'N/A'} · Type: {selectedLineInfo.msgType || 'Unknown'}
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedLineInfo(null)}
+              className="h-8 w-8 rounded-lg flex items-center justify-center transition-all"
+              style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--foreground)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            {/* Validation status */}
+            <div>
+              <p className="fx-section-label mb-2">Diagnostics</p>
+              {selectedLineInfo.validation?.errors?.length > 0 ? (
+                <div
+                  className="p-4 rounded-xl space-y-2"
+                  style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#f87171' }}>
+                    <AlertTriangle className="h-4 w-4" /> Message Corrupted or Invalid
+                  </div>
+                  <ul className="text-xs space-y-1 font-mono" style={{ color: '#fca5a5' }}>
+                    {selectedLineInfo.validation.errors.map((err, idx) => (
+                      <li key={idx}>· {err}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div
+                  className="p-4 rounded-xl flex items-center gap-2 text-xs font-semibold"
+                  style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)', color: 'var(--primary)' }}
+                >
+                  <CheckCircle className="h-4 w-4" /> Checksum &amp; Length Validation Passed
+                </div>
+              )}
+            </div>
+
+            {/* Meta grid */}
+            <div
+              className="grid grid-cols-2 gap-4 p-4 rounded-xl text-xs font-mono"
+              style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+            >
+              <div>
+                <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>Parsed Timestamp</span>
+                <span className="font-semibold" style={{ color: 'var(--foreground)' }}>
+                  {selectedLineInfo.timestampObj.getTime() === 0 ? 'N/A' : selectedLineInfo.timestampObj.toISOString()}
+                </span>
+              </div>
+              <div>
+                <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>ClOrdID (Tag 11)</span>
+                <span className="font-semibold break-all" style={{ color: 'var(--foreground)' }}>
+                  {selectedLineInfo.clOrdID || 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            {/* Tags table */}
+            <div>
+              <p className="fx-section-label mb-2">
+                Tag Breakdown ({selectedLineInfo.validation?.tagList?.length || 0} fields)
+              </p>
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                <table className="w-full text-xs font-mono">
+                  <thead>
+                    <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                      <th className="py-2.5 px-3 text-left font-semibold">Tag</th>
+                      <th className="py-2.5 px-3 text-left font-semibold">Field Name</th>
+                      <th className="py-2.5 px-3 text-left font-semibold">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedLineInfo.validation?.tagList?.map((t, idx) => {
+                      const isCrucial = ['8', '9', '35', '11', '10', '52', '90052'].includes(t.tag);
+                      return (
+                        <tr
+                          key={idx}
+                          style={{
+                            borderBottom: '1px solid var(--border-subtle)',
+                            background: isCrucial ? 'var(--primary-faint)' : 'transparent',
+                          }}
+                        >
+                          <td
+                            className="py-2 px-3 font-bold"
+                            style={{ color: isCrucial ? 'var(--primary)' : 'var(--foreground)' }}
+                          >
+                            {t.tag}
+                          </td>
+                          <td className="py-2 px-3" style={{ color: 'var(--text-muted)' }}>
+                            {t.name}
+                          </td>
+                          <td className="py-2 px-3 truncate max-w-[130px]" style={{ color: 'var(--foreground)' }} title={t.val}>
+                            {t.meaning !== t.val ? (
+                              <span
+                                className="underline decoration-dotted"
+                                style={{ color: 'var(--primary)' }}
+                                title={`Mapped: ${t.meaning}`}
+                              >
+                                {t.val}
+                              </span>
+                            ) : t.val}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Raw payload */}
+          <div className="px-6 py-4" style={{ borderTop: '1px solid var(--border)' }}>
+            <p className="fx-section-label mb-2">Raw Payload</p>
+            <div
+              className="p-3 rounded-lg text-[10px] break-all font-mono max-h-20 overflow-y-auto"
+              style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+            >
+              {selectedLineInfo.content}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
