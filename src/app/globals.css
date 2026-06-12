@@ -21,10 +21,10 @@
   --text-muted:    #71717a;
   --text-faint:    #3f3f46;
 
-  --primary:       #10b981;
-  --primary-hover: #059669;
-  --primary-faint: rgba(16,185,129,0.08);
-  --primary-border:rgba(16,185,129,0.2);
+  --primary:       #f0fffa;
+  --primary-hover: #bdc8c4;
+  --primary-faint: rgba(250, 253, 254, 0.08);
+  --primary-border:rgba(250, 253, 254, 0.2);
 
   --font-scale: 1.0;
 }

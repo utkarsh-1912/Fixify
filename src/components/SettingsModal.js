@@ -37,13 +37,13 @@ const themes = [
     id: 'dark',
     name: 'Dark Slate',
     desc: 'Emerald accent',
-    preview: { bg: '#09090b', card: '#111113', accent: '#10b981' }
+    preview: { bg: '#09090b', card: '#111113', accent: '#ffffff' }
   },
   {
     id: 'light',
     name: 'Light',
     desc: 'Blue accent',
-    preview: { bg: '#f8fafc', card: '#ffffff', accent: '#2563eb' }
+    preview: { bg: '#f8fafc', card: '#ffffff', accent: '#000000' }
   },
   {
     id: 'matrix',
