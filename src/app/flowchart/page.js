@@ -773,7 +773,7 @@ function FlowchartPage() {
             onClick={deleteSelected}
             className="w-full py-2 bg-red-600 hover:bg-red-500 font-bold rounded-xl text-white text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0"
           >
-            <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Delete Component</span>
+            <Trash2 className="h-4 w-4" /> <span className="inline">Delete Component</span>
           </button>
         </div>
       );
@@ -796,7 +796,7 @@ function FlowchartPage() {
             onClick={deleteSelectedEdge}
             className="w-full py-2 bg-red-600 hover:bg-red-500 font-bold rounded-xl text-white text-xs transition-colors flex items-center justify-center gap-1.5"
           >
-            <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Delete Connection</span>
+            <Trash2 className="h-4 w-4" /> <span className="inline">Delete Connection</span>
           </button>
         </div>
       );
@@ -921,7 +921,7 @@ function FlowchartPage() {
               className="w-full fx-btn-primary justify-center"
               style={{ width: '100%' }}
             >
-              <Upload className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Log to Sequence</span>
+              <Upload className="h-3.5 w-3.5" /> <span className="inline">Log to Sequence</span>
             </button>
           </div>
 
@@ -934,7 +934,7 @@ function FlowchartPage() {
               className="w-full fx-btn-secondary justify-center"
               style={{ width: '100%' }}
             >
-              <Share2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Export</span>
+              <Share2 className="h-3.5 w-3.5" /> <span className="inline">Export</span>
             </button>
             <input
               type="file"
@@ -948,14 +948,14 @@ function FlowchartPage() {
               className="w-full fx-btn-secondary justify-center"
               style={{ width: '100%' }}
             >
-              <Upload className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Import</span>
+              <Upload className="h-3.5 w-3.5" /> <span className="inline">Import</span>
             </button>
             <button
               onClick={resetChart}
               className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
               style={{ border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)', color: '#f87171' }}
             >
-              <Trash2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Clear</span>
+              <Trash2 className="h-3.5 w-3.5" /> <span className="inline">Clear</span>
             </button>
           </div>
         </aside>
@@ -1000,13 +1000,13 @@ function FlowchartPage() {
                 onClick={() => autoArrange("LR")}
                 className="flex-1 fx-btn-secondary justify-center text-[11px]"
               >
-                <Layout className="h-3 w-3 rotate-90" /> <span className="hidden sm:inline">L→R</span>
+                <Layout className="h-3 w-3 rotate-90" /> <span className="inline">L→R</span>
               </button>
               <button
                 onClick={() => autoArrange("TB")}
                 className="flex-1 fx-btn-secondary justify-center text-[11px]"
               >
-                <Layout className="h-3 w-3" /> <span className="hidden sm:inline">T→B</span>
+                <Layout className="h-3 w-3" /> <span className="inline">T→B</span>
               </button>
             </div>
           </div>
