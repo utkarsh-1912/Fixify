@@ -10,21 +10,21 @@ export default function ContactPage() {
       title: "General & Integration Support",
       desc: "For general inquiries, account setup help, or custom client onboarding assistance.",
       actionLabel: "Email Integration Support",
-      href: "mailto:support@fixify.app?subject=[FIXify Support Inquiry]"
+      href: "mailto:support@fixify.co.au?subject=[FIXify Support Inquiry]"
     },
     {
       icon: Terminal,
       title: "Developer & Schema Dictionary Desk",
       desc: "For submitting custom FIX dictionaries, reports, or tag mapping specification requests.",
       actionLabel: "Email Schema Team",
-      href: "mailto:support@fixify.app?subject=[FIXify Schema Customization]"
+      href: "mailto:support@fixify.co.au?subject=[FIXify Schema Customization]"
     },
     {
       icon: ShieldCheck,
       title: "Security & Compliance Auditing",
       desc: "For inquiries regarding browser containment, sandboxed scripts, or self-hosted builds.",
       actionLabel: "Email Security Team",
-      href: "mailto:security@fixify.app?subject=[FIXify Security Verification]"
+      href: "mailto:security@fixify.co.au?subject=[FIXify Security Verification]"
     }
   ];
 
@@ -114,7 +114,7 @@ export default function ContactPage() {
           >
             <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider">Direct General Address</span>
             <div className="text-sm font-bold font-mono select-all text-[var(--primary)]">
-              support@fixify.app
+              support@fixify.co.au
             </div>
           </div>
         </div>
