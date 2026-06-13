@@ -18,8 +18,6 @@ import {
   Eye,
   EyeOff,
   Terminal,
-  Activity,
-  ArrowRight,
   Pin,
   Smile,
   Volume2,
@@ -28,7 +26,7 @@ import {
   Hash,
   X,
   Menu,
-  ChevronLeft
+  MoreVertical
 } from "lucide-react";
 import { encryptMessage, decryptMessage } from "@/lib/cipher";
 
@@ -101,16 +99,16 @@ export default function RoomChatPage({ params }) {
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isDesktopSidebar, setIsDesktopSidebar] = useState(true);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
+  // Track mobile vs desktop
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const checkSize = () => {
-      setIsDesktopSidebar(window.innerWidth >= 1024);
-    };
-    checkSize();
-    window.addEventListener("resize", checkSize);
-    return () => window.removeEventListener("resize", checkSize);
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
   
   // Custom picker & reaction states
@@ -120,6 +118,8 @@ export default function RoomChatPage({ params }) {
   const [activeReactionMsgId, setActiveReactionMsgId] = useState(null);
   const [reactionSearch, setReactionSearch] = useState("");
   const [flashedMessageId, setFlashedMessageId] = useState(null);
+  // Tap-to-show reaction tray for touch devices
+  const [tappedMessageId, setTappedMessageId] = useState(null);
 
   // Active user identity tracker
   const [userId] = useState(() => {
@@ -644,6 +644,26 @@ export default function RoomChatPage({ params }) {
     }, 10);
   };
 
+  // Tap handler for mobile — toggles reaction tray on tap
+  const handleMessageTap = (msgId) => {
+    if (!isMobile) return;
+    setTappedMessageId(prev => prev === msgId ? null : msgId);
+  };
+
+  // Dismiss tapped message tray on outside tap
+  useEffect(() => {
+    if (!tappedMessageId || !isMobile) return;
+    const handler = (e) => {
+      const tray = document.getElementById(`reaction-tray-${tappedMessageId}`);
+      const msg = document.getElementById(`chat-msg-${tappedMessageId}`);
+      if (tray && !tray.contains(e.target) && msg && !msg.contains(e.target)) {
+        setTappedMessageId(null);
+      }
+    };
+    document.addEventListener("touchstart", handler);
+    return () => document.removeEventListener("touchstart", handler);
+  }, [tappedMessageId, isMobile]);
+
   const pinnedMessages = messages.filter(m => m.isPinned);
 
   if (!isLoaded) {
@@ -654,37 +674,39 @@ export default function RoomChatPage({ params }) {
     );
   }
 
+  // ────────────────────────────────────────────────────────────────
   // LOBBY CARD: Render credentials login form if not joined
+  // ────────────────────────────────────────────────────────────────
   if (!isJoined) {
     return (
-      <div className="space-y-6 max-w-screen-2xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 max-w-screen-2xl mx-auto px-0">
         <div className="fx-page-header">
           <div className="space-y-1.5">
-            <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
               Room Access Required
             </h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-xs sm:text-sm" style={{ color: 'var(--text-muted)' }}>
               Enter room credentials to decrypt communication stream for room <span className="font-mono text-[var(--primary)] font-bold">#{roomId}</span>.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-center min-h-[45vh] p-4">
+        <div className="flex items-center justify-center min-h-[40vh] sm:min-h-[45vh] p-2 sm:p-4">
           <div
-            className="w-full max-w-md p-6 rounded-2xl space-y-6 shadow-2xl"
+            className="w-full max-w-md p-4 sm:p-6 rounded-2xl space-y-5 sm:space-y-6 shadow-2xl"
             style={{ background: "var(--card)", border: "1px solid var(--border)" }}
           >
             <div className="text-center space-y-2">
               <div
-                className="mx-auto h-12 w-12 rounded-2xl flex items-center justify-center"
+                className="mx-auto h-11 w-11 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center"
                 style={{ background: "var(--primary-faint)", border: "1px solid var(--primary-border)" }}
               >
-                <Shield className="h-6 w-6" style={{ color: "var(--primary)" }} />
+                <Shield className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: "var(--primary)" }} />
               </div>
-              <h2 className="text-lg font-bold tracking-tight" style={{ color: "var(--foreground)", fontFamily: "var(--font-mono)" }}>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight" style={{ color: "var(--foreground)", fontFamily: "var(--font-mono)" }}>
                 Room Lobby: #{roomId}
               </h2>
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-[10px] sm:text-xs text-[var(--text-muted)]">
                 Provide decryption key and username to start messaging.
               </p>
             </div>
@@ -739,8 +761,9 @@ export default function RoomChatPage({ params }) {
     );
   }
 
-  // ACTIVE CHAT VIEW: Styled like Slack/Discord Group Channels
-  // Sidebar content shared between desktop aside and mobile drawer
+  // ────────────────────────────────────────────────────────────────
+  // SIDEBAR CONTENT (shared by desktop aside & mobile drawer)
+  // ────────────────────────────────────────────────────────────────
   const sidebarContent = (
     <>
       {/* Sidebar Header */}
@@ -776,7 +799,7 @@ export default function RoomChatPage({ params }) {
               >
                 <button
                   onClick={() => { switchRoom(room); setIsSidebarOpen(false); }}
-                  className="flex-1 text-xs font-mono px-3 py-2 rounded-xl transition-all flex items-center justify-between text-left pr-8 cursor-pointer"
+                  className="flex-1 text-xs font-mono px-3 py-2.5 rounded-xl transition-all flex items-center justify-between text-left pr-8 cursor-pointer"
                   style={{
                     background: isActive ? "var(--primary-faint)" : "transparent",
                     border: isActive ? "1px solid var(--primary-border)" : "1px solid transparent",
@@ -806,7 +829,7 @@ export default function RoomChatPage({ params }) {
       <div style={{ borderTop: "1px solid var(--border)" }} />
 
       {/* Active Members list */}
-      <div className="flex flex-col flex-1 min-h-[180px]">
+      <div className="flex flex-col flex-1 min-h-[160px]">
         <p className="text-[10px] uppercase tracking-wider font-mono text-zinc-500 font-bold px-1 mb-2">
           Members online ({analytics.present.length})
         </p>
@@ -842,11 +865,33 @@ export default function RoomChatPage({ params }) {
           </div>
         )}
       </div>
+
+      {/* Quick actions at sidebar bottom */}
+      <div className="md:hidden mt-auto pt-3 border-t space-y-2" style={{ borderColor: "var(--border)" }}>
+        <button
+          onClick={() => { setIsSidebarOpen(false); setShowInfoDrawer(true); }}
+          className="w-full flex items-center gap-2 text-[11px] font-mono px-3 py-2 rounded-xl transition-all hover:bg-zinc-800/30 text-zinc-400 hover:text-zinc-200"
+        >
+          <Info className="h-3.5 w-3.5" /> Room Info
+        </button>
+        <button
+          onClick={() => { setIsSidebarOpen(false); handleLeaveRoom(); }}
+          className="w-full flex items-center gap-2 text-[11px] font-mono px-3 py-2 rounded-xl transition-all hover:bg-red-500/10 text-red-400/80 hover:text-red-400"
+        >
+          <LogOut className="h-3.5 w-3.5" /> Leave Room
+        </button>
+      </div>
     </>
   );
 
+  // ────────────────────────────────────────────────────────────────
+  // ACTIVE CHAT VIEW
+  // ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-[calc(100vh-120px)] max-w-screen-2xl mx-auto items-stretch relative gap-0 lg:gap-6">
+    <div
+      className="flex max-w-screen-2xl mx-auto items-stretch relative gap-0 lg:gap-6"
+      style={{ height: "calc(100dvh - 100px)" }}
+    >
 
       {/* ── MOBILE SIDEBAR BACKDROP ── */}
       {isSidebarOpen && (
@@ -859,127 +904,186 @@ export default function RoomChatPage({ params }) {
       {/* ── LEFT SIDEBAR: static on desktop, slide-in drawer on mobile ── */}
       <aside
         className={[
-          // shared styles
-          "flex flex-col gap-5 p-4 rounded-2xl overflow-y-auto",
-          // desktop: static in flex row
-          "lg:static lg:translate-x-0 lg:w-72 lg:max-h-full lg:shrink-0 lg:z-auto",
-          // mobile: fixed drawer slides in from left
-          "fixed inset-y-0 left-0 z-40 w-72 max-h-full",
+          "flex flex-col gap-4 p-4 overflow-y-auto",
+          // Desktop: static in flex row with rounded card
+          "lg:static lg:translate-x-0 lg:w-72 lg:max-h-full lg:shrink-0 lg:z-auto lg:rounded-2xl",
+          // Mobile: fixed full-height drawer from left (no rounding on mobile)
+          "fixed inset-y-0 left-0 z-40 w-[280px] max-w-[85vw] rounded-none",
           "transition-transform duration-300 ease-in-out",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         ].join(" ")}
-        style={{ border: "1px solid var(--border)", background: "var(--card)", top: 0 }}
+        style={{ border: "1px solid var(--border)", background: "var(--card)" }}
       >
         {sidebarContent}
       </aside>
 
       {/* ── RIGHT COLUMN: Active Chat Room Panel ── */}
-      <section className="flex-1 flex flex-col h-full gap-4 relative min-w-0">
+      <section className="flex-1 flex flex-col h-full gap-0 sm:gap-3 relative min-w-0">
 
-        {/* Active Room Header */}
+        {/* ─── HEADER BAR ─── */}
         <div
-          className="p-3 sm:p-4 rounded-2xl flex items-center justify-between gap-3 shadow-sm flex-wrap"
-          style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+          className="px-3 py-2.5 sm:p-4 sm:rounded-2xl flex items-center justify-between gap-2 shadow-sm shrink-0"
+          style={{ border: "1px solid var(--border)", background: "var(--card)", borderRadius: isMobile ? "0 0 16px 16px" : undefined }}
         >
-          {/* Left group: hamburger (mobile) + room title */}
-          <div className="flex items-center gap-3 min-w-0">
+          {/* Left: hamburger + room info */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Hamburger — mobile only */}
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl hover:bg-zinc-800/40 text-zinc-400 hover:text-zinc-100 transition-colors shrink-0"
+              className="lg:hidden p-1.5 rounded-xl hover:bg-zinc-800/40 text-zinc-400 hover:text-zinc-100 transition-colors shrink-0"
               title="Open channels sidebar"
             >
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2 flex-wrap" style={{ color: "var(--foreground)" }}>
+            {/* Room identity */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <div
-                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center shrink-0"
+                  className="h-6 w-6 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: "var(--primary-faint)", border: "1px solid var(--primary-border)" }}
                 >
-                  <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ color: "var(--primary)" }} />
+                  <Lock className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: "var(--primary)" }} />
                 </div>
-                <span className="truncate max-w-[140px] sm:max-w-none">#{roomId}</span>
+                <h1 className="text-sm sm:text-lg font-bold tracking-tight truncate" style={{ color: "var(--foreground)" }}>
+                  #{roomId}
+                </h1>
                 <span
-                  className="text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full uppercase font-mono tracking-wider flex items-center gap-1 shrink-0"
+                  className="hidden sm:flex text-[9px] font-bold px-2 py-0.5 rounded-full uppercase font-mono tracking-wider items-center gap-1 shrink-0"
                   style={{
                     background: "rgba(16,185,129,0.08)",
                     border: "1px solid rgba(16,185,129,0.2)",
                     color: "var(--primary)"
                   }}
                 >
-                  <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> E2EE
+                  <CheckCircle className="h-3 w-3" /> E2EE
                 </span>
-              </h1>
+              </div>
 
-              <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 mt-1">
-                <span className="flex items-center gap-1">
+              {/* Status row — compact on mobile */}
+              <div className="flex items-center gap-1.5 sm:gap-2 text-xs font-mono text-zinc-400 mt-1 md:mt-2">
+                <span className="flex items-center gap-0.5">
                   {isPollingActive ? (
                     <>
-                      <Wifi className="h-3 w-3 text-emerald-400" />
-                      <span className="text-emerald-400 text-[10px]">Live</span>
+                      <Wifi className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-400" />
+                      <span className="text-emerald-400 text-[9px] sm:text-[10px]">Live</span>
                     </>
                   ) : (
                     <>
-                      <WifiOff className="h-3 w-3 text-amber-500" />
-                      <span className="text-amber-500 font-bold text-[10px]">Offline</span>
+                      <WifiOff className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-500" />
+                      <span className="text-amber-500 font-bold text-[9px] sm:text-[10px]">Offline</span>
                     </>
                   )}
                 </span>
-                <span className="text-zinc-700">·</span>
-                <span className="flex items-center gap-1 text-[var(--primary)] font-semibold text-[10px]">
-                  <Users className="h-3 w-3" />
-                  <span>{analytics.present.length} online</span>
+                <span className="text-zinc-700 text-[8px]">·</span>
+                <span className="flex items-center gap-0.5 text-[var(--primary)] font-semibold text-[9px] sm:text-[10px]">
+                  <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                  {analytics.present.length}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Right group: action buttons */}
-          <div className="flex gap-1.5 sm:gap-2 shrink-0 items-center">
-            {/* Pinned messages shortcut */}
+          {/* Right: action buttons */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Pinned messages — always show icon if pinned exist */}
             {pinnedMessages.length > 0 && (
               <button
                 onClick={() => setShowPinnedDrawer(true)}
-                className="fx-btn-secondary px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5"
+                className="fx-btn-secondary px-1.5 sm:px-2.5 py-1.5 text-xs flex items-center gap-1"
                 title="Pinned messages"
               >
                 <Pin className="h-3.5 w-3.5 fill-[var(--primary)] text-[var(--primary)]" />
-                <span className="hidden sm:inline text-[var(--primary)] font-semibold">{pinnedMessages.length}</span>
+                <span className="hidden sm:inline text-[var(--primary)] font-semibold text-[10px]">{pinnedMessages.length}</span>
               </button>
             )}
-            {/* Info toggle button */}
+
+            {/* Desktop-only buttons */}
             <button
               onClick={() => setShowInfoDrawer(true)}
-              className="fx-btn-secondary px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5"
+              className="hidden sm:flex fx-btn-secondary px-2.5 py-1.5 text-xs items-center gap-1.5"
               title="View room configuration & logs"
             >
-              <Info className="h-3.5 w-3.5 text-[var(--primary)]" /> <span className="hidden sm:inline">Room Info</span>
+              <Info className="h-3.5 w-3.5 text-[var(--primary)]" /> <span className="hidden md:inline">Room Info</span>
             </button>
-            <button onClick={clearChatHistory} className="fx-btn-secondary px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5">
-              <Trash2 className="h-3.5 w-3.5 text-red-400" /> <span className="hidden sm:inline">Clear</span>
+            <button
+              onClick={clearChatHistory}
+              className="hidden sm:flex fx-btn-secondary px-2.5 py-1.5 text-xs items-center gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-red-400" /> <span className="hidden md:inline">Clear</span>
             </button>
-            <button onClick={handleLeaveRoom} className="fx-btn-secondary border-red-500/20 text-red-400 hover:bg-red-500/5 px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5" title="Leave room">
-              <LogOut className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Leave</span>
+            <button
+              onClick={handleLeaveRoom}
+              className="hidden sm:flex fx-btn-secondary border-red-500/20 text-red-400 hover:bg-red-500/5 px-2.5 py-1.5 text-xs items-center gap-1.5"
+              title="Leave room"
+            >
+              <LogOut className="h-3.5 w-3.5" /> <span className="hidden md:inline">Leave</span>
             </button>
+
+            {/* Mobile overflow menu */}
+            <div className="relative sm:hidden">
+              <button
+                onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                className="p-1.5 rounded-xl hover:bg-zinc-800/40 text-zinc-400 hover:text-zinc-100 transition-colors"
+                title="More options"
+              >
+                <MoreVertical className="h-5 w-5" />
+              </button>
+
+              {showHeaderMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowHeaderMenu(false)} />
+                  <div
+                    className="absolute right-0 top-full mt-1.5 z-40 w-48 rounded-xl p-1.5 shadow-2xl space-y-0.5"
+                    style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+                  >
+                    <button
+                      onClick={() => { setShowHeaderMenu(false); setShowInfoDrawer(true); }}
+                      className="w-full flex items-center gap-2 text-[11px] font-mono px-3 py-2 rounded-lg hover:bg-zinc-800/30 text-zinc-300 transition-colors"
+                    >
+                      <Info className="h-3.5 w-3.5 text-[var(--primary)]" /> Room Info
+                    </button>
+                    <button
+                      onClick={() => { setShowHeaderMenu(false); clearChatHistory(); }}
+                      className="w-full flex items-center gap-2 text-[11px] font-mono px-3 py-2 rounded-lg hover:bg-zinc-800/30 text-zinc-300 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-400" /> Clear History
+                    </button>
+                    <button
+                      onClick={() => { setShowHeaderMenu(false); toggleMute(); }}
+                      className="w-full flex items-center gap-2 text-[11px] font-mono px-3 py-2 rounded-lg hover:bg-zinc-800/30 text-zinc-300 transition-colors"
+                    >
+                      {isMuted ? <VolumeX className="h-3.5 w-3.5 text-red-400" /> : <Volume2 className="h-3.5 w-3.5 text-[var(--primary)]" />}
+                      {isMuted ? "Unmute" : "Mute"} Sounds
+                    </button>
+                    <div style={{ borderTop: "1px solid var(--border)", margin: "2px 0" }} />
+                    <button
+                      onClick={() => { setShowHeaderMenu(false); handleLeaveRoom(); }}
+                      className="w-full flex items-center gap-2 text-[11px] font-mono px-3 py-2 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors"
+                    >
+                      <LogOut className="h-3.5 w-3.5" /> Leave Room
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Message Screen */}
+        {/* ─── MESSAGE STREAM ─── */}
         <div
           ref={messageContainerRef}
-          className="flex-1 overflow-y-auto p-5 space-y-5 rounded-2xl min-h-0"
-          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+          className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-5 sm:rounded-2xl min-h-0"
+          style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: isMobile ? 0 : undefined }}
         >
           {messages.length === 0 && (
             <div
               className="flex flex-col items-center justify-center h-full py-10 rounded-xl"
               style={{ border: "2px dashed var(--border)", color: "var(--text-muted)" }}
             >
-              <MessageSquare className="h-10 w-10 mb-3" style={{ color: "var(--text-faint)" }} />
-              <p className="text-sm">No messages in channel #{roomId} — start the conversation!</p>
-              <p className="text-[10px] mt-1 opacity-70">All messages sent here are end-to-end encrypted.</p>
+              <MessageSquare className="h-8 w-8 sm:h-10 sm:w-10 mb-3" style={{ color: "var(--text-faint)" }} />
+              <p className="text-xs sm:text-sm text-center px-4">No messages in channel #{roomId} — start the conversation!</p>
+              <p className="text-[9px] sm:text-[10px] mt-1 opacity-70">All messages sent here are end-to-end encrypted.</p>
             </div>
           )}
           {messages.map((m) => {
@@ -987,6 +1091,7 @@ export default function RoomChatPage({ params }) {
             const time = new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
             const decryptedText = decryptMessage(m.text, secretKey);
             const isDecryptionFailed = decryptedText.includes("Decryption Failed");
+            const showTray = isMobile ? tappedMessageId === m.id : true;
 
             return (
               <div 
@@ -998,8 +1103,9 @@ export default function RoomChatPage({ params }) {
                   boxShadow: flashedMessageId === m.id ? "0 0 0 2px var(--primary)" : "none",
                   padding: flashedMessageId === m.id ? "6px" : "0px",
                 }}
+                onClick={() => handleMessageTap(m.id)}
               >
-                <div className="relative max-w-xl w-fit">
+                <div className="relative max-w-[85vw] sm:max-w-xl w-fit">
                   
                   {/* Pin label indicator */}
                   {m.isPinned && (
@@ -1020,7 +1126,7 @@ export default function RoomChatPage({ params }) {
 
                   {/* Message Bubble */}
                   <div
-                    className="rounded-2xl px-4 py-3 break-words whitespace-pre-wrap shadow-sm relative"
+                    className="rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 break-words whitespace-pre-wrap shadow-sm relative"
                     style={{
                       background: isSelf ? "var(--primary)" : "var(--background)",
                       border: `1px solid ${isDecryptionFailed ? "rgba(239, 68, 68, 0.3)" : m.isPinned ? "var(--primary-border)" : isSelf ? "transparent" : "var(--border)"}`,
@@ -1031,9 +1137,9 @@ export default function RoomChatPage({ params }) {
                       fontWeight: isSelf ? 600 : 400,
                     }}
                   >
-                    <p className="text-xs">{decryptedText}</p>
+                    <p className="text-[11px] sm:text-xs leading-relaxed">{decryptedText}</p>
                     <div
-                      className="text-[9px] mt-1 text-right"
+                      className="text-[8px] sm:text-[9px] mt-1 text-right"
                       style={{ color: isSelf ? "rgba(0,0,0,0.4)" : "var(--text-muted)" }}
                     >
                       {time}
@@ -1055,16 +1161,24 @@ export default function RoomChatPage({ params }) {
                     </div>
                   )}
 
-                  {/* Floating Options tray (OVERLAPS top boundary so it won't disappear when clicking!) */}
-                  <div className="absolute -top-3.5 right-4 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-150 z-20">
+                  {/* Floating Options tray — hover on desktop, tap on mobile */}
+                  <div
+                    id={`reaction-tray-${m.id}`}
+                    className={[
+                      "absolute -top-3.5 right-2 sm:right-4 z-20 transition-all duration-150",
+                      isMobile
+                        ? (showTray ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none")
+                        : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    ].join(" ")}
+                  >
                     <div
                       className="flex gap-0.5 px-1 py-1 rounded-xl shadow-lg items-center"
                       style={{ background: "var(--card)", border: "1px solid var(--border)" }}
                     >
                       {/* Toggle Pin button */}
                       <button
-                        onClick={() => handleTogglePin(m.id)}
-                        className="p-1 hover:bg-zinc-800/30 rounded transition-colors mr-1"
+                        onClick={(e) => { e.stopPropagation(); handleTogglePin(m.id); }}
+                        className="p-1 hover:bg-zinc-800/30 rounded transition-colors mr-0.5"
                         title={m.isPinned ? "Unpin message" : "Pin message"}
                       >
                         <Pin className={`h-3 w-3 ${m.isPinned ? "fill-[var(--primary)] text-[var(--primary)]" : "text-zinc-400 hover:text-zinc-200"}`} />
@@ -1074,7 +1188,7 @@ export default function RoomChatPage({ params }) {
                       {reactionEmojis.map((emoji) => (
                         <button
                           key={emoji}
-                          onClick={() => handleReaction(m.id, emoji)}
+                          onClick={(e) => { e.stopPropagation(); handleReaction(m.id, emoji); }}
                           className="hover:scale-125 transition-transform text-sm px-0.5"
                         >
                           {emoji}
@@ -1084,7 +1198,8 @@ export default function RoomChatPage({ params }) {
                       {/* Custom "+" Reaction Trigger */}
                       <div className="relative border-l border-zinc-800 pl-1 ml-0.5 flex items-center">
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setActiveReactionMsgId(activeReactionMsgId === m.id ? null : m.id);
                             setReactionSearch("");
                           }}
@@ -1096,7 +1211,7 @@ export default function RoomChatPage({ params }) {
 
                         {activeReactionMsgId === m.id && (
                           <>
-                            <div className="fixed inset-0 z-30" onClick={() => { setActiveReactionMsgId(null); setReactionSearch(""); }} />
+                            <div className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setActiveReactionMsgId(null); setReactionSearch(""); }} />
                             <div
                               className="absolute bottom-full mb-2 right-0 rounded-2xl p-2.5 shadow-2xl z-45 w-56 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150"
                               style={{ background: "var(--card)", border: "1px solid var(--border)" }}
@@ -1106,6 +1221,7 @@ export default function RoomChatPage({ params }) {
                                 placeholder="Search reaction..."
                                 value={reactionSearch}
                                 onChange={(e) => setReactionSearch(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
                                 className="w-full px-2 py-1 bg-zinc-950 border border-zinc-800 rounded-lg text-[9px] font-mono text-zinc-300 outline-none focus:border-emerald-500"
                               />
                               <div className="grid grid-cols-6 gap-1.5 max-h-24 overflow-y-auto pr-1">
@@ -1115,7 +1231,8 @@ export default function RoomChatPage({ params }) {
                                 ).map(emoji => (
                                   <button
                                     key={emoji}
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       handleReaction(m.id, emoji);
                                       setActiveReactionMsgId(null);
                                       setReactionSearch("");
@@ -1140,15 +1257,15 @@ export default function RoomChatPage({ params }) {
           <div ref={chatEndRef} />
         </div>
 
-        {/* Input area */}
+        {/* ─── INPUT AREA ─── */}
         <div
-          className="flex gap-3 items-end p-3 rounded-2xl relative"
-          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+          className="flex gap-2 sm:gap-3 items-end p-2 sm:p-3 sm:rounded-2xl relative shrink-0"
+          style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: isMobile ? "16px 16px 0 0" : undefined }}
         >
-          {/* Sound Toggle Button next to Input */}
+          {/* Sound Toggle Button */}
           <button
             onClick={toggleMute}
-            className="p-2 rounded-xl transition-all hover:bg-zinc-850/40 shrink-0"
+            className="hidden sm:flex p-2 rounded-xl transition-all hover:bg-zinc-850/40 shrink-0"
             style={{ color: isMuted ? "#f87171" : "var(--primary)" }}
             title={isMuted ? "Unmute sounds" : "Mute sounds"}
           >
@@ -1162,27 +1279,43 @@ export default function RoomChatPage({ params }) {
                 setIsEmojiPickerOpen(!isEmojiPickerOpen);
                 setEmojiSearch("");
               }}
-              className="p-2 rounded-xl transition-all hover:bg-zinc-850/40 text-zinc-400 hover:text-zinc-100"
+              className="p-1.5 sm:p-2 rounded-xl transition-all hover:bg-zinc-850/40 text-zinc-400 hover:text-zinc-100"
               title="Add emoji"
             >
               <Smile className="h-5 w-5" />
             </button>
 
-            {/* Custom Advanced Emoji Picker Popover */}
+            {/* Emoji Picker — Bottom sheet on mobile, Popover on desktop */}
             {isEmojiPickerOpen && (
               <>
-                <div className="fixed inset-0 z-30" onClick={() => { setIsEmojiPickerOpen(false); setEmojiSearch(""); }} />
                 <div
-                  className="absolute bottom-full mb-3 left-0 rounded-2xl p-3.5 shadow-2xl z-40 w-64 flex flex-col gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                  className="fixed inset-0 z-30"
+                  style={{ background: isMobile ? "rgba(0,0,0,0.5)" : "transparent" }}
+                  onClick={() => { setIsEmojiPickerOpen(false); setEmojiSearch(""); }}
+                />
+                <div
+                  className={[
+                    "z-40 flex flex-col gap-2.5 shadow-2xl",
+                    isMobile
+                      ? "fixed bottom-0 left-0 right-0 p-4 pb-6 rounded-t-3xl animate-in slide-in-from-bottom duration-200"
+                      : "absolute bottom-full mb-3 left-0 rounded-2xl p-3.5 w-64 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                  ].join(" ")}
                   style={{ background: "var(--card)", border: "1px solid var(--border)" }}
                 >
+                  {/* Drag handle on mobile */}
+                  {isMobile && (
+                    <div className="flex justify-center mb-1">
+                      <div className="w-10 h-1 rounded-full bg-zinc-700" />
+                    </div>
+                  )}
+
                   {/* Category Tabs */}
-                  <div className="flex gap-1 border-b border-zinc-850 pb-1.5 text-[9px] font-mono shrink-0">
+                  <div className="flex gap-1 border-b border-zinc-850 pb-1.5 text-[9px] sm:text-[10px] font-mono shrink-0">
                     {Object.keys(emojiCategories).map(cat => (
                       <button
                         key={cat}
                         onClick={() => setSelectedEmojiTab(cat)}
-                        className={`px-1.5 py-0.5 rounded transition-colors ${selectedEmojiTab === cat ? 'bg-zinc-800 text-[var(--primary)] font-bold' : 'text-zinc-500 hover:text-zinc-200'}`}
+                        className={`px-2 py-1 sm:px-1.5 sm:py-0.5 rounded transition-colors ${selectedEmojiTab === cat ? 'bg-zinc-800 text-[var(--primary)] font-bold' : 'text-zinc-500 hover:text-zinc-200'}`}
                       >
                         {cat}
                       </button>
@@ -1195,11 +1328,11 @@ export default function RoomChatPage({ params }) {
                     placeholder="Search emoji..."
                     value={emojiSearch}
                     onChange={(e) => setEmojiSearch(e.target.value)}
-                    className="w-full px-2 py-1 bg-zinc-950 border border-zinc-800 rounded-lg text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500 shrink-0"
+                    className="w-full px-2 py-1.5 sm:py-1 bg-zinc-950 border border-zinc-800 rounded-lg text-[11px] sm:text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500 shrink-0"
                   />
 
                   {/* Emoji Grid */}
-                  <div className="grid grid-cols-6 gap-1.5 max-h-32 overflow-y-auto pr-1">
+                  <div className={`grid gap-1.5 pr-1 overflow-y-auto ${isMobile ? "grid-cols-8 max-h-48" : "grid-cols-6 max-h-32"}`}>
                     {(emojiSearch.trim()
                       ? emojiList.filter(item => item.name.toLowerCase().includes(emojiSearch.toLowerCase().trim())).map(item => item.char)
                       : emojiCategories[selectedEmojiTab]
@@ -1207,7 +1340,7 @@ export default function RoomChatPage({ params }) {
                       <button
                         key={emoji}
                         onClick={() => { handleInsertEmoji(emoji); setEmojiSearch(""); }}
-                        className="hover:scale-125 transition-transform text-base p-0.5"
+                        className="hover:scale-110 active:scale-95 transition-transform text-xl sm:text-base p-1 sm:p-0.5 rounded-lg hover:bg-zinc-800/40"
                       >
                         {emoji}
                       </button>
@@ -1224,7 +1357,7 @@ export default function RoomChatPage({ params }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Encrypted message to channel #${roomId}...`}
+            placeholder={isMobile ? `Message #${roomId}...` : `Encrypted message to channel #${roomId}...`}
             className="flex-1 resize-none py-2 px-3 rounded-xl text-xs font-mono"
             style={{
               background: "var(--background)",
@@ -1237,17 +1370,21 @@ export default function RoomChatPage({ params }) {
             onFocus={e => e.target.style.borderColor = "var(--primary)"}
             onBlur={e => e.target.style.borderColor = "var(--border)"}
           />
-          <button onClick={sendMessage} className="fx-btn-primary">
+          <button
+            onClick={sendMessage}
+            className="fx-btn-primary shrink-0"
+            style={{ padding: isMobile ? "8px 12px" : undefined }}
+          >
             <Send className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Send</span>
           </button>
         </div>
 
-        {/* Pinned Messages Sidebar Drawer Overlay */}
+        {/* ─── PINNED MESSAGES DRAWER ─── */}
         {showPinnedDrawer && (
           <>
             <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowPinnedDrawer(false)} />
             <aside
-              className="fixed inset-y-0 right-0 z-50 w-[350px] max-w-[85vw] p-5 flex flex-col space-y-4 shadow-2xl"
+              className="fixed inset-y-0 right-0 z-50 w-full sm:w-[350px] sm:max-w-[85vw] p-4 sm:p-5 flex flex-col space-y-4 shadow-2xl"
               style={{ background: "var(--card)", borderLeft: "1px solid var(--border)" }}
             >
               <div className="flex justify-between items-center pb-2 border-b" style={{ borderColor: "var(--border)" }}>
@@ -1256,10 +1393,9 @@ export default function RoomChatPage({ params }) {
                 </span>
                 <button
                   onClick={() => setShowPinnedDrawer(false)}
-                  className="px-2 py-1 text-[10px] font-mono rounded bg-zinc-950/40 border border-zinc-800 text-zinc-400"
-                  style={{ borderColor: "var(--border)" }}
+                  className="p-1.5 rounded-lg hover:bg-zinc-800/40 text-zinc-400 hover:text-zinc-100 transition-colors"
                 >
-                  Close
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
@@ -1276,7 +1412,7 @@ export default function RoomChatPage({ params }) {
                       <div 
                         key={m.id} 
                         onClick={() => jumpToMessage(m.id)}
-                        className="p-3 rounded-xl space-y-2 border text-xs font-mono relative group cursor-pointer hover:border-[var(--primary)] transition-all"
+                        className="p-3 rounded-xl space-y-2 border text-xs font-mono relative group cursor-pointer hover:border-[var(--primary)] transition-all active:scale-[0.98]"
                         style={{ background: "var(--background)", borderColor: "var(--border)" }}
                         title="Click to scroll to message"
                       >
@@ -1286,7 +1422,7 @@ export default function RoomChatPage({ params }) {
                         </div>
                         <p style={{ color: "var(--foreground)" }}>{decryptedText}</p>
                         <button
-                          onClick={() => handleTogglePin(m.id)}
+                          onClick={(e) => { e.stopPropagation(); handleTogglePin(m.id); }}
                           className="text-[9px] text-red-400 hover:underline flex items-center gap-0.5 mt-1"
                         >
                           Unpin message
@@ -1300,12 +1436,12 @@ export default function RoomChatPage({ params }) {
           </>
         )}
 
-        {/* Room Info Sidebar Drawer Overlay (Hides credential inputs/access logs from active room view) */}
+        {/* ─── ROOM INFO DRAWER ─── */}
         {showInfoDrawer && (
           <>
             <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowInfoDrawer(false)} />
             <aside
-              className="fixed inset-y-0 right-0 z-50 w-[360px] max-w-[85vw] p-5 flex flex-col space-y-5 shadow-2xl overflow-y-auto"
+              className="fixed inset-y-0 right-0 z-50 w-full sm:w-[360px] sm:max-w-[85vw] p-4 sm:p-5 flex flex-col space-y-5 shadow-2xl overflow-y-auto"
               style={{ background: "var(--card)", borderLeft: "1px solid var(--border)" }}
             >
               {/* Drawer Header */}
@@ -1315,10 +1451,9 @@ export default function RoomChatPage({ params }) {
                 </span>
                 <button
                   onClick={() => setShowInfoDrawer(false)}
-                  className="px-2 py-1 text-[10px] font-mono rounded bg-zinc-950/40 border border-zinc-800 text-zinc-400"
-                  style={{ borderColor: "var(--border)" }}
+                  className="p-1.5 rounded-lg hover:bg-zinc-800/40 text-zinc-400 hover:text-zinc-100 transition-colors"
                 >
-                  Close
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
@@ -1329,7 +1464,7 @@ export default function RoomChatPage({ params }) {
                     setShowInfoDrawer(false);
                     setShowPinnedDrawer(true);
                   }}
-                  className="w-full flex items-center justify-between text-[11px] font-mono font-bold px-3 py-2.5 rounded-xl transition-all"
+                  className="w-full flex items-center justify-between text-[11px] font-mono font-bold px-3 py-2.5 rounded-xl transition-all active:scale-[0.98]"
                   style={{ background: "var(--primary-faint)", border: "1px solid var(--primary-border)", color: "var(--primary)" }}
                 >
                   <span className="flex items-center gap-1.5"><Pin className="h-3.5 w-3.5 fill-[var(--primary)]" /> Pinned Messages ({pinnedMessages.length})</span>
