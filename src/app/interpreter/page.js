@@ -331,7 +331,7 @@ export default function InterpreterPage() {
                         ? 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(139,92,246,0.03))'
                         : 'var(--background)',
                       border: `1px solid ${isUser ? 'rgba(99,102,241,0.2)' : 'var(--border)'}`,
-                      borderRadius: isUser ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
+                      borderRadius: isUser ? '1rem 0.25rem 1rem 1rem' : '0.25rem 1rem 1rem 1rem',
                       padding: '0.875rem 1.25rem',
                     }}
                   >
