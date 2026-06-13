@@ -313,11 +313,11 @@ export default function InterpreterPage() {
                     style={{
                       background: isUser
                         ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
-                        : 'linear-gradient(135deg, #0d9488, #059669)',
-                      color: '#ffffff',
+                        : 'var(--primary)',
+                      color: isUser ? '#ffffff' : 'var(--background)',
                       boxShadow: isUser
                         ? '0 0 0 2px rgba(99,102,241,0.1)'
-                        : '0 0 0 2px rgba(13,148,136,0.1)',
+                        : '0 0 0 2px var(--primary-faint)',
                     }}
                   >
                     {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
@@ -423,7 +423,7 @@ export default function InterpreterPage() {
               <div className="flex items-start gap-2.5">
                 <div
                   className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #0d9488, #059669)', color: '#ffffff' }}
+                  style={{ background: 'var(--primary)', color: 'var(--background)' }}
                 >
                   <Bot className="h-4 w-4" />
                 </div>

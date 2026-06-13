@@ -118,6 +118,7 @@ export default function LatencyDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [hoveredPoint, setHoveredPoint] = useState(null); // Chart tooltip details
 
+
   // Processes raw logs and extracts latencies
   const processLatencyLogs = useCallback((rawLogsText) => {
     if (!rawLogsText.trim()) return;
@@ -290,20 +291,39 @@ export default function LatencyDashboard() {
     const chartHeight = svgHeight - paddingTop - paddingBottom;
 
     // Get Y bounds
-    const values = activeTab === "hop" 
+    const rawValues = activeTab === "hop" 
       ? dataPoints.map(d => d.hopLatency)
       : dataPoints.map(d => d.rttMicroseconds);
+
+    const absoluteMax = Math.max(...rawValues) || 1000;
+    const sortedValues = [...rawValues].sort((a, b) => a - b);
+    const median = sortedValues[Math.floor(sortedValues.length / 2)] || 1;
+
+    // Automatically determine if logarithmic scale is needed to prevent peak squashing
+    const useLogScale = (absoluteMax / median) > 10 && absoluteMax > 10000;
     
+    // Transform values if log scale is enabled
+    const transformValue = (val) => {
+      if (useLogScale) {
+        // Log base 10 scale (in milliseconds to keep ranges small and clean)
+        const ms = val / 1000;
+        return ms > 0 ? Math.log10(ms + 1) * 1000 : 0;
+      }
+      return val;
+    };
+
+    const values = rawValues.map(transformValue);
     const maxValue = Math.max(...values) || 1000;
     const minValue = 0; // standard floor for RTT/latency
-    const valueRange = maxValue - minValue;
+    const valueRange = (maxValue - minValue) || 1;
 
     // Build SVG coordinates
     const coordinates = dataPoints.map((dp, idx) => {
-      const val = activeTab === "hop" ? dp.hopLatency : dp.rttMicroseconds;
+      const rawVal = activeTab === "hop" ? dp.hopLatency : dp.rttMicroseconds;
+      const val = transformValue(rawVal);
       const x = paddingLeft + (idx / Math.max(1, dataPoints.length - 1)) * chartWidth;
       const y = paddingTop + chartHeight - ((val - minValue) / valueRange) * chartHeight;
-      return { x, y, data: dp, val };
+      return { x, y, data: dp, val: rawVal };
     });
 
     // Construct path line
@@ -323,98 +343,114 @@ export default function LatencyDashboard() {
       return { val, y };
     });
 
+    // Helper to format axis tick labels depending on log scale
+    const formatTickLabel = (val) => {
+      if (useLogScale) {
+        // Reverse log scale calculation: ms = 10^(val/1000) - 1
+        const ms = Math.pow(10, val / 1000) - 1;
+        return `${ms.toFixed(2)} ms`;
+      }
+      return `${(val / 1000).toFixed(2)} ms`;
+    };
+
     return (
-      <div className="relative w-full overflow-x-auto">
-        <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full min-w-[700px] h-auto select-none overflow-visible">
-          {/* Background grid */}
-          {gridLines.map((gl, i) => (
-            <g key={i}>
-              <line
-                x1={paddingLeft}
-                y1={gl.y}
-                x2={svgWidth - paddingRight}
-                y2={gl.y}
-                stroke="var(--border)"
-                strokeDasharray="4 4"
-                strokeWidth="1"
-              />
-              <text
-                x={paddingLeft - 8}
-                y={gl.y + 4}
-                textAnchor="end"
-                className="text-[9px] font-mono fill-[var(--text-muted)]"
-              >
-                {(gl.val / 1000).toFixed(2)} ms
-              </text>
-            </g>
-          ))}
-
-          {/* Line Path */}
-          <path
-            d={pathD}
-            fill="none"
-            stroke="var(--primary)"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="transition-all duration-300"
-          />
-
-          {/* Data Nodes */}
-          {coordinates.map((pt, idx) => {
-            const isHovered = hoveredPoint && hoveredPoint.index === idx;
-            return (
-              <circle
-                key={idx}
-                cx={pt.x}
-                cy={pt.y}
-                r={isHovered ? 6 : 4}
-                fill={isHovered ? "var(--primary)" : "var(--background)"}
-                stroke="var(--primary)"
-                strokeWidth={isHovered ? 3 : 2}
-                className="cursor-pointer transition-all duration-100"
-                onMouseEnter={(e) => {
-                  setHoveredPoint({
-                    index: idx,
-                    val: pt.val,
-                    data: pt.data,
-                    x: pt.x,
-                    y: pt.y
-                  });
-                }}
-                onMouseLeave={() => setHoveredPoint(null)}
-              />
-            );
-          })}
-
-          {/* X-axis indicators */}
-          <line
-            x1={paddingLeft}
-            y1={paddingTop + chartHeight}
-            x2={svgWidth - paddingRight}
-            y2={paddingTop + chartHeight}
-            stroke="var(--border)"
-            strokeWidth="1.5"
-          />
-          <text
-            x={paddingLeft + chartWidth / 2}
-            y={svgHeight - 10}
-            textAnchor="middle"
-            className="text-[10px] font-mono fill-[var(--text-muted)]"
+      <div className="relative w-full overflow-hidden rounded-xl border border-zinc-900 bg-zinc-950/20">
+        <div className="overflow-x-auto w-full p-2">
+          <svg 
+            viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
+            style={{ width: "100%" }} 
+            className="h-auto select-none overflow-visible transition-all duration-200"
           >
-            Captured Session Message Sequence Timeline
-          </text>
-        </svg>
+            {/* Background grid */}
+            {gridLines.map((gl, i) => (
+              <g key={i}>
+                <line
+                  x1={paddingLeft}
+                  y1={gl.y}
+                  x2={svgWidth - paddingRight}
+                  y2={gl.y}
+                  stroke="var(--border)"
+                  strokeDasharray="4 4"
+                  strokeWidth="1"
+                />
+                <text
+                  x={paddingLeft - 8}
+                  y={gl.y + 4}
+                  textAnchor="end"
+                  className="text-[9px] font-mono fill-[var(--text-muted)]"
+                >
+                  {formatTickLabel(gl.val)}
+                </text>
+              </g>
+            ))}
+
+            {/* Line Path */}
+            <path
+              d={pathD}
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="transition-all duration-300"
+            />
+
+            {/* Data Nodes */}
+            {coordinates.map((pt, idx) => {
+              const isHovered = hoveredPoint && hoveredPoint.index === idx;
+              return (
+                <circle
+                  key={idx}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={isHovered ? 6 : 4}
+                  fill={isHovered ? "var(--primary)" : "var(--background)"}
+                  stroke="var(--primary)"
+                  strokeWidth={isHovered ? 3 : 2}
+                  className="cursor-pointer transition-all duration-100"
+                  onMouseEnter={(e) => {
+                    setHoveredPoint({
+                      index: idx,
+                      val: pt.val,
+                      data: pt.data,
+                      x: pt.x,
+                      y: pt.y
+                    });
+                  }}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                />
+              );
+            })}
+
+            {/* X-axis indicators */}
+            <line
+              x1={paddingLeft}
+              y1={paddingTop + chartHeight}
+              x2={svgWidth - paddingRight}
+              y2={paddingTop + chartHeight}
+              stroke="var(--border)"
+              strokeWidth="1.5"
+            />
+            <text
+              x={paddingLeft + chartWidth / 2}
+              y={svgHeight - 10}
+              textAnchor="middle"
+              className="text-[10px] font-mono fill-[var(--text-muted)]"
+            >
+              Captured Session Message Sequence Timeline
+            </text>
+          </svg>
+        </div>
 
         {/* Floating Tooltip details */}
         {hoveredPoint && (
           <div
-            className="absolute z-30 p-3 rounded-xl border pointer-events-none text-xs font-mono shadow-xl"
+            className="absolute z-30 p-3 rounded-xl border pointer-events-none text-xs font-mono shadow-xl bg-zinc-950"
             style={{
               background: "var(--card)",
               borderColor: "var(--primary-border)",
-              left: `${(hoveredPoint.x / svgWidth) * 100}%`,
-              top: `${(hoveredPoint.y / svgHeight) * 100 - 30}%`,
+              left: `${Math.min(90, Math.max(10, ((hoveredPoint.x / svgWidth) * 100)))}%`,
+              top: `${(hoveredPoint.y / svgHeight) * 100 - 15}%`,
               transform: "translate(-50%, -100%)"
             }}
           >

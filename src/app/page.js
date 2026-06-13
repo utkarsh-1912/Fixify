@@ -88,9 +88,11 @@ export default function LogsProcessorPage() {
   const [pastedText, setPastedText] = useState('');
   const [selectedLineInfo, setSelectedLineInfo] = useState(null);
   const [inspectorTab, setInspectorTab] = useState("details"); // "details" or "lifecycle"
+  const [selectedOrderIdFilter, setSelectedOrderIdFilter] = useState("all");
 
   useEffect(() => {
     setInspectorTab("details");
+    setSelectedOrderIdFilter("all");
   }, [selectedLineInfo]);
   const [stats, setStats] = useState({
     totalMessages: 0,
@@ -364,13 +366,45 @@ export default function LogsProcessorPage() {
         </div>
       );
     }
+
+    // Extract all unique OrderIDs (Tag 37) from matches
+    const orderIds = Array.from(new Set(
+      lifecycleMsgs
+        .map(m => m.validation?.tags?.['37'])
+        .filter(id => id && id.trim() !== "")
+    ));
+
+    const displayedMsgs = selectedOrderIdFilter === "all"
+      ? lifecycleMsgs
+      : lifecycleMsgs.filter(m => m.validation?.tags?.['37'] === selectedOrderIdFilter);
     
     return (
-      <div className="space-y-6 relative pl-4 border-l border-zinc-800 dark:border-zinc-850 ml-2 py-2">
-        {lifecycleMsgs.map((msg, index) => {
-          const isCurrent = msg.id === selectedLineInfo.id;
-          const msgType = msg.validation?.msgTypeName || "Message";
-          const ordStatus = msg.validation?.tags?.['39'];
+      <div className="space-y-4">
+        {/* Order ID Dropdown Filter */}
+        {orderIds.length > 1 && (
+          <div 
+            className="flex items-center justify-between gap-2 p-2.5 rounded-xl border text-[11px] font-mono mb-2" 
+            style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
+          >
+            <span style={{ color: 'var(--text-muted)' }}>Filter Order ID (Tag 37):</span>
+            <select
+              value={selectedOrderIdFilter}
+              onChange={(e) => setSelectedOrderIdFilter(e.target.value)}
+              className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 outline-none focus:border-[var(--primary)] text-[11px] font-mono cursor-pointer"
+            >
+              <option value="all">All Order IDs ({orderIds.length})</option>
+              {orderIds.map(oid => (
+                <option key={oid} value={oid}>{oid}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="space-y-6 relative pl-4 border-l border-zinc-800 dark:border-zinc-850 ml-2 py-2">
+          {displayedMsgs.map((msg, index) => {
+            const isCurrent = msg.id === selectedLineInfo.id;
+            const msgType = msg.validation?.msgTypeName || "Message";
+            const ordStatus = msg.validation?.tags?.['39'];
           
           let statusText = "";
           let statusColor = "var(--text-muted)";
@@ -455,6 +489,7 @@ export default function LogsProcessorPage() {
             </div>
           );
         })}
+        </div>
       </div>
     );
   };
@@ -665,10 +700,10 @@ export default function LogsProcessorPage() {
         {files.length > 0 && (
           <div className="flex items-center gap-2 shrink-0">
             <button onClick={clearAll} className="fx-btn-secondary">
-              Reset Console
+              <RefreshCw className="h-3.5 w-3.5" /> <span className="inline">Reset</span>
             </button>
             <button onClick={downloadAll} className="fx-btn-primary" title="Download Sorted">
-              <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download Sorted</span>
+              <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download</span>
             </button>
           </div>
         )}

@@ -33,7 +33,7 @@ export default function GlobalError({ error, reset }) {
           <AlertOctagon className="h-8 w-8 text-red-500 animate-pulse" />
         </div>
         <h1 className="text-4xl font-extrabold tracking-tight font-mono" style={{ color: 'var(--foreground)' }}>
-          CRASH <span style={{ color: 'var(--primary)' }}>_</span>
+          CRASH
         </h1>
         <h2 className="text-lg font-bold" style={{ color: 'var(--foreground)' }}>
           Execution Reject Intercepted
@@ -41,6 +41,19 @@ export default function GlobalError({ error, reset }) {
         <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
           The local session encountered an unhandled application loop warning or processing boundary error. A Reject (35=j) packet has been generated.
         </p>
+      </div>
+
+            {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <button
+          onClick={() => reset()}
+          className="fx-btn-primary justify-center cursor-pointer"
+        >
+          <RotateCcw className="h-4 w-4" /> Reset Session &amp; Retry
+        </button>
+        <Link href="/" className="fx-btn-secondary justify-center">
+          <Home className="h-4 w-4" /> Return to Console
+        </Link>
       </div>
 
       {/* Raw Reject Packet Panel */}
@@ -114,19 +127,6 @@ export default function GlobalError({ error, reset }) {
             )}
           </div>
         )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-        <button
-          onClick={() => reset()}
-          className="fx-btn-primary justify-center cursor-pointer"
-        >
-          <RotateCcw className="h-4 w-4" /> Reset Session &amp; Retry
-        </button>
-        <Link href="/" className="fx-btn-secondary justify-center">
-          <Home className="h-4 w-4" /> Return to Console
-        </Link>
       </div>
     </div>
   );
