@@ -1,79 +1,45 @@
 # Fixify
 
-Fixify is a Next.js toolkit for working with FIX messages, logs, interview-style coding tasks, diagrams, XML, and encrypted team notes in one local workspace.
+Fixify is a high-performance, developer-first diagnostic suite and Next.js local workspace toolkit designed for trading integration engineers, support analysts, and FIX protocol developers.
 
-## Features
+## Advanced Platform Features
 
-- Logs Processor: upload or paste FIX logs, parse messages, validate checksums/body length, filter results, and export processed output.
-- Comparator: compare two FIX messages or two log files, including matched and unmatched transaction views.
-- FIXi Interpreter: ask questions about FIX messages and get parser-aware responses.
-- Flowchart: visualize FIX/order flows and inspect message/tag details.
-- Tasks: manage work in a kanban-style board with task details, checklists, comments, and activity.
-- Code Sandbox: run Python, C++, and Java FIX parsing templates with stdin/output panes and switchable 3-pane or 4-pane layouts.
-- XML Formatter: format XML input into readable output.
-- Team Chat: encrypted room chat with Socket.IO relay fallback and WebRTC direct peer detection.
-- Whiteboard, About, Privacy, and Contact pages are also included.
+- **Logs Processor**: Upload or paste multi-line FIX sessions logs. Automatically parses fields, validates checksum integrity (tag 10) and body length (tag 9), highlights mismatches, filters by custom sequence tags, and filters order states with inline Order ID (tag 37) dropdown selector filters.
+- **FIXi Interpreter**: Interactive chat assistant utilizing Web LLMs. Features automatic italic Markdown formatting (safely ignoring snake_case field highlights like `ORD_99`) and uses a custom theme-synchronized bot avatar styling that adapts to your primary dark/light accent colors.
+- **Latency Hop Visualizer**: Measures absolute offset differences between `SendingTime` (tag 52) and `TransactTime` (tag 60) for network hops, and tracks RTT pairs. Features intelligent automatic logarithmic scaling to compress extreme peak spikes and keep baseline performance statistics perfectly readable.
+- **XML Formatter**: Format and walk XML schemas. Relocates formatting engines (DOM Parser vs. Regex Walk) inside a modern responsive header pill toggle switcher.
+- **Kanban Tasks Board**: Local-first task manager featuring priority badges, interactive subtask checklists, and custom task cards. Built with a full drag-and-drop overlay to resolve card clipping and features a sleek sliding right drawer editor on mobile viewports.
+- **Code Sandbox**: Switchable 3-pane/4-pane editor workspace to execute Python, C++, and Java FIX parser templates with inputs/outputs.
+- **Interactive Flowcharts**: Auto-generate state flow diagrams from parsed FIX messages to inspect sequences and tags.
+- **Secure Room Chat**: Decrypted local team chat fallback with Socket.IO room relays and WebRTC direct peer detection.
 
 ## Tech Stack
 
-- Next.js 15 with the App Router
-- React 19
-- Tailwind CSS 4
-- Monaco Editor
-- Socket.IO and WebRTC for team chat signaling/direct links
-- React Flow, Dagre, JSZip, FileSaver, Dropzone, and Lucide icons
+- **Framework**: Next.js 15 (App Router)
+- **UI Core**: React 19, Vanilla CSS Custom Variables, and Lucide icons
+- **State & Layout**: Drag-and-drop via `@dnd-kit`, React Flow, Dagre
+- **Editor & Formatting**: Monaco Editor, DOM parsers, custom regex walkthroughs
+- **Signaling & P2P**: Socket.IO, WebRTC peer channels
 
 ## Getting Started
 
-Install dependencies:
+Install packages:
 
 ```bash
 npm install
 ```
 
-Run the development server:
+Run the development server locally:
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:3000` in your web browser.
 
 ## Available Scripts
 
-```bash
-npm run dev
-npm run build
-npm run start
-npm run lint
-```
-
-On Windows PowerShell, if `npm run ...` is blocked by script execution policy, use:
-
-```bash
-npm.cmd run dev
-npm.cmd run lint
-```
-
-## App Routes
-
-- `/` - Logs Processor
-- `/compare` - FIX Comparator
-- `/interpreter` - FIXi Interpreter
-- `/flowchart` - Flowchart
-- `/tasks` - Kanban Tasks
-- `/coderunner` - Code Sandbox
-- `/xml` - XML Formatter
-- `/chat` - Team Chat
-- `/draw` - Whiteboard
-- `/about`, `/privacy`, `/contact` - informational pages
-
-## Team Chat Note
-
-The chat page starts a Socket.IO signaling/relay server through `/api/socket` on port `3001`. Multiple devices should join the same room ID and use the same secret key to decrypt shared messages. If WebRTC direct channels are not available, chat can still work through relay mode.
-
-## Development Notes
-
-- The project is local-first and browser-heavy; many tools process pasted/uploaded content directly in the UI.
-- The Code Sandbox layout supports both 4-pane mode with question details and 3-pane mode for a wider editor. Collapsing the question/details panel switches to 3-pane mode to avoid an empty collapsed grid.
-- Keep generated build output such as `.next/` and installed dependencies such as `node_modules/` out of commits.
+- `npm run dev` / `npm.cmd run dev` (PowerShell fallback) - Run dev server
+- `npm run build` - Compile production package
+- `npm run start` - Run static compiled server
+- `npm run lint` - Validate styling and code rules
