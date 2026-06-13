@@ -18,7 +18,7 @@ export default function XMLFormatterPage() {
   const [leftWidth, setLeftWidth] = useState(50);
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [formatMode, setFormatMode] = useState("dom"); // "dom" or "regex"
+  const [formatMode, setFormatMode] = useState("regex"); // "dom" or "regex"
 
   // Load state on mount
   useEffect(() => {
@@ -31,6 +31,7 @@ export default function XMLFormatterPage() {
     if (savedLeftWidth) setLeftWidth(Number(savedLeftWidth));
     const savedMode = localStorage.getItem('fixify-xml-mode');
     if (savedMode) setFormatMode(savedMode);
+    else setFormatMode("regex");
     setIsLoaded(true);
   }, []);
 
@@ -64,13 +65,27 @@ export default function XMLFormatterPage() {
     return () => window.removeEventListener('resize', checkSize);
   }, []);
 
+  const sanitizeXmlForParsing = (rawXml) => {
+    if (!rawXml) return "";
+    // Replace invalid XML 1.0 characters [\x00-\x08\x0B\x0C\x0E-\x1F]
+    // SOH \x01 is standard in FIX, so replace with standard separator bar '|'
+    // Other control chars are replaced with hex brackets [0xXX]
+    return rawXml.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, (match) => {
+      const code = match.charCodeAt(0);
+      if (code === 1) return "|";
+      return `[0x${code.toString(16).padStart(2, '0').toUpperCase()}]`;
+    });
+  };
+
   const formatXml = (xml, mode) => {
     if (mode === "regex") {
       try {
         const PADDING = "  ";
         let formattedText = "";
         let pad = 0;
-        const cleaned = xml.replace(/>\s*</g, ">\n<");
+        // Clean SOH or other controls for regex formatting as well to make it clean
+        const sanitized = sanitizeXmlForParsing(xml);
+        const cleaned = sanitized.replace(/>\s*</g, ">\n<");
         const lines = cleaned.split("\n");
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i].trim();
@@ -88,8 +103,9 @@ export default function XMLFormatterPage() {
     } else {
       // DOM Parser mode
       try {
+        const sanitized = sanitizeXmlForParsing(xml);
         const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xml, "application/xml");
+        const xmlDoc = parser.parseFromString(sanitized, "application/xml");
         
         const parserError = xmlDoc.getElementsByTagName("parsererror");
         if (parserError.length > 0) {
