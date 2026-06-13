@@ -16,7 +16,7 @@ export default function NotFound() {
   const rawFixMessage = "8=FIX.4.4\x019=156\x0135=3\x0134=404\x0149=FIXIFY\x0156=VISITOR\x0158=Page Not Found - HTTP 404 - Route Unreachable\x01373=1\x0110=198\x01";
 
   return (
-    <div className="flex flex-col items-center justify-center py-10 md:py-16 max-w-3xl mx-auto space-y-8 animate-fadeIn">
+    <div className="flex flex-col items-center justify-center py-10 md:py-16 max-w-4xl mx-auto space-y-8 animate-fadeIn">
       {/* Visual Glitch Header */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl mb-2" style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}>
