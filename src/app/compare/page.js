@@ -414,7 +414,7 @@ export default function FIXComparePage() {
           </p>
         </div>
         <button onClick={resetAll} className="fx-btn-secondary shrink-0" title="Reset">
-          <RefreshCw className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Reset</span>
+          <RefreshCw className="h-3.5 w-3.5" /> <span className="inline">Reset</span>
         </button>
       </div>
 
@@ -469,7 +469,7 @@ export default function FIXComparePage() {
             className="fx-btn-primary"
             title="Run Comparison"
           >
-            <GitCompare className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Run Comparison</span>
+            <GitCompare className="h-3.5 w-3.5" /> <span className="inline">Compare</span>
           </button>
         ) : (
           <button
