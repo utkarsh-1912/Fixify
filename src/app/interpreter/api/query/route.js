@@ -24,7 +24,7 @@ async function getMarketData(symbol) {
 async function queryGemini(prompt, apiKey, systemInstruction = "") {
   if (!apiKey) {
     return {
-      answer: "⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.",
+      answer: "⚠️ Gemini API key not found.",
       connected: false
     };
   }
@@ -242,18 +242,18 @@ export async function POST(req) {
             `- **Protocol Version**: ${version}\n` +
             `- **Message Type**: ${msgType} (${msgTypeName})\n` +
             `- **Integrity Check**: ${validationStatus} (${validationDetails})\n\n` +
-            `⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.`;
+            `⚠️ Gemini API key not found.`;
         } else {
           answer = `⚠️ Failed to parse FIX message structure.\n\n` +
-            `⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.`;
+            `⚠️ Gemini API key not found.`;
         }
       } else {
         const localResult = tryLocalLookup(query);
         if (localResult) {
-          answer = `${localResult}\n\n⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.`;
+          answer = `${localResult}\n\n⚠️ Gemini API key not found.`;
         } else {
           const partials = tryPartialLookup(query);
-          answer = `⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.${partials}`;
+          answer = `⚠️ Gemini API key not found. ${partials}`;
         }
       }
       hfConnected = false;
