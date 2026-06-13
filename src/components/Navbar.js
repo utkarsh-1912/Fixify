@@ -18,7 +18,8 @@ import {
   Settings as SettingsIcon,
   ChevronRight,
   Search,
-  BookOpen
+  BookOpen,
+  Activity
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 
@@ -35,6 +36,7 @@ export default function Navbar() {
     { href: '/compare',     label: 'Comparator',       icon: GitCompare,   short: 'Compare' },
     { href: '/interpreter', label: 'FIXi Interpreter', icon: BrainCircuit, short: 'FIXi AI' },
     { href: '/flowchart',   label: 'Flowchart',        icon: Network,      short: 'Flow' },
+    { href: '/latency',     label: 'Latency Dashboard', icon: Activity,     short: 'Latency' },
     { href: '/tasks',       label: 'Tasks',            icon: LayoutGrid,   short: 'Tasks' },
     { href: '/coderunner',  label: 'Code Sandbox',     icon: Terminal,     short: 'Code' },
     { href: '/xml',         label: 'XML Formatter',    icon: Braces,       short: 'XML' },

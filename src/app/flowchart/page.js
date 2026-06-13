@@ -27,7 +27,8 @@ import {
   BookOpen,
   X,
   Wrench,
-  Sliders
+  Sliders,
+  ChevronDown
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { validateFIXMessage } from "@/lib/fixParser";
@@ -252,6 +253,7 @@ function FlowchartPage() {
   const [selectedNode, setSelectedNode] = useState(null);
 
   const [activeScenario, setActiveScenario] = useState("");
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
 
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
@@ -329,6 +331,10 @@ function FlowchartPage() {
       if (savedTemplates) {
         setUserTemplates(JSON.parse(savedTemplates));
       }
+      const savedScenario = localStorage.getItem('fixify-flowchart-activeScenario');
+      if (savedScenario) {
+        setActiveScenario(savedScenario);
+      }
     } catch (e) {
       console.error("Failed to load flowchart state", e);
     }
@@ -365,6 +371,15 @@ function FlowchartPage() {
       localStorage.removeItem('fixify-flowchart-edges');
     }
   }, [edges, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    if (activeScenario) {
+      localStorage.setItem('fixify-flowchart-activeScenario', activeScenario);
+    } else {
+      localStorage.removeItem('fixify-flowchart-activeScenario');
+    }
+  }, [activeScenario, isLoaded]);
 
   /* Node Creation */
   const createNodeOfType = useCallback(
@@ -613,6 +628,36 @@ function FlowchartPage() {
         alert("Failed to export diagram as PNG: " + err.message);
       });
   }, [reactFlowWrapper]);
+
+  const exportToMermaid = useCallback(() => {
+    let code = "graph LR\n";
+    nodes.forEach(n => {
+      const label = (n.data?.label || "Node").replace(/"/g, '\\"');
+      if (n.type === "start" || n.type === "end") {
+        code += `  ${n.id}(["${label}"])\n`;
+      } else if (n.type === "decision") {
+        code += `  ${n.id}{"${label}"}\n`;
+      } else if (n.type === "milestone") {
+        code += `  ${n.id}[("${label}")]\n`;
+      } else {
+        code += `  ${n.id}["${label}"]\n`;
+      }
+    });
+
+    edges.forEach(e => {
+      const label = e.label ? `|"${e.label.replace(/"/g, '\\"')}"|` : "";
+      code += `  ${e.source} -->${label} ${e.target}\n`;
+    });
+
+    navigator.clipboard.writeText(code)
+      .then(() => {
+        alert("Mermaid.js flowchart code copied to clipboard!");
+      })
+      .catch(err => {
+        console.error("Failed to copy Mermaid code", err);
+        alert("Failed to copy: " + err.message);
+      });
+  }, [nodes, edges]);
 
   const importJSON = useCallback(
     (e) => {
@@ -1046,29 +1091,63 @@ function FlowchartPage() {
 
       {/* Save & Load commands */}
       <div className="space-y-2 mt-auto">
-        <div className="space-y-1">
+        <div className="space-y-1 relative">
           <p className="text-[10px] text-zinc-500 font-mono block mb-1">Export Diagram</p>
-          <div className="flex gap-2">
+          <div className="relative">
             <button
-              onClick={() => {
-                exportJSON();
-                if (!isDesktop) setIsLeftDrawerOpen(false);
-              }}
-              className="flex-1 fx-btn-secondary justify-center text-[10px] py-1.5 px-2 flex items-center gap-1"
-              title="Export config as JSON file"
+              onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+              className="w-full fx-btn-secondary justify-between text-[11px] py-1.5 px-3 flex items-center gap-1.5"
+              title="Export options"
             >
-              <Share2 className="h-3 w-3" /> <span>JSON</span>
+              <span className="flex items-center gap-1.5">
+                <Share2 className="h-3.5 w-3.5" /> <span>Export Diagram</span>
+              </span>
+              <ChevronDown className={`h-3 w-3 transition-transform ${isExportDropdownOpen ? "rotate-180" : ""}`} />
             </button>
-            <button
-              onClick={() => {
-                exportImage();
-                if (!isDesktop) setIsLeftDrawerOpen(false);
-              }}
-              className="flex-1 fx-btn-secondary justify-center text-[10px] py-1.5 px-2 flex items-center gap-1"
-              title="Export canvas as PNG image"
-            >
-              <FileText className="h-3 w-3" /> <span>Image</span>
-            </button>
+
+            {isExportDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setIsExportDropdownOpen(false)} />
+                <div
+                  className="absolute bottom-full mb-1.5 left-0 right-0 rounded-xl border p-1 z-40 shadow-xl space-y-0.5"
+                  style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                >
+                  <button
+                    onClick={() => {
+                      exportJSON();
+                      setIsExportDropdownOpen(false);
+                      if (!isDesktop) setIsLeftDrawerOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-[10px] font-mono hover:bg-[var(--primary-faint)] hover:text-[var(--primary)] text-zinc-300 transition-colors flex items-center gap-2"
+                  >
+                    <Share2 className="h-3.5 w-3.5 shrink-0" />
+                    <span>Export as JSON</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      exportImage();
+                      setIsExportDropdownOpen(false);
+                      if (!isDesktop) setIsLeftDrawerOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-[10px] font-mono hover:bg-[var(--primary-faint)] hover:text-[var(--primary)] text-zinc-300 transition-colors flex items-center gap-2"
+                  >
+                    <FileText className="h-3.5 w-3.5 shrink-0" />
+                    <span>Export as PNG</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      exportToMermaid();
+                      setIsExportDropdownOpen(false);
+                      if (!isDesktop) setIsLeftDrawerOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-[10px] font-mono hover:bg-[var(--primary-faint)] hover:text-[var(--primary)] text-zinc-300 transition-colors flex items-center gap-2"
+                  >
+                    <Network className="h-3.5 w-3.5 shrink-0" />
+                    <span>Copy Mermaid.js</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
         <input

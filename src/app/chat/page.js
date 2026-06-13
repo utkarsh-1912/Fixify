@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { io } from "socket.io-client";
 import { v4 as uuid } from "uuid";
 import {
   MessageSquare,
@@ -21,11 +20,6 @@ import { encryptMessage, decryptMessage } from "@/lib/cipher";
 
 const reactionEmojis = ["👍", "😂", "❤️", "🔥", "😢"];
 
-// WebRTC ICE servers
-const rtcConfig = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-};
-
 export default function TeamChatPage() {
   // Room selection lobby state
   const [roomId, setRoomId] = useState("conformance-desk");
@@ -38,8 +32,7 @@ export default function TeamChatPage() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [userId] = useState(() => uuid());
-  const [p2pActive, setP2pActive] = useState(false);
-  const [peerCount, setPeerCount] = useState(0);
+  const [isPollingActive, setIsPollingActive] = useState(false);
 
   // Load lobby settings on mount
   useEffect(() => {
@@ -70,10 +63,7 @@ export default function TeamChatPage() {
   }, [username, isLoaded]);
 
   const chatEndRef = useRef(null);
-  const socketRef = useRef(null);
-  const pcsRef = useRef({});      // Maps socketId -> RTCPeerConnection
-  const channelsRef = useRef({}); // Maps socketId -> RTCDataChannel
-  const peerIdsRef = useRef(new Set()); // Room peers seen through the signaling relay
+  const pollingRef = useRef(null);
 
   // Load from cache helper
   const loadCache = useCallback((targetRoom) => {
@@ -94,247 +84,52 @@ export default function TeamChatPage() {
     localStorage.setItem(`fixify_chat_cache_${targetRoom}`, JSON.stringify(msgs));
   }, []);
 
-  // Close all peer connections
-  const cleanupP2P = useCallback(() => {
-    Object.keys(pcsRef.current).forEach((id) => {
-      if (pcsRef.current[id]) pcsRef.current[id].close();
-    });
-    pcsRef.current = {};
-    channelsRef.current = {};
-    peerIdsRef.current = new Set();
-    setP2pActive(false);
-    setPeerCount(0);
-  }, []);
-
-  const syncPeerCount = useCallback(() => {
-    setPeerCount(peerIdsRef.current.size);
-  }, []);
-
-  // Update connection status
-  const updateP2PStatus = useCallback(() => {
-    const activeChannels = Object.values(channelsRef.current).filter(
-      (dc) => dc.readyState === "open"
-    );
-    setP2pActive(activeChannels.length > 0);
-  }, []);
-
-  // Handle incoming message
-  const handleIncomingMessage = useCallback((msg) => {
-    setMessages((prev) => {
-      if (prev.some((m) => m.id === msg.id)) return prev;
-      const updated = [...prev, msg];
-      saveCache(roomId, updated);
-      return updated;
-    });
-  }, [roomId, saveCache]);
-
-  // Handle incoming reaction
-  const handleIncomingReaction = useCallback(({ msgId, emoji, user }) => {
-    setMessages((prev) => {
-      const updated = prev.map((m) => {
-        if (m.id === msgId) {
-          const reactions = { ...m.reactions };
-          const users = reactions[emoji] || [];
-          if (!users.includes(user)) {
-            reactions[emoji] = [...users, user];
-          }
-          return { ...m, reactions };
+  // Fetch messages handler
+  const fetchMessages = useCallback(async () => {
+    try {
+      const res = await fetch(`/chat/api/messages?roomId=${encodeURIComponent(roomId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.messages) {
+          setMessages(data.messages);
+          saveCache(roomId, data.messages);
+          setIsPollingActive(true);
         }
-        return m;
-      });
-      saveCache(roomId, updated);
-      return updated;
-    });
-  }, [roomId, saveCache]);
-
-  // Set up RTC DataChannel listeners
-  const setupDataChannel = useCallback((socketId, dc) => {
-    dc.onopen = () => {
-      console.log(`🟢 WebRTC DataChannel opened with peer ${socketId}`);
-      peerIdsRef.current.add(socketId);
-      syncPeerCount();
-      updateP2PStatus();
-    };
-
-    dc.onclose = () => {
-      console.log(`🔴 WebRTC DataChannel closed with peer ${socketId}`);
-      delete channelsRef.current[socketId];
-      updateP2PStatus();
-    };
-
-    dc.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "chat-message") {
-          handleIncomingMessage(data.msg);
-        } else if (data.type === "chat-reaction") {
-          handleIncomingReaction(data.reaction);
-        } else if (data.type === "clear-chat") {
-          setMessages([]);
-          saveCache(roomId, []);
-        }
-      } catch (err) {
-        console.error("WebRTC message parse failed:", err);
+      } else {
+        setIsPollingActive(false);
       }
-    };
-  }, [roomId, handleIncomingMessage, handleIncomingReaction, updateP2PStatus, saveCache, syncPeerCount]);
-
-  // Create PeerConnection
-  const getOrCreatePC = useCallback((socketId, isInitiator) => {
-    if (pcsRef.current[socketId]) return pcsRef.current[socketId];
-
-    const pc = new RTCPeerConnection(rtcConfig);
-    pcsRef.current[socketId] = pc;
-
-    pc.onicecandidate = (e) => {
-      if (e.candidate && socketRef.current) {
-        socketRef.current.emit("signal-send", {
-          targetSocketId: socketId,
-          signalData: { type: "candidate", candidate: e.candidate },
-          senderUserId: userId
-        });
-      }
-    };
-
-    if (isInitiator) {
-      const dc = pc.createDataChannel("chat-channel");
-      setupDataChannel(socketId, dc);
-      channelsRef.current[socketId] = dc;
-    } else {
-      pc.ondatachannel = (e) => {
-        const dc = e.channel;
-        setupDataChannel(socketId, dc);
-        channelsRef.current[socketId] = dc;
-      };
+    } catch (err) {
+      console.error("Failed to fetch messages:", err);
+      setIsPollingActive(false);
     }
+  }, [roomId, saveCache]);
 
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-        pc.close();
-        delete pcsRef.current[socketId];
-        delete channelsRef.current[socketId];
-        updateP2PStatus();
-      }
-    };
-
-    return pc;
-  }, [userId, setupDataChannel, updateP2PStatus]);
-
-  // Connect to Socket server & establish mesh
+  // Connect to room & start polling
   const joinChatRoom = () => {
     if (!roomId.trim() || !username.trim()) return;
 
     loadCache(roomId);
     setIsJoined(true);
 
-    // Trigger API route to ensure Socket server is running on port 3001
-    fetch("/api/socket").catch(err => console.error("Socket trigger failed:", err));
+    // Initial fetch
+    fetchMessages();
 
-    const socketUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
-    const socket = io(socketUrl);
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      console.log("🔌 Connected to signaling server:", socket.id);
-      socket.emit("join-room", { roomId, userId });
-    });
-
-    // 1. Receive list of existing peers in the room
-    socket.on("room-peers", async ({ peers }) => {
-      console.log("👥 Active peers in room:", peers);
-      peerIdsRef.current = new Set(peers);
-      syncPeerCount();
-      for (const peerSocketId of peers) {
-        try {
-          const pc = getOrCreatePC(peerSocketId, true);
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          
-          socket.emit("signal-send", {
-            targetSocketId: peerSocketId,
-            signalData: { type: "offer", sdp: offer.sdp },
-            senderUserId: userId
-          });
-        } catch (err) {
-          console.error("Failed creating RTC offer:", err);
-        }
-      }
-    });
-
-    // 2. Receive notification of new peer joining
-    socket.on("peer-joined", ({ socketId, userId: joinerId }) => {
-      console.log(`👤 Peer joined: ${joinerId} (${socketId})`);
-      peerIdsRef.current.add(socketId);
-      syncPeerCount();
-      getOrCreatePC(socketId, false);
-    });
-
-    // 3. Receive signaling negotiation data
-    socket.on("signal-receive", async ({ senderSocketId, signalData }) => {
-      try {
-        const pc = getOrCreatePC(senderSocketId, false);
-
-        if (signalData.type === "offer") {
-          await pc.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: signalData.sdp }));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-
-          socket.emit("signal-send", {
-            targetSocketId: senderSocketId,
-            signalData: { type: "answer", sdp: answer.sdp },
-            senderUserId: userId
-          });
-        } else if (signalData.type === "answer") {
-          await pc.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: signalData.sdp }));
-        } else if (signalData.type === "candidate") {
-          if (pc.remoteDescription) {
-            await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
-          }
-        }
-      } catch (err) {
-        console.error("Signaling signal-receive process failed:", err);
-      }
-    });
-
-    // 4. Server-relay fallback messages
-    socket.on("chat-message", (msg) => {
-      handleIncomingMessage(msg);
-    });
-
-    // 5. Server-relay fallback reactions
-    socket.on("chat-reaction", (reaction) => {
-      handleIncomingReaction(reaction);
-    });
-
-    // 6. Clear chat relay
-    socket.on("clear-chat", () => {
-      setMessages([]);
-      saveCache(roomId, []);
-    });
-
-    // 7. Peer disconnected
-    socket.on("peer-disconnected", ({ socketId }) => {
-      console.log(`🔌 Peer disconnected: ${socketId}`);
-      if (pcsRef.current[socketId]) pcsRef.current[socketId].close();
-      delete pcsRef.current[socketId];
-      delete channelsRef.current[socketId];
-      peerIdsRef.current.delete(socketId);
-      syncPeerCount();
-      updateP2PStatus();
-    });
+    // Start polling every 2.5 seconds
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    pollingRef.current = setInterval(fetchMessages, 2500);
   };
 
   const leaveChatRoom = () => {
-    cleanupP2P();
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
     }
     setIsJoined(false);
+    setIsPollingActive(false);
   };
 
-  // Send message function (prioritizes P2P data channels, falls back to Socket)
-  const sendMessage = () => {
+  // Send message function (POST to serverless API)
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
     // Encrypt the message text
@@ -350,56 +145,33 @@ export default function TeamChatPage() {
       roomId
     };
 
-    const payload = JSON.stringify({ type: "chat-message", msg });
-    let sentP2PCount = 0;
-
-    // Try sending over peer-to-peer data channels
-    Object.entries(channelsRef.current).forEach(([socketId, dc]) => {
-      if (dc.readyState === "open") {
-        try {
-          dc.send(payload);
-          sentP2PCount++;
-        } catch (err) {
-          console.error(`P2P send failed to socket ${socketId}:`, err);
-        }
-      }
-    });
-
-    // Relays through socket as a fallback or to broadcast to server log
-    if (socketRef.current) {
-      socketRef.current.emit("chat-message", msg);
-    }
-
+    // Optimistically update locally
     setMessages((prev) => {
       const updated = [...prev, msg];
       saveCache(roomId, updated);
       return updated;
     });
-
     setInput("");
+
+    try {
+      await fetch("/chat/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send",
+          roomId,
+          message: msg
+        })
+      });
+      fetchMessages();
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
   };
 
-  // Reaction click handler
-  const handleReaction = (msgId, emoji) => {
-    const reaction = { msgId, emoji, user: username, roomId };
-    const payload = JSON.stringify({ type: "chat-reaction", reaction });
-
-    // Send over P2P DataChannels
-    Object.values(channelsRef.current).forEach((dc) => {
-      if (dc.readyState === "open") {
-        try {
-          dc.send(payload);
-        } catch (err) {
-          console.error("P2P reaction broadcast failed:", err);
-        }
-      }
-    });
-
-    // Send via socket relay
-    if (socketRef.current) {
-      socketRef.current.emit("chat-reaction", reaction);
-    }
-
+  // Reaction click handler (POST to serverless API)
+  const handleReaction = async (msgId, emoji) => {
+    // Optimistic UI update
     setMessages((prev) => {
       const updated = prev.map((m) => {
         if (m.id === msgId) {
@@ -415,28 +187,42 @@ export default function TeamChatPage() {
       saveCache(roomId, updated);
       return updated;
     });
+
+    try {
+      await fetch("/chat/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "react",
+          roomId,
+          msgId,
+          emoji,
+          username
+        })
+      });
+      fetchMessages();
+    } catch (err) {
+      console.error("Failed to react to message:", err);
+    }
   };
 
-  // Clear chat trigger
-  const clearChatHistory = () => {
+  // Clear chat trigger (POST to serverless API)
+  const clearChatHistory = async () => {
     setMessages([]);
     saveCache(roomId, []);
 
-    // Broadcast clear command P2P
-    const payload = JSON.stringify({ type: "clear-chat" });
-    Object.values(channelsRef.current).forEach((dc) => {
-      if (dc.readyState === "open") {
-        try {
-          dc.send(payload);
-        } catch (err) {
-          console.error("P2P clear notification failed:", err);
-        }
-      }
-    });
-
-    // Send via socket relay
-    if (socketRef.current) {
-      socketRef.current.emit("clear-chat", { roomId });
+    try {
+      await fetch("/chat/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "clear",
+          roomId
+        })
+      });
+      fetchMessages();
+    } catch (err) {
+      console.error("Failed to clear chat history:", err);
     }
   };
 
@@ -446,10 +232,11 @@ export default function TeamChatPage() {
 
   useEffect(() => {
     return () => {
-      cleanupP2P();
-      if (socketRef.current) socketRef.current.disconnect();
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
     };
-  }, [cleanupP2P]);
+  }, []);
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -478,7 +265,7 @@ export default function TeamChatPage() {
               E2EE Encrypted Chat Lobby
             </h2>
             <p className="text-xs text-[var(--text-muted)]">
-              Establish a peer-to-peer WebRTC connection using a custom secret key.
+              Securely connect to an E2EE room using client-side encryption.
             </p>
           </div>
 
@@ -554,21 +341,17 @@ export default function TeamChatPage() {
           </h1>
           <div className="flex flex-wrap items-center gap-4 text-xs font-mono" style={{ color: "var(--text-muted)" }}>
             <span className="flex items-center gap-1.5">
-              {p2pActive ? (
+              {isPollingActive ? (
                 <>
                   <Wifi className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">P2P Mesh Link Active</span>
+                  <span className="text-emerald-400">Sync Live (Polling)</span>
                 </>
               ) : (
                 <>
                   <WifiOff className="h-3.5 w-3.5 text-amber-500" />
-                  <span className="text-amber-500 font-bold">Relay (No Direct Peers)</span>
+                  <span className="text-amber-500 font-bold">Sync Offline</span>
                 </>
               )}
-            </span>
-            <span className="flex items-center gap-1">
-              <Users className="h-3.5 w-3.5 text-[var(--primary)]" />
-              <span>Peers: {peerCount} connected</span>
             </span>
           </div>
         </div>

@@ -27,6 +27,57 @@ import {
 } from "@/lib/fixParser";
 import TagDetailsModal from "@/components/TagDetailsModal";
 
+function evaluateFQL(lineContent, query, delimiter = "|") {
+  if (!query || !query.trim()) return true;
+
+  const normalizedQuery = query.trim().replace(/\s+and\s+/gi, " AND ").replace(/\s+or\s+/gi, " OR ");
+
+  const hasRelational = /=|!=|>|<|>=|<=/.test(normalizedQuery);
+  if (!hasRelational) {
+    return lineContent.toLowerCase().includes(query.toLowerCase());
+  }
+
+  const orParts = normalizedQuery.split(" OR ");
+
+  return orParts.some(orPart => {
+    const andParts = orPart.split(" AND ");
+    return andParts.every(condition => {
+      const match = condition.trim().match(/^(\d+)\s*(=|!=|>|<|>=|<=)\s*(.+)$/);
+      if (!match) return false;
+
+      const tag = match[1];
+      const op = match[2];
+      let expectedVal = match[3].trim();
+
+      if (expectedVal.startsWith('"') && expectedVal.endsWith('"')) {
+        expectedVal = expectedVal.slice(1, -1);
+      } else if (expectedVal.startsWith("'") && expectedVal.endsWith("'")) {
+        expectedVal = expectedVal.slice(1, -1);
+      }
+
+      const actualVal = getTagValue(lineContent, tag, delimiter);
+      if (!actualVal) return op === "!=";
+
+      switch (op) {
+        case "=":
+          return actualVal === expectedVal;
+        case "!=":
+          return actualVal !== expectedVal;
+        case ">":
+          return parseFloat(actualVal) > parseFloat(expectedVal);
+        case "<":
+          return parseFloat(actualVal) < parseFloat(expectedVal);
+        case ">=":
+          return parseFloat(actualVal) >= parseFloat(expectedVal);
+        case "<=":
+          return parseFloat(actualVal) <= parseFloat(expectedVal);
+        default:
+          return false;
+      }
+    });
+  });
+}
+
 export default function LogsProcessorPage() {
   const [files, setFiles] = useState([]);
   const [sortOrder, setSortOrder] = useState('asc');
@@ -547,25 +598,30 @@ export default function LogsProcessorPage() {
                   <h2 className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
                     Processed Logs View
                   </h2>
-                  <div className="relative w-full sm:w-60">
-                    <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none" style={{ color: 'var(--text-muted)' }}>
-                      <Search className="h-3.5 w-3.5" />
+                  <div className="flex flex-col gap-1 items-end relative w-full sm:w-80">
+                    <div className="relative w-full">
+                      <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none" style={{ color: 'var(--text-muted)' }}>
+                        <Search className="h-3.5 w-3.5" />
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Filter messages (e.g. 35=D)..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs font-mono"
+                        style={{
+                          background: 'var(--card)',
+                          border: '1px solid var(--border)',
+                          color: 'var(--foreground)',
+                          outline: 'none',
+                        }}
+                        onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                      />
+                    </div>
+                    <span className="text-[9px] text-[var(--text-muted)] font-mono text-right w-full block">
+                      FQL: <span className="text-[var(--primary)] font-semibold">35=D and 55=AAPL</span> or <span className="text-[var(--primary)] font-semibold">44 &gt; 150</span>
                     </span>
-                    <input
-                      type="text"
-                      placeholder="Filter messages (tag=val)…"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs font-mono"
-                      style={{
-                        background: 'var(--card)',
-                        border: '1px solid var(--border)',
-                        color: 'var(--foreground)',
-                        outline: 'none',
-                      }}
-                      onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                      onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                    />
                   </div>
                 </div>
 
@@ -574,7 +630,7 @@ export default function LogsProcessorPage() {
                     <div className="space-y-3">
                       {files.map((fileObj, fIdx) => {
                         const filteredLines = fileObj.parsedLines.filter((l) =>
-                          l.content.toLowerCase().includes(searchTerm.toLowerCase())
+                          evaluateFQL(l.content, searchTerm, delimiter)
                         );
                         return (
                           <details
