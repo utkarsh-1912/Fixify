@@ -223,13 +223,18 @@ export default function LatencyDashboard() {
   // Dropzone load files handler
   const onDrop = useCallback((acceptedFiles) => {
     if (acceptedFiles.length === 0) return;
+    const file = acceptedFiles[0];
+    if (file.size > 1500000) {
+      const confirmProceed = window.confirm(`Warning: The file "${file.name}" is very large (>1.5MB) and may cause performance lag or memory limits. Do you want to proceed?`);
+      if (!confirmProceed) return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const textContent = reader.result;
       setFiles(acceptedFiles);
       processLatencyLogs(textContent);
     };
-    reader.readAsText(acceptedFiles[0]);
+    reader.readAsText(file);
   }, [processLatencyLogs]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

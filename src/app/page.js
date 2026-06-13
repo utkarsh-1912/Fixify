@@ -145,27 +145,52 @@ export default function LogsProcessorPage() {
   // Save states on change
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-logs-pastedText', pastedText);
+    try {
+      if (pastedText.length > 1000000) {
+        // Truncate to 1MB when writing to cache
+        localStorage.setItem('fixify-logs-pastedText', pastedText.slice(0, 1000000) + "\n\n... [Log Text Truncated in Local Cache to Save Storage Space]");
+      } else {
+        localStorage.setItem('fixify-logs-pastedText', pastedText);
+      }
+    } catch (e) {
+      console.warn("Could not save pasted text", e);
+    }
   }, [pastedText, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-logs-delimiter', delimiter);
+    try {
+      localStorage.setItem('fixify-logs-delimiter', delimiter);
+    } catch (e) {
+      console.warn("Could not save delimiter state", e);
+    }
   }, [delimiter, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-logs-sortOrder', sortOrder);
+    try {
+      localStorage.setItem('fixify-logs-sortOrder', sortOrder);
+    } catch (e) {
+      console.warn("Could not save sortOrder state", e);
+    }
   }, [sortOrder, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-logs-inputMode', inputMode);
+    try {
+      localStorage.setItem('fixify-logs-inputMode', inputMode);
+    } catch (e) {
+      console.warn("Could not save inputMode state", e);
+    }
   }, [inputMode, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-logs-searchTerm', searchTerm);
+    try {
+      localStorage.setItem('fixify-logs-searchTerm', searchTerm);
+    } catch (e) {
+      console.warn("Could not save searchTerm state", e);
+    }
   }, [searchTerm, isLoaded]);
 
   useEffect(() => {
@@ -180,7 +205,26 @@ export default function LogsProcessorPage() {
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
     try {
-      localStorage.setItem('fixify-logs-files', JSON.stringify(files));
+      const cacheableFiles = files.map(f => {
+        const hasLargeContent = f.content && f.content.length > 1000000;
+        const hasLargeParsed = f.parsedLines && f.parsedLines.length > 3000;
+        if (hasLargeContent || hasLargeParsed) {
+          const truncatedContent = hasLargeContent 
+            ? f.content.slice(0, 1000000) + "\n\n... [File Content Truncated in Local Cache to Save Storage Space]" 
+            : f.content;
+          const truncatedLines = hasLargeParsed 
+            ? f.parsedLines.slice(0, 3000) 
+            : f.parsedLines;
+          return {
+            ...f,
+            content: truncatedContent,
+            parsedLines: truncatedLines,
+            isTruncatedInCache: true
+          };
+        }
+        return f;
+      });
+      localStorage.setItem('fixify-logs-files', JSON.stringify(cacheableFiles));
     } catch (e) {
       console.warn("Could not save files state", e);
     }
@@ -190,6 +234,14 @@ export default function LogsProcessorPage() {
     let completed = 0;
     const tempFiles = [];
     acceptedFiles.forEach((file) => {
+      const isLarge = file.size > 1500000;
+      if (isLarge) {
+        const confirmProceed = window.confirm(`Warning: The file "${file.name}" is very large (>1.5MB). FIXify will process all messages in memory, but will truncate the saved version in browser cache storage to prevent QuotaExceeded errors. Proceed?`);
+        if (!confirmProceed) {
+          completed++;
+          return;
+        }
+      }
       const reader = new FileReader();
       reader.onload = () => {
         const textContent = reader.result;
@@ -205,7 +257,13 @@ export default function LogsProcessorPage() {
             validation
           };
         });
-        tempFiles.push({ name: file.name, content: textContent, parsedLines });
+        tempFiles.push({ 
+          name: file.name, 
+          content: textContent, 
+          parsedLines,
+          size: file.size,
+          skipCache: isLarge
+        });
         completed++;
         if (completed === acceptedFiles.length) {
           setFiles((prev) => [...prev, ...tempFiles]);
@@ -598,8 +656,17 @@ export default function LogsProcessorPage() {
                       style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
                     >
                       <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--primary)' }} />
-                      <span className="truncate flex-1 font-mono" style={{ color: 'var(--foreground)' }}>
+                      <span className="truncate flex-1 font-mono flex items-center" style={{ color: 'var(--foreground)' }}>
                         {f.name}
+                        {(f.skipCache || f.isTruncatedInCache) && (
+                          <span 
+                            className="ml-2 text-[9px] font-semibold px-1 py-0.5 rounded border"
+                            style={{ background: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' }}
+                            title="This file exceeds the 1MB cache threshold. Processing memory contains 100% of the messages, but the version saved in localStorage (cache) is truncated."
+                          >
+                            Cached (Truncated) ⚠️
+                          </span>
+                        )}
                       </span>
                       <button
                         onClick={() => removeFile(f.name)}
