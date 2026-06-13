@@ -152,7 +152,7 @@ export default function InterpreterPage() {
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <PlusCircle className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
-            <span className="hidden sm:inline">Clear Chat</span>
+            <span className="inline">Clear Chat</span>
           </button>
         </div>
       </div>
