@@ -24,8 +24,12 @@ import {
   Trash2,
   AlertTriangle,
   Search,
-  BookOpen
+  BookOpen,
+  X,
+  Wrench,
+  Sliders
 } from "lucide-react";
+import { toPng } from "html-to-image";
 import { validateFIXMessage } from "@/lib/fixParser";
 
 /* ----------------------
@@ -247,15 +251,53 @@ function FlowchartPage() {
   const [rfInstance, setRfInstance] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
 
+  const [activeScenario, setActiveScenario] = useState("");
+
+  const [isDesktop, setIsDesktop] = useState(true);
+  const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
+  const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const checkSize = () => {
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+      if (desktop) {
+        setIsLeftDrawerOpen(false);
+        setIsRightDrawerOpen(false);
+      }
+    };
+    checkSize();
+    window.addEventListener('resize', checkSize);
+    return () => window.removeEventListener('resize', checkSize);
+  }, []);
+
   // Search filter inside node property panel
   const [tagSearchQuery, setTagSearchQuery] = useState("");
+  const [tagPage, setTagPage] = useState(0);
+  const TAG_PAGE_SIZE = 10;
+
+  // Frequently accessed FIX tags for quick-filter chips
+  const FREQUENT_TAGS = [
+    { tag: '35', label: 'MsgType' },
+    { tag: '49', label: 'Sender' },
+    { tag: '56', label: 'Target' },
+    { tag: '34', label: 'SeqNum' },
+    { tag: '11', label: 'ClOrdID' },
+    { tag: '55', label: 'Symbol' },
+    { tag: '54', label: 'Side' },
+    { tag: '44', label: 'Price' },
+    { tag: '39', label: 'OrdStatus' },
+    { tag: '10', label: 'Checksum' },
+  ];
   const [userTemplates, setUserTemplates] = useState({});
   const [isLoaded, setIsLoaded] = useState(false);
 
   /* Node Label Update */
   const updateNodeLabel = useCallback((id, label) => {
     setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)));
-  }, []);
+    setActiveScenario("");
+  }, [setActiveScenario]);
 
   const stampUpdateLabel = useCallback(
     (nodeList) =>
@@ -331,9 +373,10 @@ function FlowchartPage() {
       const label = type.charAt(0).toUpperCase() + type.slice(1);
       const node = { id, type, position, data: { label, updateLabel: updateNodeLabel, meta: {} } };
       setNodes((nds) => nds.concat(node));
+      setActiveScenario("");
       return node;
     },
-    [updateNodeLabel]
+    [updateNodeLabel, setActiveScenario]
   );
 
   const onDragStart = (event, nodeType) => {
@@ -373,31 +416,44 @@ function FlowchartPage() {
       style: { stroke: '#10b981' }
     };
     setEdges((eds) => addEdge(edge, eds));
-  }, []);
+    setActiveScenario("");
+  }, [setActiveScenario]);
 
   const deleteSelected = useCallback(() => {
     setNodes((nds) => nds.filter((n) => !n.selected));
     setEdges((eds) => eds.filter((e) => !e.selected));
     setSelectedNode(null);
-  }, []);
+    setActiveScenario("");
+  }, [setActiveScenario]);
 
   const deleteSelectedEdge = useCallback(() => {
     setEdges((eds) => eds.filter((e) => !e.selected));
-  }, []);
+    setActiveScenario("");
+  }, [setActiveScenario]);
 
   const updateEdgeLabel = useCallback((id, label) => {
     setEdges((eds) => eds.map((e) => (e.id === id ? { ...e, label } : e)));
-  }, []);
+    setActiveScenario("");
+  }, [setActiveScenario]);
 
   /* Selection Changes */
   const handleSelectionChange = useCallback((sel) => {
     const selNodes = sel?.nodes || [];
+    const selEdges = sel?.edges || [];
     if (selNodes.length) {
       setSelectedNode(selNodes[0]);
       setTagSearchQuery(""); // Reset search query on node change
+      setTagPage(0);         // Reset pagination on node change
+      if (window.innerWidth < 1024) {
+        setIsRightDrawerOpen(true);
+      }
+    } else {
+      setSelectedNode(null);
+      if (selEdges.length && window.innerWidth < 1024) {
+        setIsRightDrawerOpen(true);
+      }
     }
-    else setSelectedNode(null);
-  }, []);
+  }, [setIsRightDrawerOpen]);
 
   /* Auto Arrange using Dagre */
   const autoArrange = useCallback(
@@ -437,6 +493,7 @@ function FlowchartPage() {
   const loadUserTemplate = (name) => {
     const template = userTemplates[name];
     if (!template) return;
+    setActiveScenario(`user-${name}`);
 
     try {
       const stampedNodes = (template.nodes || []).map((n) => ({
@@ -456,6 +513,7 @@ function FlowchartPage() {
   /* Load Scenario Template */
   const loadScenarioTemplate = (scenarioKey) => {
     if (!scenarioKey || !INDUSTRY_SCENARIOS[scenarioKey]) return;
+    setActiveScenario(scenarioKey);
     const lines = INDUSTRY_SCENARIOS[scenarioKey];
     
     const newNodes = [];
@@ -530,6 +588,32 @@ function FlowchartPage() {
     URL.revokeObjectURL(url);
   }, [nodes, edges]);
 
+  const exportImage = useCallback(() => {
+    if (!reactFlowWrapper.current) return;
+    toPng(reactFlowWrapper.current, {
+      backgroundColor: "#09090b",
+      filter: (node) => {
+        if (
+          node?.classList?.contains("react-flow__controls") ||
+          node?.classList?.contains("react-flow__panel")
+        ) {
+          return false;
+        }
+        return true;
+      },
+    })
+      .then((dataUrl) => {
+        const link = document.createElement("a");
+        link.download = `flowchart-${Date.now()}.png`;
+        link.href = dataUrl;
+        link.click();
+      })
+      .catch((err) => {
+        console.error("Export PNG failed", err);
+        alert("Failed to export diagram as PNG: " + err.message);
+      });
+  }, [reactFlowWrapper]);
+
   const importJSON = useCallback(
     (e) => {
       const file = e.target.files?.[0];
@@ -545,6 +629,7 @@ function FlowchartPage() {
           const stamped = parsed.nodes.map((n) => ({ ...n, data: { ...(n.data || {}), updateLabel } }));
           setNodes(stamped);
           setEdges(parsed.edges);
+          setActiveScenario("");
           setTimeout(() => rfInstance && rfInstance.fitView({ padding: 0.15 }), 120);
         } catch {
           alert("Invalid flowchart config JSON.");
@@ -553,7 +638,7 @@ function FlowchartPage() {
       reader.readAsText(file);
       e.target.value = "";
     },
-    [rfInstance]
+    [updateNodeLabel, rfInstance, setActiveScenario]
   );
 
   /* AUTO-SEQUENCE DIAGRAM GENERATOR FROM FIX LOGS */
@@ -623,6 +708,7 @@ function FlowchartPage() {
 
         setNodes(newNodes);
         setEdges(newEdges);
+        setActiveScenario("");
         
         setTimeout(() => {
           const positioned = getDagreLayout(newNodes, newEdges, "LR");
@@ -642,7 +728,8 @@ function FlowchartPage() {
     setNodes([]);
     setEdges([]);
     setSelectedNode(null);
-  }, []);
+    setActiveScenario("");
+  }, [setActiveScenario]);
 
   /* Properties Panel drawer content */
   const MetaPane = () => {
@@ -652,7 +739,8 @@ function FlowchartPage() {
       const isFIXNode = !!meta?.msgType;
 
       // Filtered tags inside the properties view
-      const filteredTags = (meta?.tagList || []).filter((t) => {
+      const allTagList = meta?.tagList || [];
+      const filteredTags = allTagList.filter((t) => {
         const query = tagSearchQuery.toLowerCase().trim();
         if (!query) return true;
         return (
@@ -662,6 +750,9 @@ function FlowchartPage() {
           (t.meaning || "").toLowerCase().includes(query)
         );
       });
+      const totalPages = Math.ceil(filteredTags.length / TAG_PAGE_SIZE);
+      const safePage = Math.min(tagPage, Math.max(0, totalPages - 1));
+      const pagedTags = filteredTags.slice(safePage * TAG_PAGE_SIZE, (safePage + 1) * TAG_PAGE_SIZE);
 
       // Header tag styling config helper
       const getTagBadgeColor = (tagNum) => {
@@ -673,7 +764,7 @@ function FlowchartPage() {
       };
 
       return (
-        <div className="space-y-4 flex flex-col flex-1 overflow-hidden">
+        <div className="space-y-4 flex flex-col flex-1 overflow-y-auto pr-1.5 scrollbar-thin">
           <div className="space-y-1">
             <span className="text-[10px] text-zinc-500 font-mono block">Node Type</span>
             <span className="text-xs uppercase font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 w-fit">
@@ -692,7 +783,7 @@ function FlowchartPage() {
 
           {/* Render parsed metadata if generated from FIX logs */}
           {isFIXNode && (
-            <div className="flex-1 flex flex-col min-h-0 space-y-3">
+            <div className="flex flex-col space-y-3 shrink-0">
               <div className="p-3 bg-zinc-950 border border-zinc-850 rounded-xl space-y-2.5 font-mono text-xs text-zinc-400">
                 <div className="font-semibold text-zinc-300 border-b border-zinc-900 pb-1 flex items-center gap-1">
                   <FileText className="h-3.5 w-3.5 text-emerald-400" /> FIX Message Info
@@ -722,27 +813,45 @@ function FlowchartPage() {
               </div>
 
               {/* Tag Search and Detailed Grid */}
-              <div className="flex-1 flex flex-col min-h-0 border border-zinc-850 bg-zinc-950/20 rounded-xl overflow-hidden">
+              <div className="flex flex-col border border-zinc-850 bg-zinc-950/20 rounded-xl overflow-hidden shrink-0">
+                {/* Search input */}
                 <div className="p-2 border-b border-zinc-850 bg-zinc-900/30 relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500" />
                   <input
                     type="text"
                     placeholder="Search tags (e.g. 55, Symbol, Buy)..."
                     value={tagSearchQuery}
-                    onChange={(e) => setTagSearchQuery(e.target.value)}
+                    onChange={(e) => { setTagSearchQuery(e.target.value); setTagPage(0); }}
                     className="w-full pl-7 pr-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5 min-h-[160px]">
+                {/* Frequently used quick-filter chips */}
+                {!tagSearchQuery && (
+                  <div className="px-2 pt-2 pb-1 flex flex-wrap gap-1 border-b border-zinc-850">
+                    {FREQUENT_TAGS.map((ft) => (
+                      <button
+                        key={ft.tag}
+                        onClick={() => { setTagSearchQuery(ft.tag); setTagPage(0); }}
+                        className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border transition-colors"
+                        style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.2)', color: '#6ee7b7' }}
+                      >
+                        {ft.tag} · {ft.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tag list with pagination */}
+                <div className="p-1.5 space-y-1.5 min-h-[120px]">
                   {filteredTags.length === 0 ? (
                     <div className="text-center py-8 text-[10px] text-zinc-500 italic font-mono">
                       No matching tags found
                     </div>
                   ) : (
-                    filteredTags.map((t) => (
+                    pagedTags.map((t, idx) => (
                       <div
-                        key={t.tag}
+                        key={`${t.tag}-${safePage * TAG_PAGE_SIZE + idx}`}
                         className="flex items-start justify-between p-2 rounded-lg bg-zinc-900/40 border border-zinc-850/50 hover:border-zinc-750 transition-colors text-[10px] font-mono"
                       >
                         <div className="space-y-0.5 flex-1 min-w-0 pr-2">
@@ -765,16 +874,33 @@ function FlowchartPage() {
                     ))
                   )}
                 </div>
+
+                {/* Pagination controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-2 py-1.5 border-t border-zinc-850 bg-zinc-900/30 shrink-0">
+                    <button
+                      onClick={() => setTagPage(p => Math.max(0, p - 1))}
+                      disabled={safePage === 0}
+                      className="text-[9px] font-mono px-2 py-0.5 rounded border border-zinc-800 text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors"
+                    >
+                      ‹ Prev
+                    </button>
+                    <span className="text-[9px] font-mono text-zinc-500">
+                      {safePage + 1} / {totalPages} · {filteredTags.length} tags
+                    </span>
+                    <button
+                      onClick={() => setTagPage(p => Math.min(totalPages - 1, p + 1))}
+                      disabled={safePage >= totalPages - 1}
+                      className="text-[9px] font-mono px-2 py-0.5 rounded border border-zinc-800 text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          <button
-            onClick={deleteSelected}
-            className="w-full py-2 bg-red-600 hover:bg-red-500 font-bold rounded-xl text-white text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0"
-          >
-            <Trash2 className="h-4 w-4" /> <span className="inline">Delete Component</span>
-          </button>
         </div>
       );
     }
@@ -792,12 +918,6 @@ function FlowchartPage() {
               className="w-full px-2.5 py-1.5 border border-zinc-800 bg-zinc-950 rounded-xl text-xs text-zinc-300 outline-none focus:border-emerald-500 font-sans"
             />
           </div>
-          <button
-            onClick={deleteSelectedEdge}
-            className="w-full py-2 bg-red-600 hover:bg-red-500 font-bold rounded-xl text-white text-xs transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Trash2 className="h-4 w-4" /> <span className="inline">Delete Connection</span>
-          </button>
         </div>
       );
     }
@@ -806,6 +926,232 @@ function FlowchartPage() {
       <div className="p-3 text-xs text-zinc-500 font-mono italic text-center border border-dashed border-zinc-800 rounded-lg">
         Select a diagram element on the grid to inspect properties.
       </div>
+    );
+  };
+
+  const renderLeftPanelContent = () => (
+    <>
+      {/* Predefined Scenarios */}
+      <div>
+        <p className="fx-section-label mb-2 flex items-center justify-between">
+          <span className="flex items-center gap-1"><BookOpen className="h-3 w-3 text-[var(--primary)]" /> Templates</span>
+          <button 
+            onClick={saveCurrentAsTemplate}
+            className="text-[9px] font-mono text-[var(--primary)] hover:underline"
+            title="Save current canvas as custom template"
+          >
+            + Save New
+          </button>
+        </p>
+        <select
+          value={activeScenario || ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            setActiveScenario(val);
+            if (val.startsWith("user-")) {
+              const tName = val.substring(5);
+              loadUserTemplate(tName);
+            } else if (val) {
+              loadScenarioTemplate(val);
+            }
+            if (!isDesktop) setIsLeftDrawerOpen(false);
+          }}
+          className="w-full px-2 py-1.5 border border-zinc-800 bg-zinc-950 rounded-lg text-[10px] font-mono text-zinc-300 outline-none focus:border-[var(--primary)] cursor-pointer"
+        >
+          <option value="" disabled>Load scenario...</option>
+          <optgroup label="Industry Templates" className="bg-zinc-950 text-zinc-300">
+            <option value="logon">Logon & Session Establish</option>
+            <option value="orderExecution">Single Order Execution (NOS)</option>
+            <option value="cancelReplace">Modify & Cancel Flow (NOS/ER/Cxl)</option>
+            <option value="allocations">Trade Allocation (Block ➔ Sub)</option>
+            <option value="marketData">Market Data Subscription (MD)</option>
+          </optgroup>
+          {Object.keys(userTemplates).length > 0 && (
+            <optgroup label="Custom Templates" className="bg-zinc-950 text-zinc-300">
+              {Object.keys(userTemplates).map((name) => (
+                <option key={name} value={`user-${name}`}>{name}</option>
+              ))}
+            </optgroup>
+          )}
+        </select>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--border)' }} />
+
+      {/* Palette */}
+      <div>
+        <p className="fx-section-label mb-3">Palette</p>
+        <div className="space-y-1.5">
+          {[
+            { key: "start", name: "Start (Pill)", icon: StartIcon },
+            { key: "process", name: "Process (Box)", icon: ProcessIcon },
+            { key: "decision", name: "Decision (Diamond)", icon: DecisionIcon },
+            { key: "milestone", name: "Milestone (DB)", icon: MilestoneIcon },
+            { key: "end", name: "End (Pill)", icon: EndIcon }
+          ].map((s) => (
+            <div
+              key={s.key}
+              draggable
+              onDragStart={(e) => {
+                onDragStart(e, s.key);
+                if (!isDesktop) setIsLeftDrawerOpen(false);
+              }}
+              onClick={() => {
+                if (!isDesktop) {
+                  const pos = rfInstance 
+                    ? rfInstance.project({ x: window.innerWidth / 2 - 100, y: window.innerHeight / 2 - 200 })
+                    : { x: 250, y: 150 };
+                  createNodeOfType(s.key, pos);
+                  setIsLeftDrawerOpen(false);
+                  setTimeout(() => rfInstance && rfInstance.fitView({ padding: 0.15 }), 120);
+                }
+              }}
+              className="px-3 py-2 rounded-lg text-xs font-mono cursor-grab active:cursor-grabbing transition-all flex items-center gap-1.5"
+              style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--foreground)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              <s.icon />
+              <span>{s.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--border)' }} />
+
+      {/* Quick FIX Auto generation */}
+      <div>
+        <p className="fx-section-label mb-3">FIX Sequence</p>
+        <input
+          type="file"
+          id="fixLogSeqInput"
+          accept=".txt,.fix,.log"
+          onChange={(e) => {
+            handleFIXLogImport(e);
+            if (!isDesktop) setIsLeftDrawerOpen(false);
+          }}
+          className="hidden"
+        />
+        <button
+          onClick={() => document.getElementById("fixLogSeqInput")?.click()}
+          className="w-full fx-btn-primary justify-center"
+          style={{ width: '100%' }}
+        >
+          <Upload className="h-3.5 w-3.5" /> <span className="inline">Log to Sequence</span>
+        </button>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--border)' }} />
+
+      {/* Save & Load commands */}
+      <div className="space-y-2 mt-auto">
+        <div className="space-y-1">
+          <p className="text-[10px] text-zinc-500 font-mono block mb-1">Export Diagram</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                exportJSON();
+                if (!isDesktop) setIsLeftDrawerOpen(false);
+              }}
+              className="flex-1 fx-btn-secondary justify-center text-[10px] py-1.5 px-2 flex items-center gap-1"
+              title="Export config as JSON file"
+            >
+              <Share2 className="h-3 w-3" /> <span>JSON</span>
+            </button>
+            <button
+              onClick={() => {
+                exportImage();
+                if (!isDesktop) setIsLeftDrawerOpen(false);
+              }}
+              className="flex-1 fx-btn-secondary justify-center text-[10px] py-1.5 px-2 flex items-center gap-1"
+              title="Export canvas as PNG image"
+            >
+              <FileText className="h-3 w-3" /> <span>Image</span>
+            </button>
+          </div>
+        </div>
+        <input
+          type="file"
+          id="jsonFlowInput"
+          accept="application/json"
+          onChange={(e) => {
+            importJSON(e);
+            if (!isDesktop) setIsLeftDrawerOpen(false);
+          }}
+          className="hidden"
+        />
+        <button
+          onClick={() => document.getElementById("jsonFlowInput")?.click()}
+          className="w-full fx-btn-secondary justify-center"
+          style={{ width: '100%' }}
+        >
+          <Upload className="h-3.5 w-3.5" /> <span className="inline">Import</span>
+        </button>
+        <button
+          onClick={() => {
+            resetChart();
+            if (!isDesktop) setIsLeftDrawerOpen(false);
+          }}
+          className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+          style={{ border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)', color: '#f87171' }}
+        >
+          <Trash2 className="h-3.5 w-3.5" /> <span className="inline">Clear</span>
+        </button>
+      </div>
+    </>
+  );
+
+  const renderRightPanelContent = () => {
+    const selectedEdge = edges.find((e) => e.selected);
+    return (
+      <>
+        <p className="fx-section-label mb-3">Properties</p>
+        <MetaPane />
+
+        <div className="mt-auto pt-4 space-y-3 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+          {selectedNode && (
+            <button
+              onClick={deleteSelected}
+              className="w-full py-2 bg-red-600 hover:bg-red-500 font-bold rounded-xl text-white text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <Trash2 className="h-4 w-4" /> <span className="inline">Delete Component</span>
+            </button>
+          )}
+          {selectedEdge && (
+            <button
+              onClick={deleteSelectedEdge}
+              className="w-full py-2 bg-red-600 hover:bg-red-550 font-bold rounded-xl text-white text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <Trash2 className="h-4 w-4" /> <span className="inline">Delete Connection</span>
+            </button>
+          )}
+
+          <div>
+            <p className="fx-section-label mb-2">Auto-layout</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  autoArrange("LR");
+                  if (!isDesktop) setIsRightDrawerOpen(false);
+                }}
+                className="flex-1 fx-btn-secondary justify-center text-[11px]"
+              >
+                <Layout className="h-3 w-3 rotate-90" /> <span className="inline">L→R</span>
+              </button>
+              <button
+                onClick={() => {
+                  autoArrange("TB");
+                  if (!isDesktop) setIsRightDrawerOpen(false);
+                }}
+                className="flex-1 fx-btn-secondary justify-center text-[11px]"
+              >
+                <Layout className="h-3 w-3" /> <span className="inline">T→B</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
     );
   };
 
@@ -823,142 +1169,73 @@ function FlowchartPage() {
         </div>
       </div>
 
+      {/* Mobile Toolbar */}
+      {!isDesktop && (
+        <div className="flex justify-between items-center gap-3 p-3 bg-zinc-900/40 border border-zinc-800 rounded-xl">
+          <button
+            onClick={() => setIsLeftDrawerOpen(true)}
+            className="fx-btn-secondary py-2 px-3 text-xs flex items-center gap-1.5"
+          >
+            <Wrench className="h-4 w-4 text-[var(--primary)]" />
+            <span>Tools</span>
+          </button>
+          
+          <button
+            onClick={() => setIsRightDrawerOpen(true)}
+            className={`fx-btn-secondary py-2 px-3 text-xs flex items-center gap-1.5 relative ${
+              selectedNode || edges.some(e => e.selected)
+                ? 'border-[var(--primary-border)] bg-[var(--primary-faint)] text-[var(--primary)]'
+                : ''
+            }`}
+          >
+            <Sliders className="h-4 w-4" />
+            <span>Properties</span>
+            {(selectedNode || edges.some(e => e.selected)) && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Workspace Area */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
         {/* Left Control Panel (Width 2/12) */}
-        <aside
-          className="lg:col-span-2 flex flex-col p-4 rounded-xl space-y-4 select-none lg:max-h-[75vh] lg:overflow-y-auto scrollbar-thin"
-          style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
-        >
-          {/* Predefined Scenarios */}
-          <div>
-            <p className="fx-section-label mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1"><BookOpen className="h-3 w-3 text-[var(--primary)]" /> Templates</span>
-              <button 
-                onClick={saveCurrentAsTemplate}
-                className="text-[9px] font-mono text-[var(--primary)] hover:underline"
-                title="Save current canvas as custom template"
-              >
-                + Save New
-              </button>
-            </p>
-            <select
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val.startsWith("user-")) {
-                  const tName = val.substring(5);
-                  loadUserTemplate(tName);
-                } else if (val) {
-                  loadScenarioTemplate(val);
-                }
-                e.target.value = ""; // Reset dropdown selection after loading
-              }}
-              defaultValue=""
-              className="w-full px-2 py-1.5 border border-zinc-800 bg-zinc-950 rounded-lg text-[10px] font-mono text-zinc-300 outline-none focus:border-[var(--primary)] cursor-pointer"
-            >
-              <option value="" disabled>Load scenario...</option>
-              <optgroup label="Industry Templates" className="bg-zinc-950 text-zinc-300">
-                <option value="logon">Logon & Session Establish</option>
-                <option value="orderExecution">Single Order Execution (NOS)</option>
-                <option value="cancelReplace">Modify & Cancel Flow (NOS/ER/Cxl)</option>
-                <option value="allocations">Trade Allocation (Block ➔ Sub)</option>
-                <option value="marketData">Market Data Subscription (MD)</option>
-              </optgroup>
-              {Object.keys(userTemplates).length > 0 && (
-                <optgroup label="Custom Templates" className="bg-zinc-950 text-zinc-300">
-                  {Object.keys(userTemplates).map((name) => (
-                    <option key={name} value={`user-${name}`}>{name}</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border)' }} />
-
-          {/* Palette */}
-          <div>
-            <p className="fx-section-label mb-3">Palette</p>
-            <div className="space-y-1.5">
-              {[
-                { key: "start", name: "Start (Pill)", icon: StartIcon },
-                { key: "process", name: "Process (Box)", icon: ProcessIcon },
-                { key: "decision", name: "Decision (Diamond)", icon: DecisionIcon },
-                { key: "milestone", name: "Milestone (DB)", icon: MilestoneIcon },
-                { key: "end", name: "End (Pill)", icon: EndIcon }
-              ].map((s) => (
-                <div
-                  key={s.key}
-                  draggable
-                  onDragStart={(e) => onDragStart(e, s.key)}
-                  className="px-3 py-2 rounded-lg text-xs font-mono cursor-grab active:cursor-grabbing transition-all flex items-center gap-1.5"
-                  style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--foreground)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+        {isDesktop ? (
+          <aside
+            className="lg:col-span-2 flex flex-col p-4 rounded-xl space-y-4 select-none lg:max-h-[75vh] lg:overflow-y-auto scrollbar-thin"
+            style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
+          >
+            {renderLeftPanelContent()}
+          </aside>
+        ) : (
+          <>
+            {isLeftDrawerOpen && (
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+                  onClick={() => setIsLeftDrawerOpen(false)}
+                />
+                {/* Slide-over */}
+                <aside
+                  className="fixed inset-y-0 left-0 z-50 w-[290px] max-w-[80vw] bg-zinc-950 border-r border-zinc-850 p-4 flex flex-col space-y-4 overflow-y-auto"
                 >
-                  <s.icon />
-                  <span>{s.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border)' }} />
-
-          {/* Quick FIX Auto generation */}
-          <div>
-            <p className="fx-section-label mb-3">FIX Sequence</p>
-            <input
-              type="file"
-              id="fixLogSeqInput"
-              accept=".txt,.fix,.log"
-              onChange={handleFIXLogImport}
-              className="hidden"
-            />
-            <button
-              onClick={() => document.getElementById("fixLogSeqInput")?.click()}
-              className="w-full fx-btn-primary justify-center"
-              style={{ width: '100%' }}
-            >
-              <Upload className="h-3.5 w-3.5" /> <span className="inline">Log to Sequence</span>
-            </button>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border)' }} />
-
-          {/* Save & Load commands */}
-          <div className="space-y-2 mt-auto">
-            <button
-              onClick={exportJSON}
-              className="w-full fx-btn-secondary justify-center"
-              style={{ width: '100%' }}
-            >
-              <Share2 className="h-3.5 w-3.5" /> <span className="inline">Export</span>
-            </button>
-            <input
-              type="file"
-              id="jsonFlowInput"
-              accept="application/json"
-              onChange={importJSON}
-              className="hidden"
-            />
-            <button
-              onClick={() => document.getElementById("jsonFlowInput")?.click()}
-              className="w-full fx-btn-secondary justify-center"
-              style={{ width: '100%' }}
-            >
-              <Upload className="h-3.5 w-3.5" /> <span className="inline">Import</span>
-            </button>
-            <button
-              onClick={resetChart}
-              className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
-              style={{ border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)', color: '#f87171' }}
-            >
-              <Trash2 className="h-3.5 w-3.5" /> <span className="inline">Clear</span>
-            </button>
-          </div>
-        </aside>
+                  <div className="flex justify-between items-center pb-2 border-b border-zinc-900 shrink-0">
+                    <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider">Tools & Palette</span>
+                    <button 
+                      onClick={() => setIsLeftDrawerOpen(false)}
+                      className="p-1 hover:text-[var(--primary)] text-zinc-500 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {renderLeftPanelContent()}
+                </aside>
+              </>
+            )}
+          </>
+        )}
  
         {/* Center Drawing Canvas (Width 7/12) */}
         <section
@@ -986,32 +1263,41 @@ function FlowchartPage() {
         </section>
 
         {/* Right Properties Drawer (Width 3/12) */}
-        <aside
-          className="lg:col-span-3 p-4 rounded-xl flex flex-col justify-start max-h-[75vh] overflow-hidden"
-          style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
-        >
-          <p className="fx-section-label mb-3">Properties</p>
-          <MetaPane />
-
-          <div className="mt-auto pt-4 space-y-2 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
-            <p className="fx-section-label mb-2">Auto-layout</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => autoArrange("LR")}
-                className="flex-1 fx-btn-secondary justify-center text-[11px]"
-              >
-                <Layout className="h-3 w-3 rotate-90" /> <span className="inline">L→R</span>
-              </button>
-              <button
-                onClick={() => autoArrange("TB")}
-                className="flex-1 fx-btn-secondary justify-center text-[11px]"
-              >
-                <Layout className="h-3 w-3" /> <span className="inline">T→B</span>
-              </button>
-            </div>
-          </div>
-        </aside>
-
+        {isDesktop ? (
+          <aside
+            className="lg:col-span-3 p-4 rounded-xl flex flex-col justify-start max-h-[75vh] overflow-hidden"
+            style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
+          >
+            {renderRightPanelContent()}
+          </aside>
+        ) : (
+          <>
+            {isRightDrawerOpen && (
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+                  onClick={() => setIsRightDrawerOpen(false)}
+                />
+                {/* Slide-over */}
+                <aside
+                  className="fixed inset-y-0 right-0 z-50 w-[310px] max-w-[85vw] bg-zinc-950 border-l border-zinc-850 p-4 flex flex-col justify-start h-full overflow-hidden"
+                >
+                  <div className="flex justify-between items-center pb-2 border-b border-zinc-900 mb-3 shrink-0">
+                    <span className="font-bold text-xs text-zinc-400 uppercase tracking-wider">Properties & Layout</span>
+                    <button 
+                      onClick={() => setIsRightDrawerOpen(false)}
+                      className="p-1 hover:text-[var(--primary)] text-zinc-500 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {renderRightPanelContent()}
+                </aside>
+              </>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

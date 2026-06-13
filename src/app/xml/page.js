@@ -147,7 +147,8 @@ export default function XMLFormatterPage() {
     borderRadius: '0.75rem',
     display: 'flex',
     flexDirection: 'column',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    height: '350px'
   };
 
   return (

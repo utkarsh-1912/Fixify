@@ -17,6 +17,7 @@
     "emoji-picker-react": "^4.13.3",
     "file-saver": "^2.0.5",
     "heroicons": "^2.2.0",
+    "html-to-image": "^1.11.13",
     "jszip": "^3.10.1",
     "lucide-react": "^1.18.0",
     "monaco-editor": "^0.53.0",

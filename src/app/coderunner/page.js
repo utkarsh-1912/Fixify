@@ -6,6 +6,7 @@ import {
   Terminal,
   Play,
   RotateCcw,
+  Eraser,
   Copy,
   Check,
   Cpu,
@@ -81,6 +82,47 @@ public class Main {
 `
 };
 
+/* Minimal skeleton stubs — used by Clear to give a clean starting point */
+const skeletons = {
+  python:
+`# Write your solution here
+import sys
+
+def main():
+    pass
+
+if __name__ == '__main__':
+    main()
+`,
+  cpp:
+`// Write your solution here
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    // your code here
+
+    return 0;
+}
+`,
+  java:
+`// Write your solution here
+import java.util.*;
+import java.io.*;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        Scanner sc = new Scanner(System.in);
+
+        // your code here
+    }
+}
+`,
+};
+
 const defaultDescription = `# Coding Interview Task: FIX Message Parsing
 
 ## Objective
@@ -116,35 +158,91 @@ export default function CodeRunnerPage() {
   const [activeModal, setActiveModal] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load initial states from localStorage on mount
+  // Per-language slot — everything stored together, keyed by lang name
+  // shape: { python: { mode, code, stdin, description }, cpp: {...}, java: {...} }
+  const [perLang, setPerLang] = useState({});
+
+  /* ── helpers ─────────────────────────────────────────────────── */
+
+  /** Build the default slot for a given language */
+  const defaultSlot = (l) => ({
+    mode: 'default',
+    code: templates[l],
+    stdin: '',
+    description: defaultDescription,
+  });
+
+  /** Build the skeleton slot for a given language */
+  const skeletonSlot = (l) => ({
+    mode: 'skeleton',
+    code: skeletons[l],
+    stdin: '',
+    description: '',
+  });
+
+  /**
+   * Apply all panels for a language in one go.
+   * Pass the full perLang store so we can also save the OLD lang before switching.
+   */
+  const applyLang = (selectedLang, store) => {
+    const slot = store[selectedLang] || defaultSlot(selectedLang);
+    setLang(selectedLang);
+    setCode(slot.code);
+    setStdin(slot.stdin ?? '');
+    setDescriptionText(slot.description ?? defaultDescription);
+    setOutput('');
+    setStatusInfo(null);
+  };
+
+  /* ── mount: restore from localStorage ────────────────────────── */
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const savedLang = localStorage.getItem('fixify-coderunner-lang');
-    if (savedLang) {
-      setLang(savedLang);
-      const savedCode = localStorage.getItem(`fixify-coderunner-code-${savedLang}`);
-      if (savedCode) setCode(savedCode);
-    }
-    const savedStdin = localStorage.getItem('fixify-coderunner-stdin');
-    if (savedStdin) setStdin(savedStdin);
+    const savedLang = localStorage.getItem('fixify-coderunner-lang') || 'python';
+    const raw = localStorage.getItem('fixify-coderunner-perlang');
+    let store = {};
+    try { store = raw ? JSON.parse(raw) : {}; } catch(e) {}
+    setPerLang(store);
+    // Apply the active language immediately (before setPerLang re-renders)
+    const slot = store[savedLang] || defaultSlot(savedLang);
+    setLang(savedLang);
+    setCode(slot.code);
+    setStdin(slot.stdin ?? '');
+    setDescriptionText(slot.description ?? defaultDescription);
     setIsLoaded(true);
   }, []);
 
-  // Save states to localStorage on change
+  /* ── persist: write perLang + active lang to localStorage ────── */
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
     localStorage.setItem('fixify-coderunner-lang', lang);
-  }, [lang, isLoaded]);
+    localStorage.setItem('fixify-coderunner-perlang', JSON.stringify(perLang));
+  }, [lang, perLang, isLoaded]);
 
-  useEffect(() => {
-    if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem(`fixify-coderunner-code-${lang}`, code);
-  }, [code, lang, isLoaded]);
+  /**
+   * Save the current editor state back into perLang for `lang`.
+   * Called before switching away, or on every edit for custom tracking.
+   */
+  const saveCurrentSlot = (overrideMode) => {
+    const mode = overrideMode ?? (perLang[lang]?.mode === 'default' || perLang[lang]?.mode === 'skeleton'
+      ? perLang[lang].mode : 'custom');
+    const slot = { mode, code, stdin, description: descriptionText };
+    const next = { ...perLang, [lang]: slot };
+    setPerLang(next);
+    return next;
+  };
 
+  /* ── auto-save all panels into perLang whenever they change ─── */
   useEffect(() => {
-    if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-coderunner-stdin', stdin);
-  }, [stdin, isLoaded]);
+    if (!isLoaded) return;
+    const mode = perLang[lang]?.mode === 'default' || perLang[lang]?.mode === 'skeleton'
+      ? perLang[lang].mode : 'custom';
+    setPerLang(prev => ({
+      ...prev,
+      [lang]: { mode, code, stdin, description: descriptionText },
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, stdin, descriptionText, isLoaded]);
+
   
   // Resizable panel states (percentages)
   const [leftWidth, setLeftWidth] = useState(33); // Range: 15 to 80 (or 0 when collapsed)
@@ -200,10 +298,25 @@ export default function CodeRunnerPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleReset = () => {
-    setCode(templates[lang]);
-    setStdin("");
-    setOutput("");
+  const handleDefault = () => {
+    const slot = defaultSlot(lang);
+    const next = { ...perLang, [lang]: slot };
+    setPerLang(next);
+    setCode(slot.code);
+    setStdin(slot.stdin);
+    setDescriptionText(slot.description);
+    setOutput('');
+    setStatusInfo(null);
+  };
+
+  const handleClear = () => {
+    const slot = skeletonSlot(lang);
+    const next = { ...perLang, [lang]: slot };
+    setPerLang(next);
+    setCode(slot.code);
+    setStdin(slot.stdin);
+    setDescriptionText(slot.description);
+    setOutput('');
     setStatusInfo(null);
   };
 
@@ -338,10 +451,19 @@ export default function CodeRunnerPage() {
                 value={lang}
                 onChange={(e) => {
                   const selected = e.target.value;
-                  setLang(selected);
-                  setCode(templates[selected]);
-                  setOutput("");
-                  setStatusInfo(null);
+                  if (selected === lang) return;
+                  // Save current panels for the old language as 'custom'
+                  const currentSlot = {
+                    mode: perLang[lang]?.mode === 'default' || perLang[lang]?.mode === 'skeleton'
+                      ? perLang[lang].mode : 'custom',
+                    code,
+                    stdin,
+                    description: descriptionText,
+                  };
+                  const updatedStore = { ...perLang, [lang]: currentSlot };
+                  setPerLang(updatedStore);
+                  // Now apply the new language from the store
+                  applyLang(selected, updatedStore);
                 }}
                 className="fx-input py-1.5"
               >
@@ -356,8 +478,13 @@ export default function CodeRunnerPage() {
                 <Play className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">{running ? 'Compiling…' : 'Run Code'}</span>
               </button>
-              <button onClick={handleReset} className="fx-btn-secondary" title="Reset">
-                <RotateCcw className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Reset</span>
+              <button onClick={handleDefault} className="fx-btn-secondary" title="Load default template for current language">
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Default</span>
+              </button>
+              <button onClick={handleClear} className="fx-btn-secondary" title="Clear all — empty editor, stdin and output">
+                <Eraser className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Clear</span>
               </button>
             </div>
           </div>
@@ -370,8 +497,13 @@ export default function CodeRunnerPage() {
           {/* Panel 1: Description/Instructions (Left) */}
           {leftWidth > 0 && (
             <div
-              className="flex flex-col min-w-0 h-full overflow-hidden"
-              style={{ background: 'var(--card)' }}
+              className={`flex flex-col min-w-0 ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+              style={{
+                background: 'var(--card)',
+                height: isDesktop ? '100%' : '250px',
+                border: isDesktop ? 'none' : '1px solid var(--border)',
+                borderRadius: isDesktop ? '0' : '0.75rem',
+              }}
             >
               <div
                 className="px-5 py-3 flex items-center justify-between"
@@ -421,20 +553,28 @@ export default function CodeRunnerPage() {
 
           {/* Right column (Editor + I/O) */}
           <div
-            className="flex flex-col min-w-0 h-full overflow-hidden relative"
-            style={{
-              display: isDesktop ? 'grid' : 'flex',
-              gridTemplateRows: isDesktop
-                ? `${editorHeight}% ${editorHeight === 0 || editorHeight === 100 ? '0px' : '6px'} 1fr`
-                : 'auto',
+            className={`flex flex-col min-w-0 relative ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+            style={isDesktop ? {
+              display: 'grid',
+              gridTemplateRows: `${editorHeight}% ${editorHeight === 0 || editorHeight === 100 ? '0px' : '6px'} 1fr`,
               background: 'var(--border)'
+            } : {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              background: 'transparent'
             }}
           >
             {/* Panel 2: Editor */}
             {editorHeight > 0 && (
               <div
-                className="flex flex-col min-w-0 h-full overflow-hidden"
-                style={{ background: 'var(--card)' }}
+                className={`flex flex-col min-w-0 ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+                style={{
+                  background: 'var(--card)',
+                  height: isDesktop ? '100%' : '380px',
+                  border: isDesktop ? 'none' : '1px solid var(--border)',
+                  borderRadius: isDesktop ? '0' : '0.75rem',
+                }}
               >
                 <div
                   className="px-5 py-3 flex items-center justify-between shrink-0"
@@ -494,13 +634,18 @@ export default function CodeRunnerPage() {
             {/* Input & Output block (split columns) */}
             {editorHeight < 100 && (
               <div
-                className="flex flex-col md:grid md:grid-cols-2 gap-px min-h-0 h-full overflow-hidden"
-                style={{ background: 'var(--border)' }}
+                className={`flex flex-col min-h-0 ${isDesktop ? 'md:grid md:grid-cols-2 gap-px h-full overflow-hidden' : 'gap-3'}`}
+                style={{ background: isDesktop ? 'var(--border)' : 'transparent' }}
               >
                 {/* Panel 3: Stdin */}
                 <div
-                  className="flex flex-col min-w-0 h-full overflow-hidden"
-                  style={{ background: 'var(--card)' }}
+                  className={`flex flex-col min-w-0 ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+                  style={{
+                    background: 'var(--card)',
+                    height: isDesktop ? '100%' : '160px',
+                    border: isDesktop ? 'none' : '1px solid var(--border)',
+                    borderRadius: isDesktop ? '0' : '0.75rem',
+                  }}
                 >
                   <div
                     className="px-5 py-3.5 flex items-center justify-between shrink-0"
@@ -540,8 +685,13 @@ export default function CodeRunnerPage() {
 
                 {/* Panel 4: Output Console */}
                 <div
-                  className="flex flex-col min-w-0 h-full overflow-hidden"
-                  style={{ background: 'var(--card)' }}
+                  className={`flex flex-col min-w-0 ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+                  style={{
+                    background: 'var(--card)',
+                    height: isDesktop ? '100%' : '200px',
+                    border: isDesktop ? 'none' : '1px solid var(--border)',
+                    borderRadius: isDesktop ? '0' : '0.75rem',
+                  }}
                 >
                   <div
                     className="px-5 py-3.5 flex items-center justify-between shrink-0"
@@ -635,8 +785,13 @@ export default function CodeRunnerPage() {
           {/* Monaco Editor (Panel 2, Left column) */}
           {leftWidth > 0 && (
             <div
-              className="flex flex-col min-w-0 h-full overflow-hidden"
-              style={{ background: 'var(--card)' }}
+              className={`flex flex-col min-w-0 ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+              style={{
+                background: 'var(--card)',
+                height: isDesktop ? '100%' : '380px',
+                border: isDesktop ? 'none' : '1px solid var(--border)',
+                borderRadius: isDesktop ? '0' : '0.75rem',
+              }}
             >
               <div
                 className="px-5 py-3.5 flex items-center justify-between shrink-0"
@@ -695,20 +850,28 @@ export default function CodeRunnerPage() {
 
           {/* Right column (Stdin + Output) */}
           <div
-            className="flex flex-col min-w-0 h-full overflow-hidden relative"
-            style={{
-              display: isDesktop ? 'grid' : 'flex',
-              gridTemplateRows: isDesktop
-                ? `${editorHeight}% ${editorHeight === 0 || editorHeight === 100 ? '0px' : '6px'} 1fr`
-                : 'auto',
+            className={`flex flex-col min-w-0 relative ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+            style={isDesktop ? {
+              display: 'grid',
+              gridTemplateRows: `${editorHeight}% ${editorHeight === 0 || editorHeight === 100 ? '0px' : '6px'} 1fr`,
               background: 'var(--border)'
+            } : {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              background: 'transparent'
             }}
           >
             {/* Panel 4: Console Output */}
             {editorHeight > 0 && (
               <div
-                className="flex flex-col min-w-0 h-full overflow-hidden"
-                style={{ background: 'var(--card)' }}
+                className={`flex flex-col min-w-0 ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+                style={{
+                  background: 'var(--card)',
+                  height: isDesktop ? '100%' : '200px',
+                  border: isDesktop ? 'none' : '1px solid var(--border)',
+                  borderRadius: isDesktop ? '0' : '0.75rem',
+                }}
               >
                 <div
                   className="px-5 py-3.5 flex items-center justify-between shrink-0"
@@ -777,8 +940,13 @@ export default function CodeRunnerPage() {
             {/* Panel 3: Stdin */}
             {editorHeight < 100 && (
               <div
-                className="flex flex-col min-w-0 h-full overflow-hidden"
-                style={{ background: 'var(--card)' }}
+                className={`flex flex-col min-w-0 ${isDesktop ? 'h-full overflow-hidden' : ''}`}
+                style={{
+                  background: 'var(--card)',
+                  height: isDesktop ? '100%' : '160px',
+                  border: isDesktop ? 'none' : '1px solid var(--border)',
+                  borderRadius: isDesktop ? '0' : '0.75rem',
+                }}
               >
                 <div
                   className="px-5 py-3.5 flex items-center justify-between shrink-0"

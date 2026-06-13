@@ -159,32 +159,51 @@ export default function InterpreterPage() {
 
       {/* Chat stream */}
       <div
-        className="flex-1 overflow-y-auto p-5 space-y-4 rounded-2xl min-h-0"
+        className="flex-1 overflow-y-auto p-4 space-y-5 rounded-2xl min-h-0"
         style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
       >
         {messages.map((msg, idx) => {
           const isUser = msg.role === "user";
           return (
-            <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+            <div key={idx} className={`flex items-end gap-2.5 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+              {/* Avatar */}
               <div
-                className="max-w-3xl rounded-2xl p-4 space-y-3 shadow-sm"
+                className="h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-extrabold font-mono shrink-0 select-none"
                 style={{
-                  background: isUser ? 'var(--primary-faint)' : 'var(--background)',
-                  border: `1px solid ${isUser ? 'var(--primary-border)' : 'var(--border)'}`,
-                  borderTopRightRadius: isUser ? '4px' : undefined,
-                  borderTopLeftRadius: !isUser ? '4px' : undefined,
+                  background: isUser
+                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                    : 'linear-gradient(135deg, #0d9488, #059669)',
+                  color: '#ffffff',
+                  boxShadow: isUser
+                    ? '0 0 0 2px rgba(99,102,241,0.2)'
+                    : '0 0 0 2px rgba(13,148,136,0.2)',
                 }}
               >
-                {/* Label */}
-                <div
-                  className="text-[10px] uppercase font-mono tracking-widest pb-1.5"
+                {isUser ? 'U' : 'FX'}
+              </div>
+
+              {/* Bubble */}
+              <div
+                className="max-w-2xl space-y-3"
+                style={{
+                  background: isUser
+                    ? 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))'
+                    : 'var(--background)',
+                  border: `1px solid ${isUser ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
+                  borderRadius: isUser ? '1rem 1rem 0.25rem 1rem' : '1rem 1rem 1rem 0.25rem',
+                  padding: '0.875rem 1rem',
+                }}
+              >
+                {/* Sender label */}
+                {/* <div
+                  className="text-[9px] uppercase font-mono tracking-widest font-bold pb-1.5"
                   style={{
-                    color: isUser ? 'var(--primary)' : 'var(--text-muted)',
-                    borderBottom: '1px solid var(--border)',
+                    color: isUser ? '#818cf8' : 'var(--text-muted)',
+                    borderBottom: `1px solid ${isUser ? 'rgba(99,102,241,0.2)' : 'var(--border)'}`,
                   }}
                 >
                   {isUser ? 'You' : 'FIXi Console'}
-                </div>
+                </div> */}
 
                 {/* Response text */}
                 <p
@@ -270,9 +289,26 @@ export default function InterpreterPage() {
         })}
 
         {loading && (
-          <div className="flex items-center gap-2.5 px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-            <Activity className="h-4 w-4 animate-spin" style={{ color: 'var(--primary)' }} />
-            <span>FIXi is thinking…</span>
+          <div className="flex items-end gap-2.5">
+            {/* FIXi typing avatar */}
+            <div
+              className="h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-extrabold font-mono shrink-0"
+              style={{ background: 'linear-gradient(135deg, #0d9488, #059669)', color: '#ffffff' }}
+            >
+              FX
+            </div>
+            <div
+              className="flex items-center gap-2 px-4 py-3 text-xs font-mono"
+              style={{
+                background: 'var(--background)',
+                border: '1px solid var(--border)',
+                borderRadius: '1rem 1rem 1rem 0.25rem',
+                color: 'var(--text-muted)',
+              }}
+            >
+              <Activity className="h-3.5 w-3.5 animate-spin" style={{ color: 'var(--primary)' }} />
+              <span>FIXi is thinking…</span>
+            </div>
           </div>
         )}
         <div ref={chatEndRef} />
