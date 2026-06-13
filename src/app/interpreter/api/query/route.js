@@ -75,6 +75,99 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
   }
 }
 
+// Local offline tag dictionary lookups
+function tryLocalLookup(query) {
+  const q = query.trim();
+  
+  // 1. Tag-Value pair: e.g. "35=D" or "Side=1" or "35 = D"
+  const tagValMatch = q.match(/^([a-zA-Z0-9_]+)\s*=\s*([^=|]+)$/);
+  if (tagValMatch) {
+    let tagOrName = tagValMatch[1].trim();
+    const val = tagValMatch[2].trim();
+    let tag = /^\d+$/.test(tagOrName) ? tagOrName : null;
+    if (!tag) {
+      const entry = Object.entries(FIX_TAGS).find(([t, name]) => name.toLowerCase() === tagOrName.toLowerCase());
+      if (entry) {
+        tag = entry[0];
+      }
+    }
+    if (tag) {
+      const tagName = FIX_TAGS[tag];
+      const enums = FIX_VALUES[tag];
+      const meaning = enums ? (enums[val] || enums[Number(val)]) : null;
+      if (meaning) {
+        return `Tag ${tag} (${tagName}) = ${val} (${meaning})\n\nThis is a standard FIX tag-value definition.`;
+      } else {
+        return `Tag ${tag} (${tagName}) = ${val}\n\nThis is a standard FIX tag, but no specific local enum mapping was found for value "${val}".`;
+      }
+    }
+  }
+
+  // 2. Exact Tag Number: e.g. "35" or "10"
+  if (/^\d+$/.test(q)) {
+    const tagName = FIX_TAGS[q];
+    if (tagName) {
+      let response = `Tag ${q} represents the field "${tagName}".`;
+      const enums = FIX_VALUES[q];
+      if (enums) {
+        response += `\n\nAllowed enum values:\n` + 
+          Object.entries(enums).map(([val, name]) => `- ${val}: ${name}`).join('\n');
+      }
+      return response;
+    }
+  }
+
+  // 3. Exact Field Name search: e.g. "Side" or "MsgType"
+  const foundTag = Object.entries(FIX_TAGS).find(([tag, name]) => name.toLowerCase() === q.toLowerCase());
+  if (foundTag) {
+    const [tag, name] = foundTag;
+    let response = `Field "${name}" is represented by Tag ${tag}.`;
+    const enums = FIX_VALUES[tag];
+    if (enums) {
+      response += `\n\nAllowed enum values:\n` + 
+        Object.entries(enums).map(([val, valName]) => `- ${val}: ${valName}`).join('\n');
+    }
+    return response;
+  }
+
+  return null;
+}
+
+// Partial word/number extractor for general offline queries
+function tryPartialLookup(query) {
+  const matchedTags = new Set();
+  
+  // Extract number strings
+  const numbers = query.match(/\b\d+\b/g) || [];
+  for (const num of numbers) {
+    if (FIX_TAGS[num]) {
+      matchedTags.add(num);
+    }
+  }
+
+  // Extract whole word matching field names
+  const words = query.toLowerCase().split(/[^a-zA-Z0-9]+/);
+  for (const [tag, name] of Object.entries(FIX_TAGS)) {
+    if (words.includes(name.toLowerCase())) {
+      matchedTags.add(tag);
+    }
+  }
+
+  if (matchedTags.size > 0) {
+    let result = "\n\n*Local dictionary match(es) for your query:*";
+    for (const tag of matchedTags) {
+      const name = FIX_TAGS[tag];
+      const enums = FIX_VALUES[tag];
+      result += `\n- **Tag ${tag} (${name})**: Standard field definition.`;
+      if (enums) {
+        result += ` (Common values: ${Object.entries(enums).slice(0, 4).map(([v, n]) => `${v}=${n}`).join(', ')}${Object.keys(enums).length > 4 ? '...' : ''})`;
+      }
+    }
+    return result;
+  }
+  return "";
+}
+
 export async function POST(req) {
   try {
     const { query } = await req.json();
@@ -92,42 +185,78 @@ export async function POST(req) {
 
     let table = null;
     let answer = "";
-    let hfConnected = false; // Relabeling status indicator to represent model connection
+    let hfConnected = false;
 
-    if (looksLikeFIX(query)) {
-      // 1. Process local validation and parse message into tags list
-      const parsed = validateFIXMessage(query);
-      if (parsed) {
-        table = parsed.tagList.map(t => [t.tag, t.val, t.name, t.meaning]);
-        
-        // 2. Fetch market price if symbol (tag 55) is available
-        const symbol = parsed.tags['55'];
-        let marketInfo = "";
-        if (symbol) {
-          marketInfo = await getMarketData(symbol);
+    const hasApiKey = !!apiKey.trim();
+
+    if (hasApiKey) {
+      // Direct path: Use Gemini AI to answer queries
+      if (looksLikeFIX(query)) {
+        // 1. Process local validation and parse message into tags list
+        const parsed = validateFIXMessage(query);
+        if (parsed) {
+          table = parsed.tagList.map(t => [t.tag, t.val, t.name, t.meaning]);
+          
+          // 2. Fetch market price if symbol (tag 55) is available
+          const symbol = parsed.tags['55'];
+          let marketInfo = "";
+          if (symbol) {
+            marketInfo = await getMarketData(symbol);
+          }
+
+          // 3. Construct a detailed prompt for Gemini to provide expert analysis
+          const prompt = 
+            `Please provide a professional, concise summary of this parsed FIX message.\n\n` +
+            `Raw Message: ${query}\n` +
+            `Parsed Tag Table:\n` +
+            `${table.map(([t, val, name, meaning]) => `Tag ${t} (${name}) = ${val} (${meaning})`).join("\n")}\n\n` +
+            (marketInfo ? `${marketInfo}\n\n` : "") +
+            `Check if the message contains any validation errors or warnings: ` +
+            `${parsed.isValid ? "None (Checksum and BodyLength are correct)" : parsed.errors.join("; ")}.`;
+
+          const geminiRes = await queryGemini(prompt, apiKey, systemInstruction);
+          answer = geminiRes.answer;
+          hfConnected = geminiRes.connected;
+        } else {
+          answer = "⚠️ Failed to parse FIX message structure.";
         }
-
-        // 3. Construct a detailed prompt for Gemini to provide expert analysis
-        const prompt = 
-          `Please provide a professional, concise summary of this parsed FIX message.\n\n` +
-          `Raw Message: ${query}\n` +
-          `Parsed Tag Table:\n` +
-          `${table.map(([t, val, name, meaning]) => `Tag ${t} (${name}) = ${val} (${meaning})`).join("\n")}\n\n` +
-          (marketInfo ? `${marketInfo}\n\n` : "") +
-          `Check if the message contains any validation errors or warnings: ` +
-          `${parsed.isValid ? "None (Checksum and BodyLength are correct)" : parsed.errors.join("; ")}.`;
-
-        const geminiRes = await queryGemini(prompt, apiKey, systemInstruction);
+      } else {
+        // General question query, send directly to Gemini
+        const geminiRes = await queryGemini(query, apiKey, systemInstruction);
         answer = geminiRes.answer;
         hfConnected = geminiRes.connected;
-      } else {
-        answer = "⚠️ Failed to parse FIX message structure.";
       }
     } else {
-      // General question query, send directly to Gemini
-      const geminiRes = await queryGemini(query, apiKey, systemInstruction);
-      answer = geminiRes.answer;
-      hfConnected = geminiRes.connected;
+      // Offline fallback: Use local tag lookups
+      if (looksLikeFIX(query)) {
+        const parsed = validateFIXMessage(query);
+        if (parsed) {
+          table = parsed.tagList.map(t => [t.tag, t.val, t.name, t.meaning]);
+          const version = parsed.tags['8'] || 'Unknown';
+          const msgType = parsed.tags['35'] || 'Unknown';
+          const msgTypeName = parsed.msgTypeName || 'Unknown';
+          const validationStatus = parsed.isValid ? 'Passed' : 'Failed';
+          const validationDetails = parsed.isValid ? 'Checksum and BodyLength are correct.' : parsed.errors.join('; ');
+          
+          answer = `Parsed FIX Message Details:\n` +
+            `- **Protocol Version**: ${version}\n` +
+            `- **Message Type**: ${msgType} (${msgTypeName})\n` +
+            `- **Integrity Check**: ${validationStatus} (${validationDetails})\n\n` +
+            `⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.`;
+        } else {
+          answer = `⚠️ Failed to parse FIX message structure.\n\n` +
+            `⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.`;
+        }
+      } else {
+        const localResult = tryLocalLookup(query);
+        if (localResult) {
+          answer = `${localResult}\n\n⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.`;
+        } else {
+          const partials = tryPartialLookup(query);
+          answer = `⚠️ Gemini API key not found. Please open the System Settings Modal (gear icon in the top-right) and paste your Google Gemini API Key to enable AI interpretations.${partials}`;
+        }
+      }
+      hfConnected = false;
     }
 
     return NextResponse.json({ answer, table, hfConnected });

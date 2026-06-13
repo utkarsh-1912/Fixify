@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   GitCompare,
@@ -17,6 +17,63 @@ import {
 } from "lucide-react";
 import { validateFIXMessage, getTagValue } from "@/lib/fixParser";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
+import TagDetailsModal from "@/components/TagDetailsModal";
+
+// Import FIX version dictionaries
+import fix40 from "@/data/FIX/FIX40.json";
+import fix42 from "@/data/FIX/FIX42.json";
+import fix44 from "@/data/FIX/FIX44.json";
+import fix50 from "@/data/FIX/FIX50.json";
+import fixt11 from "@/data/FIX/FIXT11.json";
+
+const FIX_DICTS = {
+  "FIX.4.0": fix40,
+  "FIX.4.1": fix40,
+  "FIX.4.2": fix42,
+  "FIX.4.3": fix44,
+  "FIX.4.4": fix44,
+  "FIX.5.0": fix50,
+  "FIXT.1.1": fixt11
+};
+
+// Parse dictionaries into lookup maps for fast access
+const versionMaps = {};
+Object.entries(FIX_DICTS).forEach(([version, data]) => {
+  const fieldsMap = {};
+  if (data && Array.isArray(data.fields)) {
+    data.fields.forEach(f => {
+      const valMap = {};
+      if (Array.isArray(f.values)) {
+        f.values.forEach(v => {
+          valMap[v.enum] = v.description;
+        });
+      }
+      fieldsMap[f.tag] = {
+        name: f.name,
+        type: f.type,
+        values: valMap
+      };
+    });
+  }
+  versionMaps[version] = fieldsMap;
+});
+
+function getVersionTagName(tag, version) {
+  const map = versionMaps[version];
+  if (map && map[tag]) {
+    return map[tag].name;
+  }
+  return FIX_TAGS[tag] || `CustomTag_${tag}`;
+}
+
+function getVersionValueMeaning(tag, val, version) {
+  if (val === undefined || val === null) return val;
+  const map = versionMaps[version];
+  if (map && map[tag] && map[tag].values && map[tag].values[val] !== undefined) {
+    return map[tag].values[val];
+  }
+  return FIX_VALUES[tag]?.[val] || val;
+}
 
 export default function FIXComparePage() {
   const [compareMode, setCompareMode] = useState("message");
@@ -38,6 +95,101 @@ export default function FIXComparePage() {
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [diffSearch, setDiffSearch] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [activeTag, setActiveTag] = useState(null);
+
+  // Load state on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedMsg1 = localStorage.getItem('fixify-compare-msg1');
+    if (savedMsg1) setMsg1(savedMsg1);
+    const savedMsg2 = localStorage.getItem('fixify-compare-msg2');
+    if (savedMsg2) setMsg2(savedMsg2);
+    const savedMode = localStorage.getItem('fixify-compare-mode');
+    if (savedMode) setCompareMode(savedMode || 'message');
+    const savedType = localStorage.getItem('fixify-compare-type');
+    if (savedType) setCompareType(savedType || 'values');
+    const savedDelim = localStorage.getItem('fixify-compare-delim');
+    if (savedDelim) setDelimiter(savedDelim || '|');
+    const savedF1 = localStorage.getItem('fixify-compare-f1');
+    if (savedF1) setFile1Content(savedF1);
+    const savedF2 = localStorage.getItem('fixify-compare-f2');
+    if (savedF2) setFile2Content(savedF2);
+    const savedInput1 = localStorage.getItem('fixify-compare-inputType1');
+    if (savedInput1) setInputType1(savedInput1 || 'file');
+    const savedInput2 = localStorage.getItem('fixify-compare-inputType2');
+    if (savedInput2) setInputType2(savedInput2 || 'file');
+
+    try {
+      const savedPairs = localStorage.getItem('fixify-compare-pairs');
+      if (savedPairs) setComparedPairs(JSON.parse(savedPairs));
+      const savedPairIdx = localStorage.getItem('fixify-compare-pairIndex');
+      if (savedPairIdx) setSelectedPairIndex(Number(savedPairIdx) || 0);
+    } catch (e) {
+      console.error("Failed to parse compare page state", e);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save states on change
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-msg1', msg1);
+  }, [msg1, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-msg2', msg2);
+  }, [msg2, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-mode', compareMode);
+  }, [compareMode, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-type', compareType);
+  }, [compareType, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-delim', delimiter);
+  }, [delimiter, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-f1', file1Content);
+  }, [file1Content, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-f2', file2Content);
+  }, [file2Content, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-inputType1', inputType1);
+  }, [inputType1, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-inputType2', inputType2);
+  }, [inputType2, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('fixify-compare-pairs', JSON.stringify(comparedPairs));
+    } catch (e) {
+      console.warn("Could not save compared pairs", e);
+    }
+  }, [comparedPairs, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-compare-pairIndex', String(selectedPairIndex));
+  }, [selectedPairIndex, isLoaded]);
 
   const parseMessageTags = (rawMsg, delim) => {
     const parsed = validateFIXMessage(rawMsg, delim);
@@ -59,6 +211,10 @@ export default function FIXComparePage() {
 
       const tagList1 = val1 ? val1.tagList : [];
       const tagList2 = val2 ? val2.tagList : [];
+
+      // Find BeginString (Tag 8) values to determine version
+      const beginString1 = tagList1.find(({ tag }) => tag === "8")?.val || "FIX.4.4";
+      const beginString2 = tagList2.find(({ tag }) => tag === "8")?.val || "FIX.4.4";
 
       const occurrences1 = {};
       const map1 = {};
@@ -86,10 +242,15 @@ export default function FIXComparePage() {
         const [tag, occ] = key.split('#');
         const v1 = map1[key];
         const v2 = map2[key];
-        const tagName = FIX_TAGS[tag] || `CustomTag_${tag}`;
+        
+        // Lookup version-specific tag name (prefer Message 1's version, fallback to 2's)
+        const tagVersion = (v1 !== undefined) ? beginString1 : beginString2;
+        const tagName = getVersionTagName(tag, tagVersion);
+        
         const nameWithOcc = Number(occ) > 0 ? `${tagName} (Group #${Number(occ) + 1})` : tagName;
-        const mappedVal1 = FIX_VALUES[tag]?.[v1] || v1;
-        const mappedVal2 = FIX_VALUES[tag]?.[v2] || v2;
+        
+        const mappedVal1 = getVersionValueMeaning(tag, v1, beginString1);
+        const mappedVal2 = getVersionValueMeaning(tag, v2, beginString2);
 
         let status = "match";
         if (v1 === undefined) status = "missingIn1";
@@ -107,6 +268,12 @@ export default function FIXComparePage() {
         msgType2: val2?.msgTypeName || (l2 ? "Unknown" : "Empty"),
         isValid1: val1?.isValid ?? false,
         isValid2: val2?.isValid ?? false,
+        tagCount1: tagList1.length,
+        tagCount2: tagList2.length,
+        version1: beginString1,
+        version2: beginString2,
+        errors1: val1?.errors || [],
+        errors2: val2?.errors || [],
         tagDiff: {
           missingIn1: diff.filter(d => d.status === "missingIn1").map(d => d.tag),
           missingIn2: diff.filter(d => d.status === "missingIn2").map(d => d.tag),
@@ -188,7 +355,9 @@ export default function FIXComparePage() {
       .map((row) => {
         const val1 = summarizeValues(row.values1);
         const val2 = summarizeValues(row.values2);
-        return { ...row, val1, val2, mappedVal1: val1, mappedVal2: val2 };
+        const mval1 = summarizeValues(row.mappedValues1);
+        const mval2 = summarizeValues(row.mappedValues2);
+        return { ...row, val1, val2, mappedVal1: mval1, mappedVal2: mval2 };
       })
       .sort((a, b) => Number(a.tag) - Number(b.tag));
   };
@@ -244,8 +413,8 @@ export default function FIXComparePage() {
             Compare FIX tag values (including repeating groups) or correlate sequence flows across log files.
           </p>
         </div>
-        <button onClick={resetAll} className="fx-btn-secondary shrink-0">
-          <RefreshCw className="h-3.5 w-3.5" /> Reset
+        <button onClick={resetAll} className="fx-btn-secondary shrink-0" title="Reset">
+          <RefreshCw className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Reset</span>
         </button>
       </div>
 
@@ -255,10 +424,10 @@ export default function FIXComparePage() {
           {/* Mode toggle */}
           <div className="fx-tab-group">
             <button className={`fx-tab${compareMode === 'message' ? ' active' : ''}`} onClick={() => setCompareMode('message')}>
-              <Layers className="h-3.5 w-3.5" /> Messages
+              <Layers className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Messages</span>
             </button>
             <button className={`fx-tab${compareMode === 'file' ? ' active' : ''}`} onClick={() => setCompareMode('file')}>
-              <Columns className="h-3.5 w-3.5" /> Log Files
+              <Columns className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Log Files</span>
             </button>
           </div>
 
@@ -298,16 +467,18 @@ export default function FIXComparePage() {
             onClick={handleCompareMessages}
             disabled={!msg1.trim() || !msg2.trim()}
             className="fx-btn-primary"
+            title="Run Comparison"
           >
-            <GitCompare className="h-3.5 w-3.5" /> Run Comparison
+            <GitCompare className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Run Comparison</span>
           </button>
         ) : (
           <button
             onClick={handleFileCompare}
             disabled={!file1Content.trim() || !file2Content.trim()}
             className="fx-btn-primary"
+            title="Correlate Files"
           >
-            <GitCompare className="h-3.5 w-3.5" /> Correlate Files
+            <GitCompare className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Correlate Files</span>
           </button>
         )}
       </div>
@@ -317,8 +488,8 @@ export default function FIXComparePage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {[
-              { label: 'FIX Payload 1 (multi-line supported)', value: msg1, set: setMsg1, ph: '8=FIX.4.2|9=65|35=D|11=ORDER_001|…' },
-              { label: 'FIX Payload 2 (multi-line supported)', value: msg2, set: setMsg2, ph: '8=FIX.4.2|9=68|35=D|11=ORDER_001|…' },
+              { label: 'FIX Message 1 (multi-line supported)', value: msg1, set: setMsg1, ph: '8=FIX.4.2|9=65|35=D|11=ORDER_001|…' },
+              { label: 'FIX Message 2 (multi-line supported)', value: msg2, set: setMsg2, ph: '8=FIX.4.2|9=68|35=D|11=ORDER_001|…' },
             ].map((field, i) => (
               <div key={i} className="space-y-2">
                 <label className="fx-section-label">{field.label}</label>
@@ -346,7 +517,7 @@ export default function FIXComparePage() {
                     <button
                       key={idx}
                       onClick={() => setSelectedPairIndex(idx)}
-                      className="px-3 py-2.5 rounded-xl text-xs font-mono text-left flex flex-col gap-1 min-w-[160px] shrink-0 transition-all"
+                      className="px-3 py-2.5 rounded-xl text-xs font-mono text-left flex flex-col gap-1 min-w-[165px] shrink-0 transition-all"
                       style={{
                         border: selectedPairIndex === idx ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
                         background: selectedPairIndex === idx ? 'var(--primary-faint)' : 'var(--card)',
@@ -355,7 +526,7 @@ export default function FIXComparePage() {
                     >
                       <span className="font-bold">Pair #{idx + 1}</span>
                       <span className="text-[10px] truncate max-w-full" style={{ color: 'var(--text-muted)' }}>
-                        {pair.msgType1} → {pair.msgType2}
+                        {pair.msgType1} ({pair.tagCount1}) → {pair.msgType2} ({pair.tagCount2})
                       </span>
                       <span className="text-[9px] font-semibold" style={{ color: hasDiff ? '#f87171' : 'var(--primary)' }}>
                         {hasDiff ? 'Has differences' : 'Identical'}
@@ -386,23 +557,37 @@ export default function FIXComparePage() {
               </div>
 
               <div className="p-6 space-y-5">
-                {/* Checksum status cards */}
+                {/* Message validation status cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
-                    { label: 'Payload 1', valid: activePair.tagDiff.checksumValid1 },
-                    { label: 'Payload 2', valid: activePair.tagDiff.checksumValid2 },
+                    { label: 'Message 1', valid: activePair.isValid1, count: activePair.tagCount1, errors: activePair.errors1 },
+                    { label: 'Message 2', valid: activePair.isValid2, count: activePair.tagCount2, errors: activePair.errors2 },
                   ].map((p, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-3 p-3.5 rounded-xl text-xs font-mono"
+                      className="flex flex-col gap-1.5 p-3.5 rounded-xl text-xs font-mono"
                       style={{
                         background: p.valid ? 'var(--primary-faint)' : 'rgba(239,68,68,0.06)',
                         border: `1px solid ${p.valid ? 'var(--primary-border)' : 'rgba(239,68,68,0.2)'}`,
                         color: p.valid ? 'var(--primary)' : '#f87171',
                       }}
                     >
-                      <AlertCircle className="h-4 w-4" />
-                      <span>{p.label}: {p.valid ? 'Valid Checksum' : 'Checksum Error'}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="font-semibold">{p.label}: {p.valid ? 'Valid Message' : 'Validation Error'}</span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                          {p.count} tags
+                        </span>
+                      </div>
+                      {!p.valid && p.errors && p.errors.length > 0 && (
+                        <ul className="pl-7 list-disc text-[10px] space-y-0.5" style={{ color: '#ef4444' }}>
+                          {p.errors.map((err, idx) => (
+                            <li key={idx}>{err}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -414,12 +599,12 @@ export default function FIXComparePage() {
                 >
                   <div className="flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
                     <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                    Missing in Payload 1:
+                    Missing in Message 1:
                     <strong style={{ color: '#f87171' }}>{activePair.tagDiff.missingIn1.join(', ') || 'None'}</strong>
                   </div>
                   <div className="flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
                     <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
-                    Missing in Payload 2:
+                    Missing in Message 2:
                     <strong style={{ color: '#fb923c' }}>{activePair.tagDiff.missingIn2.join(', ') || 'None'}</strong>
                   </div>
                   {activePair.tagDiff.mismatch?.length > 0 && (
@@ -460,46 +645,75 @@ export default function FIXComparePage() {
                         }}
                         className="fx-btn-secondary shrink-0"
                         disabled={filteredDiffRows.length === 0}
+                        title="View All"
                       >
-                        <Eye className="h-3.5 w-3.5" /> View All
+                        <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">View All</span>
                       </button>
                     </div>
                   </div>
 
-                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                  <table className="w-full text-xs font-mono">
-                    <thead>
-                      <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                        {['Tag', 'Field Name', 'Payload 1', 'Payload 2', 'Count', 'Status'].map(h => (
-                          <th key={h} className="py-2.5 px-4 text-left font-semibold">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewDiffRows.map(({ tag, tagName, values1, values2, val1, val2, mappedVal1, mappedVal2, occurrences, status }) => {
-                        let rowBg = 'transparent';
-                        let badge = <span className="badge-success">Match</span>;
-                        if (status === 'mismatch') { rowBg = 'rgba(234,179,8,0.04)'; badge = <span className="badge-warn">Diff</span>; }
-                        else if (status === 'missingIn1') { rowBg = 'rgba(239,68,68,0.04)'; badge = <span className="badge-danger">Missing 1</span>; }
-                        else if (status === 'missingIn2') { rowBg = 'rgba(251,146,60,0.04)'; badge = <span className="badge-danger" style={{ color: '#fb923c', borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.08)' }}>Missing 2</span>; }
-                        return (
-                          <tr key={tag} style={{ background: rowBg, borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td className="py-2.5 px-4 font-bold" style={{ color: 'var(--foreground)' }}>{tag}</td>
-                            <td className="py-2.5 px-4" style={{ color: 'var(--text-muted)' }}>{tagName}</td>
-                            <td className="py-2.5 px-4 max-w-[220px] truncate" style={{ color: 'var(--foreground)' }} title={values1.join(', ')}>
-                              {mappedVal1 !== val1 ? <span className="underline decoration-dotted" title={mappedVal1}>{val1}</span> : (val1 ?? '—')}
-                            </td>
-                            <td className="py-2.5 px-4 max-w-[220px] truncate" style={{ color: 'var(--foreground)' }} title={values2.join(', ')}>
-                              {mappedVal2 !== val2 ? <span className="underline decoration-dotted" title={mappedVal2}>{val2}</span> : (val2 ?? '—')}
-                            </td>
-                            <td className="py-2.5 px-4" style={{ color: 'var(--text-muted)' }}>{occurrences}</td>
-                            <td className="py-2.5 px-4">{badge}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                  <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
+                    <table className="w-full text-xs font-mono min-w-[700px]">
+                      <thead>
+                        <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                          {['Tag', 'Field Name', 'Message 1', 'Message 2', 'Count', 'Status'].map(h => (
+                            <th key={h} className="py-2.5 px-4 text-left font-semibold">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewDiffRows.map(({ tag, tagName, values1, values2, val1, val2, mappedVal1, mappedVal2, occurrences, status }) => {
+                          let rowBg = 'transparent';
+                          let badge = <span className="badge-success">Match</span>;
+                          if (status === 'mismatch') { rowBg = 'rgba(234,179,8,0.04)'; badge = <span className="badge-warn">Diff</span>; }
+                          else if (status === 'missingIn1') { rowBg = 'rgba(239,68,68,0.04)'; badge = <span className="badge-danger">Missing 1</span>; }
+                          else if (status === 'missingIn2') { rowBg = 'rgba(251,146,60,0.04)'; badge = <span className="badge-danger" style={{ color: '#fb923c', borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.08)' }}>Missing 2</span>; }
+                          const ver1 = activePair?.version1 || "FIX.4.4";
+                          const ver2 = activePair?.version2 || "FIX.4.4";
+                          const rowVer = status === 'missingIn1' ? ver2 : ver1;
+                          return (
+                          <tr 
+                            key={tag} 
+                            onClick={() => setActiveTag({ tag, version: rowVer, val1, val2, mappedVal1, mappedVal2 })}
+                            style={{ background: rowBg, borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                            className="hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+                          >
+                              <td className="py-2.5 px-4 font-bold" style={{ color: 'var(--foreground)' }}>{tag}</td>
+                              <td className="py-2.5 px-4" style={{ color: 'var(--text-muted)' }}>{tagName}</td>
+                              <td 
+                                className="py-2.5 px-4 max-w-[220px] truncate hover:text-[var(--primary)] transition-colors" 
+                                style={{ color: 'var(--foreground)' }} 
+                                title={values1.join(', ')}
+                                onClick={(e) => {
+                                  if (val1 !== null && val1 !== '—') {
+                                    e.stopPropagation();
+                                    setActiveTag({ tag, version: ver1, val1, val2, mappedVal1, mappedVal2 });
+                                  }
+                                }}
+                              >
+                                {mappedVal1 !== val1 ? <span className="underline decoration-dotted" title={mappedVal1}>{val1}</span> : (val1 ?? '—')}
+                              </td>
+                              <td 
+                                className="py-2.5 px-4 max-w-[220px] truncate hover:text-[var(--primary)] transition-colors" 
+                                style={{ color: 'var(--foreground)' }} 
+                                title={values2.join(', ')}
+                                onClick={(e) => {
+                                  if (val2 !== null && val2 !== '—') {
+                                    e.stopPropagation();
+                                    setActiveTag({ tag, version: ver2, val1, val2, mappedVal1, mappedVal2 });
+                                  }
+                                }}
+                              >
+                                {mappedVal2 !== val2 ? <span className="underline decoration-dotted" title={mappedVal2}>{val2}</span> : (val2 ?? '—')}
+                              </td>
+                              <td className="py-2.5 px-4" style={{ color: 'var(--text-muted)' }}>{occurrences}</td>
+                              <td className="py-2.5 px-4">{badge}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
 
                   {filteredDiffRows.length > 10 && (
                     <div className="flex items-center justify-between gap-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
@@ -511,8 +725,9 @@ export default function FIXComparePage() {
                           setShowModal(true);
                         }}
                         className="fx-btn-secondary py-1.5"
+                        title="Expand full comparison"
                       >
-                        Expand full comparison
+                        <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Expand full comparison</span>
                       </button>
                     </div>
                   )}
@@ -644,11 +859,11 @@ export default function FIXComparePage() {
             <div className="p-6 overflow-y-auto flex-1 space-y-4 font-mono text-xs">
               {modalContent?.data && (
                 modalContent.type === 'tagDiff' ? (
-                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                    <table className="w-full">
+                  <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
+                    <table className="w-full text-xs font-mono min-w-[700px]">
                       <thead>
                         <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                          {['Tag', 'Field Name', 'Payload 1 Values', 'Payload 2 Values', 'Count', 'Status'].map(h => (
+                          {['Tag', 'Field Name', 'Message 1 Values', 'Message 2 Values', 'Count', 'Status'].map(h => (
                             <th key={h} className="py-2.5 px-4 text-left font-semibold">{h}</th>
                           ))}
                         </tr>
@@ -656,16 +871,47 @@ export default function FIXComparePage() {
                       <tbody>
                         {modalContent.data.map((row) => {
                           let badge = <span className="badge-success">Match</span>;
-                          if (row.status === 'mismatch') badge = <span className="badge-warn">Diff</span>;
-                          else if (row.status === 'missingIn1') badge = <span className="badge-danger">Missing 1</span>;
-                          else if (row.status === 'missingIn2') badge = <span className="badge-danger" style={{ color: '#fb923c', borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.08)' }}>Missing 2</span>;
+                          let rowBg = 'transparent';
+                          if (row.status === 'mismatch') { rowBg = 'rgba(234,179,8,0.04)'; badge = <span className="badge-warn">Diff</span>; }
+                          else if (row.status === 'missingIn1') { rowBg = 'rgba(239,68,68,0.04)'; badge = <span className="badge-danger">Missing 1</span>; }
+                          else if (row.status === 'missingIn2') { rowBg = 'rgba(251,146,60,0.04)'; badge = <span className="badge-danger" style={{ color: '#fb923c', borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.08)' }}>Missing 2</span>; }
 
+                          const ver1 = activePair?.version1 || "FIX.4.4";
+                          const ver2 = activePair?.version2 || "FIX.4.4";
+                          const rowVer = row.status === 'missingIn1' ? ver2 : ver1;
                           return (
-                            <tr key={row.tag} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <tr 
+                              key={row.tag} 
+                              onClick={() => setActiveTag({ tag: row.tag, version: rowVer, val1: row.val1, val2: row.val2, mappedVal1: row.mappedVal1, mappedVal2: row.mappedVal2 })}
+                              style={{ background: rowBg, borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                              className="hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+                            >
                               <td className="py-2.5 px-4 font-bold" style={{ color: 'var(--foreground)' }}>{row.tag}</td>
                               <td className="py-2.5 px-4" style={{ color: 'var(--text-muted)' }}>{row.tagName}</td>
-                              <td className="py-2.5 px-4 break-words max-w-sm" style={{ color: 'var(--foreground)' }}>{row.val1}</td>
-                              <td className="py-2.5 px-4 break-words max-w-sm" style={{ color: 'var(--foreground)' }}>{row.val2}</td>
+                              <td 
+                                className="py-2.5 px-4 break-words max-w-sm hover:text-[var(--primary)] transition-colors" 
+                                style={{ color: 'var(--foreground)' }}
+                                onClick={(e) => {
+                                  if (row.val1 !== null && row.val1 !== '—') {
+                                    e.stopPropagation();
+                                    setActiveTag({ tag: row.tag, version: ver1, val1: row.val1, val2: row.val2, mappedVal1: row.mappedVal1, mappedVal2: row.mappedVal2 });
+                                  }
+                                }}
+                              >
+                                {row.mappedVal1 !== row.val1 ? <span className="underline decoration-dotted" title={row.mappedVal1}>{row.val1}</span> : (row.val1 ?? '—')}
+                              </td>
+                              <td 
+                                className="py-2.5 px-4 break-words max-w-sm hover:text-[var(--primary)] transition-colors" 
+                                style={{ color: 'var(--foreground)' }}
+                                onClick={(e) => {
+                                  if (row.val2 !== null && row.val2 !== '—') {
+                                    e.stopPropagation();
+                                    setActiveTag({ tag: row.tag, version: ver2, val1: row.val1, val2: row.val2, mappedVal1: row.mappedVal1, mappedVal2: row.mappedVal2 });
+                                  }
+                                }}
+                              >
+                                {row.mappedVal2 !== row.val2 ? <span className="underline decoration-dotted" title={row.mappedVal2}>{row.val2}</span> : (row.val2 ?? '—')}
+                              </td>
                               <td className="py-2.5 px-4" style={{ color: 'var(--text-muted)' }}>{row.occurrences}</td>
                               <td className="py-2.5 px-4">{badge}</td>
                             </tr>
@@ -694,12 +940,12 @@ export default function FIXComparePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                    <table className="w-full">
+                  <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
+                    <table className="w-full text-xs font-mono min-w-[600px]">
                       <thead>
                         <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
                           <th className="py-2.5 px-4 w-16 text-center font-semibold">Line</th>
-                          <th className="py-2.5 px-4 text-left font-semibold">Payload</th>
+                          <th className="py-2.5 px-4 text-left font-semibold">Message</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -722,6 +968,19 @@ export default function FIXComparePage() {
             </div>
           </div>
         </div>
+      )}
+      {/* Shared Tag Details Modal */}
+      {activeTag && (
+        <TagDetailsModal
+          tag={typeof activeTag === 'object' ? activeTag.tag : activeTag}
+          version={typeof activeTag === 'object' ? activeTag.version : (comparedPairs[selectedPairIndex]?.version1 || "FIX.4.4")}
+          val1={typeof activeTag === 'object' ? activeTag.val1 : undefined}
+          val2={typeof activeTag === 'object' ? activeTag.val2 : undefined}
+          mappedVal1={typeof activeTag === 'object' ? activeTag.mappedVal1 : undefined}
+          mappedVal2={typeof activeTag === 'object' ? activeTag.mappedVal2 : undefined}
+          isOpen={!!activeTag}
+          onClose={() => setActiveTag(null)}
+        />
       )}
     </div>
   );

@@ -20,85 +20,9 @@ import {
 
 // Seed data with realistic FIX conformance milestones, subtasks, priorities, and history
 const initialTasks = {
-  todo: [
-    {
-      id: "T-101",
-      title: "Parse production session logs",
-      description: "Validate checksum matches for broker reports and handle repeating groups",
-      assignee: "Utkarsh",
-      status: "todo",
-      priority: "high",
-      subtasks: [
-        { id: "s1", text: "Extract tag 10 checksum value", completed: true },
-        { id: "s2", text: "Validate modulo 256 sum matches checksum tag", completed: false },
-        { id: "s3", text: "Map repeating party IDs accurately", completed: false }
-      ],
-      comments: [
-        { id: "c1", author: "Utkarsh", text: "Double-checked checksum logic on standard FIX 4.2 packets.", timestamp: new Date(Date.now() - 3600000 * 2).toISOString() }
-      ],
-      history: [
-        { text: "Task created", timestamp: new Date(Date.now() - 3600000 * 5).toISOString() },
-        { text: "Set priority to High", timestamp: new Date(Date.now() - 3600000 * 4).toISOString() }
-      ]
-    },
-    {
-      id: "T-102",
-      title: "Verify Sequence Reset processing",
-      description: "Check handling of MsgSeqNum gaps in session interpreter",
-      assignee: "Admin",
-      status: "todo",
-      priority: "medium",
-      subtasks: [
-        { id: "s4", text: "Simulate reset flag 141=Y", completed: false },
-        { id: "s5", text: "Inject sequence gap of 15 messages to trigger request", completed: false }
-      ],
-      comments: [],
-      history: [
-        { text: "Task created", timestamp: new Date(Date.now() - 3600000 * 10).toISOString() }
-      ]
-    }
-  ],
-  doing: [
-    {
-      id: "T-103",
-      title: "Integrate central parser library",
-      description: "Replace standard split with SOH-normalized modulo-256 validator",
-      assignee: "Utkarsh",
-      status: "doing",
-      priority: "high",
-      subtasks: [
-        { id: "s6", text: "Replace string split with regex custom delimiters", completed: true },
-        { id: "s7", text: "Verify parsing speeds under 10ms", completed: false }
-      ],
-      comments: [
-        { id: "c2", author: "Admin", text: "Parser speed looks great. Benchmarks show < 3ms on average.", timestamp: new Date(Date.now() - 3600000).toISOString() }
-      ],
-      history: [
-        { text: "Task created", timestamp: new Date(Date.now() - 3600000 * 24).toISOString() },
-        { text: "Moved to In Progress", timestamp: new Date(Date.now() - 3600000 * 8).toISOString() }
-      ]
-    }
-  ],
-  done: [
-    {
-      id: "T-104",
-      title: "Setup basic NextJS boilerplate",
-      description: "Create workspace structure and navigation header",
-      assignee: "UTAI Inc.",
-      status: "done",
-      priority: "low",
-      subtasks: [
-        { id: "s8", text: "Init git repository and packages", completed: true },
-        { id: "s9", text: "Configure globals and layout theme variables", completed: true }
-      ],
-      comments: [],
-      history: [
-        { text: "Task created", timestamp: new Date(Date.now() - 3600000 * 48).toISOString() },
-        { text: "Moved to In Progress", timestamp: new Date(Date.now() - 3600000 * 40).toISOString() },
-        { text: "Completed task", timestamp: new Date(Date.now() - 3600000 * 38).toISOString() }
-      ]
-    }
-  ]
+  todo: [],
+  doing: [],
+  done: []
 };
 
 const COLUMN_CONFIG = {
@@ -707,6 +631,31 @@ export default function KanbanPage() {
   // Search & Filter state variables
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load tasks from localStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedTasks = localStorage.getItem('fixify-kanban-tasks');
+    if (savedTasks) {
+      try {
+        setTasks(JSON.parse(savedTasks));
+      } catch (e) {
+        console.error("Failed to parse saved tasks", e);
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save tasks to localStorage on change
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('fixify-kanban-tasks', JSON.stringify(tasks));
+    } catch (e) {
+      console.warn("Could not save kanban tasks", e);
+    }
+  }, [tasks, isLoaded]);
 
   // Configure pointer sensor to distinguish between clicks and drags
   const sensors = useSensors(
@@ -790,8 +739,9 @@ export default function KanbanPage() {
         <button
           onClick={() => { setSelectedTask(null); setModalOpen(true); }}
           className="fx-btn-primary shrink-0"
+          title="New Task"
         >
-          <Plus className="h-4 w-4" /> New Task
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span>
         </button>
       </div>
 
@@ -842,8 +792,9 @@ export default function KanbanPage() {
           <button
             onClick={clearFilters}
             className="text-[10px] font-bold font-mono px-3 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-850 text-zinc-400 flex items-center gap-1 transition-colors"
+            title="Clear Filters"
           >
-            <Trash2 className="h-3 w-3" /> Clear Filters
+            <Trash2 className="h-3 w-3" /> <span className="hidden sm:inline">Clear Filters</span>
           </button>
         )}
       </div>

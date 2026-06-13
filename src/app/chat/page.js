@@ -32,6 +32,7 @@ export default function TeamChatPage() {
   const [secretKey, setSecretKey] = useState("fix-sec-key-101");
   const [username, setUsername] = useState("Utkarsh");
   const [isJoined, setIsJoined] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Chat message state
   const [messages, setMessages] = useState([]);
@@ -39,6 +40,34 @@ export default function TeamChatPage() {
   const [userId] = useState(() => uuid());
   const [p2pActive, setP2pActive] = useState(false);
   const [peerCount, setPeerCount] = useState(0);
+
+  // Load lobby settings on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedRoom = localStorage.getItem('fixify-chat-roomId');
+    if (savedRoom) setRoomId(savedRoom);
+    const savedKey = localStorage.getItem('fixify-chat-secretKey');
+    if (savedKey) setSecretKey(savedKey);
+    const savedUser = localStorage.getItem('fixify-chat-username');
+    if (savedUser) setUsername(savedUser);
+    setIsLoaded(true);
+  }, []);
+
+  // Save lobby settings on change
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-chat-roomId', roomId);
+  }, [roomId, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-chat-secretKey', secretKey);
+  }, [secretKey, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-chat-username', username);
+  }, [username, isLoaded]);
 
   const chatEndRef = useRef(null);
   const socketRef = useRef(null);
@@ -546,10 +575,10 @@ export default function TeamChatPage() {
 
         <div className="flex gap-2 shrink-0">
           <button onClick={clearChatHistory} className="fx-btn-secondary">
-            <Trash2 className="h-3.5 w-3.5 text-red-400" /> Clear History
+            <Trash2 className="h-3.5 w-3.5 text-red-400" /> <span className="hidden sm:inline">Clear History</span>
           </button>
           <button onClick={leaveChatRoom} className="fx-btn-secondary border-red-500/20 text-red-400 hover:bg-red-500/5">
-            <LogOut className="h-3.5 w-3.5" /> Leave
+            <LogOut className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Leave</span>
           </button>
         </div>
       </div>
@@ -670,7 +699,7 @@ export default function TeamChatPage() {
           onBlur={e => e.target.style.borderColor = "var(--border)"}
         />
         <button onClick={sendMessage} className="fx-btn-primary">
-          <Send className="h-3.5 w-3.5" /> Send
+          <Send className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Send</span>
         </button>
       </div>
     </div>

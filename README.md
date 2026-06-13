@@ -5,7 +5,7 @@ Fixify is a Next.js toolkit for working with FIX messages, logs, interview-style
 ## Features
 
 - Logs Processor: upload or paste FIX logs, parse messages, validate checksums/body length, filter results, and export processed output.
-- Comparator: compare two FIX payloads or two log files, including matched and unmatched transaction views.
+- Comparator: compare two FIX messages or two log files, including matched and unmatched transaction views.
 - FIXi Interpreter: ask questions about FIX messages and get parser-aware responses.
 - Flowchart: visualize FIX/order flows and inspect message/tag details.
 - Tasks: manage work in a kanban-style board with task details, checklists, comments, and activity.

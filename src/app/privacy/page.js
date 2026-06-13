@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           </h1>
         </div>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          How we handle session payloads and logs.
+          How we handle session messages and logs.
         </p>
       </div>
 
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
             and checksum calculations are processed directly inside your browser memory context.
           </p>
           <p>
-            Payload files are <strong style={{ color: 'var(--foreground)' }}>never</strong> uploaded to servers,
+            Message files are <strong style={{ color: 'var(--foreground)' }}>never</strong> uploaded to servers,
             cached, or transmitted to external endpoints. The workspace acts entirely as a local static compiler.
           </p>
 

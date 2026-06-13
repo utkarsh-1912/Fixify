@@ -35,7 +35,7 @@ export function applyGlobalSettings(settings) {
 const themes = [
   {
     id: 'dark',
-    name: 'Dark Slate',
+    name: 'Dark',
     desc: 'Emerald accent',
     preview: { bg: '#09090b', card: '#111113', accent: '#ffffff' }
   },

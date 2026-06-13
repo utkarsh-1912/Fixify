@@ -13,6 +13,7 @@ import {
   WifiOff
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
+import TagDetailsModal from "@/components/TagDetailsModal";
 
 export default function InterpreterPage() {
   const [messages, setMessages] = useState([{
@@ -23,6 +24,33 @@ export default function InterpreterPage() {
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
   const [hfConnected, setHfConnected] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [activeTag, setActiveTag] = useState(null);
+  const [activeVersion, setActiveVersion] = useState("FIX.4.4");
+
+  // Load state on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedMsgs = localStorage.getItem('fixify-interpreter-messages');
+    if (savedMsgs) {
+      try {
+        setMessages(JSON.parse(savedMsgs));
+      } catch (e) {
+        console.error("Failed to parse saved interpreter messages", e);
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save state on change
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('fixify-interpreter-messages', JSON.stringify(messages));
+    } catch (e) {
+      console.warn("Could not save interpreter messages", e);
+    }
+  }, [messages, isLoaded]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -124,7 +152,7 @@ export default function InterpreterPage() {
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <PlusCircle className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
-            Clear Chat
+            <span className="hidden sm:inline">Clear Chat</span>
           </button>
         </div>
       </div>
@@ -205,8 +233,8 @@ export default function InterpreterPage() {
 
                 {/* Tag table */}
                 {msg.table && (
-                  <div className="rounded-xl overflow-hidden mt-1" style={{ border: '1px solid var(--border)' }}>
-                    <table className="w-full text-xs font-mono">
+                  <div className="overflow-x-auto rounded-xl mt-1" style={{ border: '1px solid var(--border)' }}>
+                    <table className="w-full text-xs font-mono min-w-[500px]">
                       <thead>
                         <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
                           {['Tag', 'Field Name', 'Value', 'Mapped Meaning'].map(h => (
@@ -216,7 +244,16 @@ export default function InterpreterPage() {
                       </thead>
                       <tbody>
                         {msg.table.map(([tag, value, tagName, mappedValue], i) => (
-                          <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <tr 
+                            key={i} 
+                            onClick={() => {
+                              setActiveTag(tag);
+                              const tag8Row = msg.table.find(r => String(r[0]) === "8");
+                              setActiveVersion(tag8Row ? tag8Row[1] : "FIX.4.4");
+                            }}
+                            style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                            className="hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+                          >
                             <td className="py-2 px-3 font-bold" style={{ color: 'var(--primary)' }}>{tag}</td>
                             <td className="py-2 px-3" style={{ color: 'var(--text-muted)' }}>{tagName}</td>
                             <td className="py-2 px-3 font-semibold" style={{ color: 'var(--foreground)' }}>{value}</td>
@@ -271,9 +308,18 @@ export default function InterpreterPage() {
           className="fx-btn-primary"
         >
           <Send className="h-3.5 w-3.5" />
-          Send
+          <span className="hidden sm:inline">Send</span>
         </button>
       </form>
+      {/* Shared Tag Details Modal */}
+      {activeTag && (
+        <TagDetailsModal
+          tag={activeTag}
+          version={activeVersion}
+          isOpen={!!activeTag}
+          onClose={() => setActiveTag(null)}
+        />
+      )}
     </div>
   );
 }

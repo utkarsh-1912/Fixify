@@ -114,6 +114,37 @@ export default function CodeRunnerPage() {
   const [layoutPaneCount, setLayoutPaneCount] = useState(4);
   const [descriptionText, setDescriptionText] = useState(defaultDescription);
   const [activeModal, setActiveModal] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load initial states from localStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedLang = localStorage.getItem('fixify-coderunner-lang');
+    if (savedLang) {
+      setLang(savedLang);
+      const savedCode = localStorage.getItem(`fixify-coderunner-code-${savedLang}`);
+      if (savedCode) setCode(savedCode);
+    }
+    const savedStdin = localStorage.getItem('fixify-coderunner-stdin');
+    if (savedStdin) setStdin(savedStdin);
+    setIsLoaded(true);
+  }, []);
+
+  // Save states to localStorage on change
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-coderunner-lang', lang);
+  }, [lang, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem(`fixify-coderunner-code-${lang}`, code);
+  }, [code, lang, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-coderunner-stdin', stdin);
+  }, [stdin, isLoaded]);
   
   // Resizable panel states (percentages)
   const [leftWidth, setLeftWidth] = useState(33); // Range: 15 to 80 (or 0 when collapsed)
@@ -279,7 +310,7 @@ export default function CodeRunnerPage() {
           <div className="flex flex-wrap items-center gap-4">
             {/* Layout panes selector */}
             <div className="flex items-center gap-2">
-              <span className="fx-section-label">Layout:</span>
+              <span className="fx-section-label md:hidden">Layout:</span>
               <div className="fx-tab-group">
                 <button
                   type="button"
@@ -301,7 +332,7 @@ export default function CodeRunnerPage() {
             </div>
 
             {/* Language selector */}
-            <div className="flex items-center gap-2 border-l border-[var(--border)] pl-4">
+            <div className="flex items-center gap-2 md:border-l border-[var(--border)] md:pl-4">
               <span className="fx-section-label">Language:</span>
               <select
                 value={lang}
@@ -321,12 +352,12 @@ export default function CodeRunnerPage() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={run} disabled={running} className="fx-btn-primary">
+              <button onClick={run} disabled={running} className="fx-btn-primary" title="Run Code">
                 <Play className="h-3.5 w-3.5" />
-                {running ? 'Compiling…' : 'Run Code'}
+                <span className="hidden sm:inline">{running ? 'Compiling…' : 'Run Code'}</span>
               </button>
-              <button onClick={handleReset} className="fx-btn-secondary">
-                <RotateCcw className="h-3.5 w-3.5" /> Reset
+              <button onClick={handleReset} className="fx-btn-secondary" title="Reset">
+                <RotateCcw className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Reset</span>
               </button>
             </div>
           </div>

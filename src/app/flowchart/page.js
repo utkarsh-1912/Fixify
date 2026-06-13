@@ -249,6 +249,8 @@ function FlowchartPage() {
 
   // Search filter inside node property panel
   const [tagSearchQuery, setTagSearchQuery] = useState("");
+  const [userTemplates, setUserTemplates] = useState({});
+  const [isLoaded, setIsLoaded] = useState(false);
 
   /* Node Label Update */
   const updateNodeLabel = useCallback((id, label) => {
@@ -264,9 +266,63 @@ function FlowchartPage() {
     [updateNodeLabel]
   );
 
+  // Load initial states from localStorage on mount
   useEffect(() => {
-    setNodes((nds) => stampUpdateLabel(nds));
-  }, [stampUpdateLabel]);
+    if (typeof window === 'undefined') return;
+    try {
+      const savedNodes = localStorage.getItem('fixify-flowchart-nodes');
+      const savedEdges = localStorage.getItem('fixify-flowchart-edges');
+      if (savedNodes) {
+        const parsedNodes = JSON.parse(savedNodes);
+        const stamped = parsedNodes.map((n) => ({
+          ...n,
+          data: { ...(n.data || {}), updateLabel: updateNodeLabel }
+        }));
+        setNodes(stamped);
+      }
+      if (savedEdges) {
+        setEdges(JSON.parse(savedEdges));
+      }
+      const savedTemplates = localStorage.getItem('fixify-flowchart-user-templates');
+      if (savedTemplates) {
+        setUserTemplates(JSON.parse(savedTemplates));
+      }
+    } catch (e) {
+      console.error("Failed to load flowchart state", e);
+    }
+    setIsLoaded(true);
+  }, [updateNodeLabel]);
+
+  // Save states to localStorage on change
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    if (nodes.length > 0) {
+      try {
+        const serializedNodes = nodes.map(({ data, ...rest }) => {
+          const { updateLabel, ...restData } = data || {};
+          return { ...rest, data: restData };
+        });
+        localStorage.setItem('fixify-flowchart-nodes', JSON.stringify(serializedNodes));
+      } catch (e) {
+        console.warn("Failed to save flowchart nodes", e);
+      }
+    } else {
+      localStorage.removeItem('fixify-flowchart-nodes');
+    }
+  }, [nodes, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    if (edges.length > 0) {
+      try {
+        localStorage.setItem('fixify-flowchart-edges', JSON.stringify(edges));
+      } catch (e) {
+        console.warn("Failed to save flowchart edges", e);
+      }
+    } else {
+      localStorage.removeItem('fixify-flowchart-edges');
+    }
+  }, [edges, isLoaded]);
 
   /* Node Creation */
   const createNodeOfType = useCallback(
@@ -353,6 +409,47 @@ function FlowchartPage() {
     },
     [nodes, edges, rfInstance]
   );
+
+  const saveCurrentAsTemplate = () => {
+    const name = prompt("Enter a name for your custom template:");
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+
+    // Serialize nodes and edges (omit functions like updateLabel)
+    const serializedNodes = nodes.map(({ data, ...rest }) => {
+      const { updateLabel, ...restData } = data || {};
+      return { ...rest, data: restData };
+    });
+
+    const updated = {
+      ...userTemplates,
+      [trimmed]: {
+        nodes: serializedNodes,
+        edges: edges
+      }
+    };
+
+    setUserTemplates(updated);
+    localStorage.setItem('fixify-flowchart-user-templates', JSON.stringify(updated));
+    alert(`Template "${trimmed}" saved successfully!`);
+  };
+
+  const loadUserTemplate = (name) => {
+    const template = userTemplates[name];
+    if (!template) return;
+
+    try {
+      const stampedNodes = (template.nodes || []).map((n) => ({
+        ...n,
+        data: { ...(n.data || {}), updateLabel: updateNodeLabel }
+      }));
+      setNodes(stampedNodes);
+      setEdges(template.edges || []);
+      setSelectedNode(null);
+    } catch (e) {
+      console.error("Failed to load custom template", e);
+    }
+  };
 
   const onInit = useCallback((instance) => setRfInstance(instance), []);
 
@@ -598,7 +695,7 @@ function FlowchartPage() {
             <div className="flex-1 flex flex-col min-h-0 space-y-3">
               <div className="p-3 bg-zinc-950 border border-zinc-850 rounded-xl space-y-2.5 font-mono text-xs text-zinc-400">
                 <div className="font-semibold text-zinc-300 border-b border-zinc-900 pb-1 flex items-center gap-1">
-                  <FileText className="h-3.5 w-3.5 text-emerald-400" /> FIX Payload Info
+                  <FileText className="h-3.5 w-3.5 text-emerald-400" /> FIX Message Info
                 </div>
                 
                 {meta.errors?.length > 0 && (
@@ -676,7 +773,7 @@ function FlowchartPage() {
             onClick={deleteSelected}
             className="w-full py-2 bg-red-600 hover:bg-red-500 font-bold rounded-xl text-white text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0"
           >
-            <Trash2 className="h-4 w-4" /> Delete Component
+            <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Delete Component</span>
           </button>
         </div>
       );
@@ -699,7 +796,7 @@ function FlowchartPage() {
             onClick={deleteSelectedEdge}
             className="w-full py-2 bg-red-600 hover:bg-red-500 font-bold rounded-xl text-white text-xs transition-colors flex items-center justify-center gap-1.5"
           >
-            <Trash2 className="h-4 w-4" /> Delete Connection
+            <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Delete Connection</span>
           </button>
         </div>
       );
@@ -731,26 +828,50 @@ function FlowchartPage() {
         
         {/* Left Control Panel (Width 2/12) */}
         <aside
-          className="lg:col-span-2 flex flex-col p-4 rounded-xl space-y-4 select-none"
+          className="lg:col-span-2 flex flex-col p-4 rounded-xl space-y-4 select-none lg:max-h-[75vh] lg:overflow-y-auto scrollbar-thin"
           style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
         >
           {/* Predefined Scenarios */}
           <div>
-            <p className="fx-section-label mb-2 flex items-center gap-1"><BookOpen className="h-3 w-3 text-[var(--primary)]" /> Industry Templates</p>
+            <p className="fx-section-label mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1"><BookOpen className="h-3 w-3 text-[var(--primary)]" /> Templates</span>
+              <button 
+                onClick={saveCurrentAsTemplate}
+                className="text-[9px] font-mono text-[var(--primary)] hover:underline"
+                title="Save current canvas as custom template"
+              >
+                + Save New
+              </button>
+            </p>
             <select
               onChange={(e) => {
-                loadScenarioTemplate(e.target.value);
+                const val = e.target.value;
+                if (val.startsWith("user-")) {
+                  const tName = val.substring(5);
+                  loadUserTemplate(tName);
+                } else if (val) {
+                  loadScenarioTemplate(val);
+                }
                 e.target.value = ""; // Reset dropdown selection after loading
               }}
               defaultValue=""
               className="w-full px-2 py-1.5 border border-zinc-800 bg-zinc-950 rounded-lg text-[10px] font-mono text-zinc-300 outline-none focus:border-[var(--primary)] cursor-pointer"
             >
               <option value="" disabled>Load scenario...</option>
-              <option value="logon">Logon & Session Establish</option>
-              <option value="orderExecution">Single Order Execution (NOS)</option>
-              <option value="cancelReplace">Modify & Cancel Flow (NOS/ER/Cxl)</option>
-              <option value="allocations">Trade Allocation (Block ➔ Sub)</option>
-              <option value="marketData">Market Data Subscription (MD)</option>
+              <optgroup label="Industry Templates" className="bg-zinc-950 text-zinc-300">
+                <option value="logon">Logon & Session Establish</option>
+                <option value="orderExecution">Single Order Execution (NOS)</option>
+                <option value="cancelReplace">Modify & Cancel Flow (NOS/ER/Cxl)</option>
+                <option value="allocations">Trade Allocation (Block ➔ Sub)</option>
+                <option value="marketData">Market Data Subscription (MD)</option>
+              </optgroup>
+              {Object.keys(userTemplates).length > 0 && (
+                <optgroup label="Custom Templates" className="bg-zinc-950 text-zinc-300">
+                  {Object.keys(userTemplates).map((name) => (
+                    <option key={name} value={`user-${name}`}>{name}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 
@@ -800,7 +921,7 @@ function FlowchartPage() {
               className="w-full fx-btn-primary justify-center"
               style={{ width: '100%' }}
             >
-              <Upload className="h-3.5 w-3.5" /> Log to Sequence
+              <Upload className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Log to Sequence</span>
             </button>
           </div>
 
@@ -813,7 +934,7 @@ function FlowchartPage() {
               className="w-full fx-btn-secondary justify-center"
               style={{ width: '100%' }}
             >
-              <Share2 className="h-3.5 w-3.5" /> Export
+              <Share2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Export</span>
             </button>
             <input
               type="file"
@@ -827,14 +948,14 @@ function FlowchartPage() {
               className="w-full fx-btn-secondary justify-center"
               style={{ width: '100%' }}
             >
-              <Upload className="h-3.5 w-3.5" /> Import
+              <Upload className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Import</span>
             </button>
             <button
               onClick={resetChart}
-              className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+              className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
               style={{ border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)', color: '#f87171' }}
             >
-              Clear
+              <Trash2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Clear</span>
             </button>
           </div>
         </aside>
@@ -879,13 +1000,13 @@ function FlowchartPage() {
                 onClick={() => autoArrange("LR")}
                 className="flex-1 fx-btn-secondary justify-center text-[11px]"
               >
-                <Layout className="h-3 w-3 rotate-90" /> L→R
+                <Layout className="h-3 w-3 rotate-90" /> <span className="hidden sm:inline">L→R</span>
               </button>
               <button
                 onClick={() => autoArrange("TB")}
                 className="flex-1 fx-btn-secondary justify-center text-[11px]"
               >
-                <Layout className="h-3 w-3" /> T→B
+                <Layout className="h-3 w-3" /> <span className="hidden sm:inline">T→B</span>
               </button>
             </div>
           </div>

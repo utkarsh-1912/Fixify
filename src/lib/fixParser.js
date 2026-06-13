@@ -175,7 +175,7 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
   const warnings = [];
 
   if (tagList.length < 4) {
-    errors.push("Message structure is too short to be a valid FIX payload.");
+    errors.push("Message structure is too short to be a valid FIX message.");
     return { isValid: false, errors, warnings, tags: parsedTags, tagList, separator: sep };
   }
 

@@ -24,8 +24,9 @@ export default function WhiteboardPage() {
   const undoStack = useRef([]);
   const redoStack = useRef([]);
   const imageBackup = useRef(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // ✅ init once
+  // ✅ init once & load saved states
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -35,11 +36,56 @@ export default function WhiteboardPage() {
     ctxRef.current = ctx;
 
     resizeCanvas();
-    saveState();
+
+    // Load canvas settings
+    const savedTool = localStorage.getItem('fixify-draw-tool');
+    if (savedTool) setTool(savedTool);
+    const savedColor = localStorage.getItem('fixify-draw-color');
+    if (savedColor) setColor(savedColor);
+    const savedWidth = localStorage.getItem('fixify-draw-width');
+    if (savedWidth) setLineWidth(Number(savedWidth));
+    const savedText = localStorage.getItem('fixify-draw-text');
+    if (savedText) setText(savedText);
+
+    // Load canvas image
+    const savedDataUrl = localStorage.getItem("fixify-whiteboard-data");
+    if (savedDataUrl) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+        saveState(); // push loaded state to undoStack
+      };
+      img.src = savedDataUrl;
+    } else {
+      saveState();
+    }
+
+    setIsLoaded(true);
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Save settings on change
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-draw-tool', tool);
+  }, [tool, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-draw-color', color);
+  }, [color, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-draw-width', String(lineWidth));
+  }, [lineWidth, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-draw-text', text);
+  }, [text, isLoaded]);
 
   // ✅ reapply styles whenever state changes
   useEffect(() => {
@@ -124,8 +170,19 @@ export default function WhiteboardPage() {
   // ✅ use ImageData for undo/redo
   const saveState = () => {
     const canvas = canvasRef.current;
+    if (!canvas || !ctxRef.current) return;
     undoStack.current.push(ctxRef.current.getImageData(0, 0, canvas.width, canvas.height));
     if (undoStack.current.length > 50) undoStack.current.shift();
+
+    // Persist drawing
+    if (isLoaded) {
+      try {
+        const dataUrl = canvas.toDataURL();
+        localStorage.setItem("fixify-whiteboard-data", dataUrl);
+      } catch (e) {
+        console.warn("Failed to save whiteboard image to localStorage", e);
+      }
+    }
   };
 
   const restoreState = (stack, opposite) => {
@@ -134,6 +191,14 @@ export default function WhiteboardPage() {
     ctxRef.current.putImageData(last, 0, 0);
     const canvas = canvasRef.current;
     opposite.current.push(ctxRef.current.getImageData(0, 0, canvas.width, canvas.height));
+
+    // Persist drawing
+    try {
+      const dataUrl = canvas.toDataURL();
+      localStorage.setItem("fixify-whiteboard-data", dataUrl);
+    } catch (e) {
+      console.warn("Failed to save whiteboard image to localStorage", e);
+    }
   };
 
   const undo = () => restoreState(undoStack, redoStack);
@@ -203,11 +268,11 @@ export default function WhiteboardPage() {
         >
           {fullscreen ? (
             <>
-              <XMarkIcon className="w-4 h-4" /> Exit Fullscreen
+              <XMarkIcon className="w-4 h-4" /> <span className="hidden sm:inline">Exit Fullscreen</span>
             </>
           ) : (
             <>
-              <ArrowsPointingOutIcon className="w-4 h-4" /> Fullscreen
+              <ArrowsPointingOutIcon className="w-4 h-4" /> <span className="hidden sm:inline">Fullscreen</span>
             </>
           )}
         </button>
@@ -271,10 +336,10 @@ export default function WhiteboardPage() {
 
           <div className="flex items-center gap-2 ml-auto">
             <button onClick={clearCanvas} className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg flex items-center gap-1 shadow">
-              <TrashIcon className="w-4 h-4" /> Clear
+              <TrashIcon className="w-4 h-4" /> <span className="hidden sm:inline">Clear</span>
             </button>
             <button onClick={downloadCanvas} className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-lg flex items-center gap-1 shadow">
-              <ArrowPathIcon className="w-4 h-4" /> Save PNG
+              <ArrowPathIcon className="w-4 h-4" /> <span className="hidden sm:inline">Save PNG</span>
             </button>
           </div>
         </div>
