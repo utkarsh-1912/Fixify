@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { DndContext, useDraggable, useDroppable, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
+import { DndContext, useDraggable, useDroppable, useSensor, useSensors, PointerSensor, DragOverlay } from "@dnd-kit/core";
 import {
   Plus,
   Trash2,
@@ -111,26 +111,15 @@ function DroppableColumn({ id, tasks, onTaskClick }) {
   );
 }
 
-function DraggableTask({ id, task, onClick }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id });
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 }
-    : undefined;
-
-  // Calculate subtask progress
+function TaskCard({ task, onClick }) {
   const totalSubtasks = task.subtasks?.length || 0;
   const completedSubtasks = task.subtasks?.filter(s => s.completed).length || 0;
   const progressPercent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
-
   const prio = getPriorityBadgeStyles(task.priority);
 
   return (
     <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
       style={{
-        ...style,
         background: 'var(--background)',
         border: '1px solid var(--border)',
         borderRadius: '0.75rem',
@@ -151,22 +140,10 @@ function DraggableTask({ id, task, onClick }) {
       <div className="space-y-3">
         {/* Header Title & ID */}
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs font-semibold leading-snug font-sans" style={{ color: 'var(--foreground)' }}>
+          <p className="text-xs font-semibold leading-snug font-sans text-left" style={{ color: 'var(--foreground)' }}>
             {task.title}
           </p>
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onClick();
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              className="p-1 rounded-lg hover:bg-zinc-800/80 text-zinc-450 hover:text-[var(--primary)] transition-colors cursor-pointer"
-              title="Edit Task"
-            >
-              <Edit2 className="h-3 w-3" />
-            </button>
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-950/40 border border-zinc-800 text-zinc-400">
               {task.id}
             </span>
@@ -175,7 +152,7 @@ function DraggableTask({ id, task, onClick }) {
 
         {/* Description */}
         {task.description && (
-          <p className="text-[11px] leading-relaxed line-clamp-2 text-zinc-400" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[11px] leading-relaxed line-clamp-2 text-zinc-400 text-left" style={{ color: 'var(--text-muted)' }}>
             {task.description}
           </p>
         )}
@@ -187,7 +164,7 @@ function DraggableTask({ id, task, onClick }) {
               <span className="flex items-center gap-1"><ListTodo className="h-3 w-3 text-zinc-400" /> Checklist</span>
               <span>{completedSubtasks}/{totalSubtasks} ({progressPercent}%)</span>
             </div>
-            <div className="w-full h-1.5 rounded-full overflow-hidden bg-zinc-800" style={{ background: 'var(--border)' }}>
+            <div className="w-full h-1.5 rounded-full overflow-hidden bg-zinc-850" style={{ background: 'var(--border)' }}>
               <div
                 className="h-full rounded-full transition-all duration-300"
                 style={{
@@ -233,6 +210,29 @@ function DraggableTask({ id, task, onClick }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DraggableTask({ id, task, onClick }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+  const style = transform
+    ? {
+        transform: `translate(${transform.x}px, ${transform.y}px)`,
+        zIndex: 50,
+        opacity: isDragging ? 0.35 : 1
+      }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={style}
+      onClick={onClick}
+    >
+      <TaskCard task={task} />
     </div>
   );
 }
@@ -349,10 +349,10 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
   const progressPercent = subtasks.length > 0 ? Math.round((completedCount / subtasks.length) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+    <div className="fixed inset-0 flex justify-end md:items-center md:justify-center z-50 p-0 md:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative z-10 w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
+        className="relative z-10 w-full max-w-md md:max-w-xl h-full md:h-auto md:max-h-[85vh] rounded-none rounded-l-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col transition-all duration-300"
         style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
       >
         {/* Modal Header */}
@@ -627,11 +627,14 @@ export default function KanbanPage() {
   const [tasks, setTasks] = useState(initialTasks);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [activeId, setActiveId] = useState(null);
 
   // Search & Filter state variables
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [isLoaded, setIsLoaded] = useState(false);
+
+  const activeTask = activeId ? Object.values(tasks).flat().find(t => t.id === activeId) : null;
 
   // Load tasks from localStorage on mount
   useEffect(() => {
@@ -666,7 +669,12 @@ export default function KanbanPage() {
     })
   );
 
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+  };
+
   const handleDragEnd = (event) => {
+    setActiveId(null);
     const { over, active } = event;
     if (!over) return;
     const fromCol = Object.keys(tasks).find(col => tasks[col].some(t => t.id === active.id));
@@ -800,7 +808,7 @@ export default function KanbanPage() {
       </div>
 
       {/* Grid Canvas */}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {['todo', 'doing', 'done'].map(col => (
             <DroppableColumn
@@ -811,6 +819,14 @@ export default function KanbanPage() {
             />
           ))}
         </div>
+
+        <DragOverlay>
+          {activeId && activeTask ? (
+            <div style={{ transform: 'rotate(2deg)', opacity: 0.95, cursor: 'grabbing' }}>
+              <TaskCard task={activeTask} />
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {/* Task Modal Editor */}
