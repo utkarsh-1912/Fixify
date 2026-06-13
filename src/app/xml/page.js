@@ -327,28 +327,46 @@ export default function XMLFormatterPage() {
           </p>
         </div>
 
-        {/* Engine Switcher */}
-        <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-xl border self-start md:self-center" style={{ borderColor: 'var(--border)' }}>
-          <button
-            onClick={() => setFormatMode("dom")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
-              formatMode === "dom"
-                ? "bg-[var(--primary)] text-zinc-950 font-bold shadow-md"
-                : "text-zinc-455 hover:text-zinc-200"
-            }`}
+        {/* Header Actions Tray */}
+        <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+          {/* Header File Upload */}
+          <input 
+            type="file" 
+            id="xml-file-upload-header" 
+            accept=".xml,.txt,.log" 
+            className="hidden" 
+            onChange={handleFileUpload} 
+          />
+          <label 
+            htmlFor="xml-file-upload-header" 
+            className="px-3.5 py-1.5 text-xs rounded-xl border cursor-pointer flex items-center gap-1.5 transition-all text-zinc-400 border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:text-zinc-200 select-none font-sans"
           >
-            DOM Parser
-          </button>
-          <button
-            onClick={() => setFormatMode("regex")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
-              formatMode === "regex"
-                ? "bg-[var(--primary)] text-zinc-950 font-bold shadow-md"
-                : "text-zinc-455 hover:text-zinc-200"
-            }`}
-          >
-            Regex Walk
-          </button>
+            <Upload className="h-3.5 w-3.5" /> <span>Upload XML</span>
+          </label>
+
+          {/* Engine Switcher */}
+          <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-xl border border-zinc-800">
+            <button
+              onClick={() => setFormatMode("dom")}
+              className={`px-3 py-1 rounded-lg text-xs font-mono transition-all ${
+                formatMode === "dom"
+                  ? "bg-[var(--primary)] text-zinc-950 font-bold shadow-md"
+                  : "text-zinc-455 hover:text-zinc-200"
+              }`}
+            >
+              DOM Parser
+            </button>
+            <button
+              onClick={() => setFormatMode("regex")}
+              className={`px-3 py-1 rounded-lg text-xs font-mono transition-all ${
+                formatMode === "regex"
+                  ? "bg-[var(--primary)] text-zinc-950 font-bold shadow-md"
+                  : "text-zinc-455 hover:text-zinc-200"
+              }`}
+            >
+              Regex Walk
+            </button>
+          </div>
         </div>
       </div>
 
@@ -365,26 +383,12 @@ export default function XMLFormatterPage() {
             
             {/* Desktop Action Tray */}
             <div className="hidden sm:flex items-center gap-1.5">
-              <input 
-                type="file" 
-                id="xml-file-upload-desktop" 
-                accept=".xml,.txt,.log" 
-                className="hidden" 
-                onChange={handleFileUpload} 
-              />
-              <label 
-                htmlFor="xml-file-upload-desktop" 
-                className="fx-btn-secondary p-2 text-[10px] cursor-pointer flex items-center gap-1"
-              >
-                <Upload className="h-3 w-3" />
-              </label>
-
               <button 
                 onClick={handleReset} 
                 disabled={!input.trim()}
                 className="fx-btn-secondary py-1 px-2.5 text-[10px] flex items-center gap-1 disabled:opacity-40"
               >
-                <RotateCcw className="h-3 w-3" />  <span className="hidden md:inline">Reset</span>
+                <RotateCcw className="h-3 w-3" /> <span>Reset</span>
               </button>
 
               <button 
@@ -392,7 +396,7 @@ export default function XMLFormatterPage() {
                 disabled={!input.trim()} 
                 className="fx-btn-secondary py-1 px-2.5 text-[10px] flex items-center gap-1 disabled:opacity-45"
               >
-                <Minimize2 className="h-3 w-3" /> <span className="hidden md:inline">Minify</span>
+                <Minimize2 className="h-3 w-3" /> <span>Minify</span>
               </button>
 
               <button 
@@ -400,7 +404,7 @@ export default function XMLFormatterPage() {
                 disabled={!input.trim()} 
                 className="fx-btn-primary py-1 px-3 text-[10px] flex items-center gap-1 disabled:opacity-45"
               >
-                <Sparkles className="h-3 w-3" /> <span className="hidden md:inline">Format</span>
+                <Sparkles className="h-3 w-3" /> <span>Format</span>
               </button>
             </div>
 
@@ -422,20 +426,6 @@ export default function XMLFormatterPage() {
               >
                 <Minimize2 className="h-3 w-3" />
               </button>
-
-              <input 
-                type="file" 
-                id="xml-file-upload-mobile" 
-                accept=".xml,.txt,.log" 
-                className="hidden" 
-                onChange={handleFileUpload} 
-              />
-              <label 
-                htmlFor="xml-file-upload-mobile" 
-                className="fx-btn-secondary p-1.5 text-[10px] cursor-pointer flex items-center justify-center"
-              >
-                <Upload className="h-3 w-3" />
-              </label>
 
               <button 
                 onClick={handleReset} 
