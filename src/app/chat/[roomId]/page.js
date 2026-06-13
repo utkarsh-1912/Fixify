@@ -923,7 +923,7 @@ export default function RoomChatPage({ params }) {
         {/* ─── HEADER BAR ─── */}
         <div
           className="px-3 py-2.5 sm:p-4 sm:rounded-2xl flex items-center justify-between gap-2 shadow-sm shrink-0"
-          style={{ border: "1px solid var(--border)", background: "var(--card)", borderRadius: isMobile ? "0 0 16px 16px" : undefined }}
+          style={{ border: "1px solid var(--border)", background: "var(--card)", borderRadius: isMobile ? "16px 16px 0 0" : undefined }}
         >
           {/* Left: hamburger + room info */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -999,6 +999,7 @@ export default function RoomChatPage({ params }) {
             )}
 
             {/* Desktop-only buttons */}
+            <div className="hidden sm:flex items-center gap-1.5">
             <button
               onClick={() => setShowInfoDrawer(true)}
               className="hidden sm:flex fx-btn-secondary px-2.5 py-1.5 text-xs items-center gap-1.5"
@@ -1019,6 +1020,7 @@ export default function RoomChatPage({ params }) {
             >
               <LogOut className="h-3.5 w-3.5" /> <span className="hidden md:inline">Leave</span>
             </button>
+            </div>
 
             {/* Mobile overflow menu */}
             <div className="relative sm:hidden">
@@ -1260,7 +1262,7 @@ export default function RoomChatPage({ params }) {
         {/* ─── INPUT AREA ─── */}
         <div
           className="flex gap-2 sm:gap-3 items-end p-2 sm:p-3 sm:rounded-2xl relative shrink-0"
-          style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: isMobile ? "16px 16px 0 0" : undefined }}
+          style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: isMobile ? "0 0 16px 16px" : undefined }}
         >
           {/* Sound Toggle Button */}
           <button
