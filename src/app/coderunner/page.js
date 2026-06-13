@@ -34,7 +34,7 @@ fields = re.split(r'[\\x01|]', raw_fix)
 for item in filter(None, fields):
     if '=' in item:
         tag, val = item.split('=', 1)
-        print(f"Tag {tag.rjust(5)} ➔ {val}")
+        print(f"Tag {tag.rjust(5)} --> {val}")
 `,
   cpp: `// Standard template to parse a FIX message in C++
 #include <iostream>
@@ -56,7 +56,7 @@ int main() {
         if (eq_idx != string::npos) {
             string tag = field.substr(0, eq_idx);
             string val = field.substr(eq_idx + 1);
-            cout << "Tag " << tag << " ➔ " << val << endl;
+            cout << "Tag " << tag << " --> " << val << endl;
         }
     }
     return 0;
@@ -73,7 +73,7 @@ public class Main {
         for (String field : fields) {
             String[] kv = field.split("=");
             if (kv.length == 2) {
-                System.out.println("Tag " + String.format("%5s", kv[0]) + " ➔ " + kv[1]);
+                System.out.println("Tag " + String.format("%5s", kv[0]) + " --> " + kv[1]);
             }
         }
     }
