@@ -374,7 +374,7 @@ export default function XMLFormatterPage() {
               />
               <label 
                 htmlFor="xml-file-upload-desktop" 
-                className="fx-btn-secondary p-1 text-[10px] cursor-pointer flex items-center gap-1"
+                className="fx-btn-secondary p-2 text-[10px] cursor-pointer flex items-center gap-1"
               >
                 <Upload className="h-3 w-3" />
               </label>
@@ -382,7 +382,7 @@ export default function XMLFormatterPage() {
               <button 
                 onClick={handleReset} 
                 disabled={!input.trim()}
-                className="fx-btn-secondary p-1 text-[10px] flex items-center gap-1 disabled:opacity-40"
+                className="fx-btn-secondary p-2 text-[10px] flex items-center gap-1 disabled:opacity-40"
               >
                 <RotateCcw className="h-3 w-3" />
               </button>
