@@ -777,7 +777,7 @@ function FlowchartPage() {
   }, [setActiveScenario]);
 
   /* Properties Panel drawer content */
-  const MetaPane = () => {
+  const renderMetaPane = () => {
     if (selectedNode) {
       const node = selectedNode;
       const meta = node.data.meta;
@@ -1186,7 +1186,7 @@ function FlowchartPage() {
     return (
       <>
         <p className="fx-section-label mb-3">Properties</p>
-        <MetaPane />
+        {renderMetaPane()}
 
         <div className="mt-auto pt-4 space-y-3 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
           {selectedNode && (
