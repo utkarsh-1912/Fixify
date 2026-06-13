@@ -36,10 +36,10 @@ const Footer = () => {
       {!isOnline && !dismissedOffline && (
         <div 
           className="fixed top-0 left-0 right-0 py-2 px-4 text-center text-xs font-mono font-bold flex items-center justify-between gap-2 z-[9999] shadow-lg"
-          style={{ background: '#b45309', color: '#ffffff' }}
+          style={{ background: '#e80909', color: '#ffffff' }}
         >
           <div className="flex-1 text-center">
-            <span>⚠️ Connection Lost: FIXify is running in offline local fallback mode.</span>
+            <span>⚠️ Connection Lost: FIXify is running in offline mode.</span>
           </div>
           <button
             onClick={() => setDismissedOffline(true)}
@@ -72,7 +72,7 @@ const Footer = () => {
               <span 
                 className={`h-2 w-2 rounded-full transition-all duration-300 ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.4)]'}`}
               />
-              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: isOnline ? 'var(--text-muted)' : '#f59e0b' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: isOnline ? 'var(--text-muted)' : '#e80909' }}>
                 {isOnline ? 'Online' : 'Offline'}
               </span>
             </div>
