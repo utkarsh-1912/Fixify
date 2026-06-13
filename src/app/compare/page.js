@@ -18,6 +18,7 @@ import {
 import { validateFIXMessage, getTagValue } from "@/lib/fixParser";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
 import TagDetailsModal from "@/components/TagDetailsModal";
+import { getCustomDialect } from "@/lib/dialect";
 
 // Import FIX version dictionaries
 import fix40 from "@/data/FIX/FIX40.json";
@@ -59,6 +60,11 @@ Object.entries(FIX_DICTS).forEach(([version, data]) => {
 });
 
 function getVersionTagName(tag, version) {
+  const custom = getCustomDialect();
+  if (custom && Array.isArray(custom.fields)) {
+    const field = custom.fields.find(f => String(f.tag) === String(tag));
+    if (field) return field.name;
+  }
   const map = versionMaps[version];
   if (map && map[tag]) {
     return map[tag].name;
@@ -68,6 +74,14 @@ function getVersionTagName(tag, version) {
 
 function getVersionValueMeaning(tag, val, version) {
   if (val === undefined || val === null) return val;
+  const custom = getCustomDialect();
+  if (custom && Array.isArray(custom.fields)) {
+    const field = custom.fields.find(f => String(f.tag) === String(tag));
+    if (field && Array.isArray(field.values)) {
+      const match = field.values.find(v => String(v.enum) === String(val));
+      if (match) return match.description;
+    }
+  }
   const map = versionMaps[version];
   if (map && map[tag] && map[tag].values && map[tag].values[val] !== undefined) {
     return map[tag].values[val];

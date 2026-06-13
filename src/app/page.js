@@ -87,6 +87,11 @@ export default function LogsProcessorPage() {
   const [inputMode, setInputMode] = useState('file');
   const [pastedText, setPastedText] = useState('');
   const [selectedLineInfo, setSelectedLineInfo] = useState(null);
+  const [inspectorTab, setInspectorTab] = useState("details"); // "details" or "lifecycle"
+
+  useEffect(() => {
+    setInspectorTab("details");
+  }, [selectedLineInfo]);
   const [stats, setStats] = useState({
     totalMessages: 0,
     validMessages: 0,
@@ -322,6 +327,137 @@ export default function LogsProcessorPage() {
     saveAs(await zip.generateAsync({ type: "blob" }), "sorted_FIX_logs.zip");
   };
 
+  const getOrderLifecycleMessages = useCallback(() => {
+    if (!selectedLineInfo || !selectedLineInfo.clOrdID) return [];
+    
+    const targetClOrdID = selectedLineInfo.clOrdID;
+    const matches = [];
+    
+    files.forEach(fileObj => {
+      fileObj.parsedLines.forEach(line => {
+        const lineClOrdID = line.clOrdID;
+        const lineOrigClOrdID = line.validation?.tags?.['41'];
+        const lineOrderID = line.validation?.tags?.['37'];
+        const selOrderID = selectedLineInfo.validation?.tags?.['37'];
+        
+        const isMatch = 
+          (targetClOrdID && (lineClOrdID === targetClOrdID || lineOrigClOrdID === targetClOrdID)) ||
+          (selOrderID && lineOrderID === selOrderID);
+          
+        if (isMatch) {
+          matches.push(line);
+        }
+      });
+    });
+    
+    // Sort chronologically by timestamp
+    matches.sort((a, b) => a.timestampObj.getTime() - b.timestampObj.getTime());
+    return matches;
+  }, [selectedLineInfo, files]);
+
+  const renderLifecycleTimeline = () => {
+    const lifecycleMsgs = getOrderLifecycleMessages();
+    if (lifecycleMsgs.length === 0) {
+      return (
+        <div className="py-12 text-center text-xs italic" style={{ color: 'var(--text-muted)' }}>
+          No linked order messages found (ClOrdID not present).
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-6 relative pl-4 border-l border-zinc-800 dark:border-zinc-850 ml-2 py-2">
+        {lifecycleMsgs.map((msg, index) => {
+          const isCurrent = msg.id === selectedLineInfo.id;
+          const msgType = msg.validation?.msgTypeName || "Message";
+          const ordStatus = msg.validation?.tags?.['39'];
+          
+          let statusText = "";
+          let statusColor = "var(--text-muted)";
+          if (ordStatus !== undefined) {
+            const statusMap = {
+              "0": { label: "New", color: "var(--primary)" },
+              "1": { label: "Partially Filled", color: "#60a5fa" },
+              "2": { label: "Filled", color: "#34d399" },
+              "4": { label: "Canceled", color: "#f87171" },
+              "8": { label: "Rejected", color: "#f87171" },
+            };
+            const mapped = statusMap[ordStatus];
+            if (mapped) {
+              statusText = `[Status: ${mapped.label}]`;
+              statusColor = mapped.color;
+            }
+          }
+          
+          let latencyStr = "";
+          if (index > 0) {
+            const prevMsg = lifecycleMsgs[index - 1];
+            const diffMs = msg.timestampObj.getTime() - prevMsg.timestampObj.getTime();
+            latencyStr = `+${diffMs}ms`;
+          }
+          
+          const qty = msg.validation?.tags?.['38'];
+          const px = msg.validation?.tags?.['44'];
+          const symbol = msg.validation?.tags?.['55'];
+          
+          return (
+            <div key={msg.id} className="relative group/timeline-item">
+              <div 
+                className="absolute -left-[22px] top-1.5 h-3.5 w-3.5 rounded-full border-2 transition-all flex items-center justify-center z-10"
+                style={{ 
+                  background: isCurrent ? 'var(--primary)' : 'var(--background)',
+                  borderColor: isCurrent ? 'var(--primary)' : 'var(--border)',
+                }}
+              />
+              
+              <div 
+                onClick={() => setSelectedLineInfo(msg)}
+                className={`p-3.5 rounded-xl cursor-pointer transition-all space-y-1.5 ${isCurrent ? 'bg-zinc-800/20' : 'hover:bg-zinc-800/10'}`}
+                style={{ 
+                  border: isCurrent ? '1px solid var(--primary-border)' : '1px solid var(--border)',
+                  background: isCurrent ? 'var(--primary-faint)' : 'transparent'
+                }}
+              >
+                <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+                  <span className="font-extrabold uppercase" style={{ color: isCurrent ? 'var(--primary)' : 'var(--foreground)' }}>
+                    {msgType} ({msg.msgType})
+                  </span>
+                  {latencyStr && (
+                    <span className="text-zinc-500 font-bold bg-zinc-950 px-1 py-0.5 rounded border border-zinc-900">
+                      {latencyStr}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="text-[11px] font-mono space-y-1" style={{ color: 'var(--text-muted)' }}>
+                  <div className="flex justify-between">
+                    <span>Seq: {msg.validation?.msgSeqNum || 'N/A'}</span>
+                    <span style={{ color: statusColor }}>{statusText}</span>
+                  </div>
+                  {(symbol || qty || px) && (
+                    <div className="text-[10px] text-zinc-500">
+                      {[
+                        symbol ? `Sym: ${symbol}` : "",
+                        qty ? `Qty: ${qty}` : "",
+                        px ? `Px: ${px}` : ""
+                      ].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="text-[9px] font-mono text-zinc-600 dark:text-zinc-500 flex justify-between items-center pt-1 border-t border-zinc-900">
+                  <span className="truncate max-w-[150px]">ClOrdID: {msg.clOrdID || 'N/A'}</span>
+                  <span>
+                    {msg.timestampObj.toISOString().split('T')[1].replace('Z', '')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const isProcessed = stats.totalMessages > 0;
 
@@ -785,113 +921,137 @@ export default function LogsProcessorPage() {
             </button>
           </div>
 
+          {/* Tab Selector */}
+          {selectedLineInfo.clOrdID && (
+            <div className="flex border-b border-zinc-900 shrink-0 bg-zinc-950/20">
+              <button
+                className={`flex-1 py-3 text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'details' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
+                onClick={() => setInspectorTab('details')}
+              >
+                Message Details
+              </button>
+              <button
+                className={`flex-1 py-3 text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'lifecycle' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
+                onClick={() => setInspectorTab('lifecycle')}
+              >
+                Order Lifecycle
+              </button>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-            {/* Validation status */}
-            <div>
-              <p className="fx-section-label mb-2">Diagnostics</p>
-              {selectedLineInfo.validation?.errors?.length > 0 ? (
+            {inspectorTab === 'details' ? (
+              <>
+                {/* Validation status */}
+                <div>
+                  <p className="fx-section-label mb-2">Diagnostics</p>
+                  {selectedLineInfo.validation?.errors?.length > 0 ? (
+                    <div
+                      className="p-4 rounded-xl space-y-2"
+                      style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#f87171' }}>
+                        <AlertTriangle className="h-4 w-4" /> Message Corrupted or Invalid
+                      </div>
+                      <ul className="text-xs space-y-1 font-mono" style={{ color: '#ef4444' }}>
+                        {selectedLineInfo.validation.errors.map((err, idx) => (
+                          <li key={idx}>· {err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div
+                      className="p-4 rounded-xl flex items-center gap-2 text-xs font-semibold"
+                      style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)', color: 'var(--primary)' }}
+                    >
+                      <CheckCircle className="h-4 w-4" /> Checksum &amp; Length Validation Passed
+                    </div>
+                  )}
+                </div>
+
+                {/* Meta grid */}
                 <div
-                  className="p-4 rounded-xl space-y-2"
-                  style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
+                  className="grid grid-cols-2 gap-4 p-4 rounded-xl text-xs font-mono"
+                  style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
                 >
-                  <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: '#f87171' }}>
-                    <AlertTriangle className="h-4 w-4" /> Message Corrupted or Invalid
+                  <div>
+                    <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>Parsed Timestamp</span>
+                    <span className="font-semibold" style={{ color: 'var(--foreground)' }}>
+                      {(() => {
+                        const ts = selectedLineInfo.timestampObj instanceof Date 
+                          ? selectedLineInfo.timestampObj 
+                          : new Date(selectedLineInfo.timestampObj);
+                        return isNaN(ts.getTime()) || ts.getTime() === 0 ? 'N/A' : ts.toISOString();
+                      })()}
+                    </span>
                   </div>
-                  <ul className="text-xs space-y-1 font-mono" style={{ color: '#ef4444' }}>
-                    {selectedLineInfo.validation.errors.map((err, idx) => (
-                      <li key={idx}>· {err}</li>
-                    ))}
-                  </ul>
+                  <div>
+                    <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>ClOrdID (Tag 11)</span>
+                    <span className="font-semibold break-all" style={{ color: 'var(--foreground)' }}>
+                      {selectedLineInfo.clOrdID || 'N/A'}
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <div
-                  className="p-4 rounded-xl flex items-center gap-2 text-xs font-semibold"
-                  style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)', color: 'var(--primary)' }}
-                >
-                  <CheckCircle className="h-4 w-4" /> Checksum &amp; Length Validation Passed
-                </div>
-              )}
-            </div>
 
-            {/* Meta grid */}
-            <div
-              className="grid grid-cols-2 gap-4 p-4 rounded-xl text-xs font-mono"
-              style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
-            >
-              <div>
-                <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>Parsed Timestamp</span>
-                <span className="font-semibold" style={{ color: 'var(--foreground)' }}>
-                  {(() => {
-                    const ts = selectedLineInfo.timestampObj instanceof Date 
-                      ? selectedLineInfo.timestampObj 
-                      : new Date(selectedLineInfo.timestampObj);
-                    return isNaN(ts.getTime()) || ts.getTime() === 0 ? 'N/A' : ts.toISOString();
-                  })()}
-                </span>
-              </div>
-              <div>
-                <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>ClOrdID (Tag 11)</span>
-                <span className="font-semibold break-all" style={{ color: 'var(--foreground)' }}>
-                  {selectedLineInfo.clOrdID || 'N/A'}
-                </span>
-              </div>
-            </div>
-
-            {/* Tags table */}
-            <div>
-              <p className="fx-section-label mb-2">
-                Tag Breakdown ({selectedLineInfo.validation?.tagList?.length || 0} fields)
-              </p>
-              <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
-                <table className="w-full text-xs font-mono min-w-[320px]">
-                  <thead>
-                    <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                      <th className="py-2.5 px-3 text-left font-semibold">Tag</th>
-                      <th className="py-2.5 px-3 text-left font-semibold">Field Name</th>
-                      <th className="py-2.5 px-3 text-left font-semibold">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedLineInfo.validation?.tagList?.map((t, idx) => {
-                      const isCrucial = ['8', '9', '35', '11', '10', '52', '90052'].includes(t.tag);
-                      return (
-                        <tr
-                          key={idx}
-                          onClick={() => setActiveTag(t.tag)}
-                          style={{
-                            borderBottom: '1px solid var(--border-subtle)',
-                            background: isCrucial ? 'var(--primary-faint)' : 'transparent',
-                            cursor: 'pointer'
-                          }}
-                          className="hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
-                        >
-                          <td
-                            className="py-2 px-3 font-bold"
-                            style={{ color: isCrucial ? 'var(--primary)' : 'var(--foreground)' }}
-                          >
-                            {t.tag}
-                          </td>
-                          <td className="py-2 px-3" style={{ color: 'var(--text-muted)' }}>
-                            {t.name}
-                          </td>
-                          <td className="py-2 px-3 truncate max-w-[130px]" style={{ color: 'var(--foreground)' }} title={t.val}>
-                            {t.meaning !== t.val ? (
-                              <span
-                                className="underline decoration-dotted"
-                                style={{ color: 'var(--primary)' }}
-                                title={`Mapped: ${t.meaning}`}
-                              >
-                                {t.val}
-                              </span>
-                            ) : t.val}
-                          </td>
+                {/* Tags table */}
+                <div>
+                  <p className="fx-section-label mb-2">
+                    Tag Breakdown ({selectedLineInfo.validation?.tagList?.length || 0} fields)
+                  </p>
+                  <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
+                    <table className="w-full text-xs font-mono min-w-[320px]">
+                      <thead>
+                        <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                          <th className="py-2.5 px-3 text-left font-semibold">Tag</th>
+                          <th className="py-2.5 px-3 text-left font-semibold">Field Name</th>
+                          <th className="py-2.5 px-3 text-left font-semibold">Value</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {selectedLineInfo.validation?.tagList?.map((t, idx) => {
+                          const isCrucial = ['8', '9', '35', '11', '10', '52', '90052'].includes(t.tag);
+                          return (
+                            <tr
+                              key={idx}
+                              onClick={() => setActiveTag(t.tag)}
+                              style={{
+                                borderBottom: '1px solid var(--border-subtle)',
+                                background: isCrucial ? 'var(--primary-faint)' : 'transparent',
+                                cursor: 'pointer'
+                              }}
+                              className="hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+                            >
+                              <td
+                                className="py-2 px-3 font-bold"
+                                style={{ color: isCrucial ? 'var(--primary)' : 'var(--foreground)' }}
+                              >
+                                {t.tag}
+                              </td>
+                              <td className="py-2 px-3" style={{ color: 'var(--text-muted)' }}>
+                                {t.name}
+                              </td>
+                              <td className="py-2 px-3 truncate max-w-[130px]" style={{ color: 'var(--foreground)' }} title={t.val}>
+                                {t.meaning !== t.val ? (
+                                  <span
+                                    className="underline decoration-dotted"
+                                    style={{ color: 'var(--primary)' }}
+                                    title={`Mapped: ${t.meaning}`}
+                                  >
+                                    {t.val}
+                                  </span>
+                                ) : t.val}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : (
+              renderLifecycleTimeline()
+            )}
           </div>
 
           {/* Raw message */}

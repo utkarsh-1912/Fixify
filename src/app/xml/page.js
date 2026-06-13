@@ -18,6 +18,7 @@ export default function XMLFormatterPage() {
   const [leftWidth, setLeftWidth] = useState(50);
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [formatMode, setFormatMode] = useState("dom"); // "dom" or "regex"
 
   // Load state on mount
   useEffect(() => {
@@ -28,6 +29,8 @@ export default function XMLFormatterPage() {
     if (savedFormatted) setFormatted(savedFormatted);
     const savedLeftWidth = localStorage.getItem('fixify-xml-leftWidth');
     if (savedLeftWidth) setLeftWidth(Number(savedLeftWidth));
+    const savedMode = localStorage.getItem('fixify-xml-mode');
+    if (savedMode) setFormatMode(savedMode);
     setIsLoaded(true);
   }, []);
 
@@ -47,6 +50,11 @@ export default function XMLFormatterPage() {
     localStorage.setItem('fixify-xml-leftWidth', String(leftWidth));
   }, [leftWidth, isLoaded]);
 
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    localStorage.setItem('fixify-xml-mode', formatMode);
+  }, [formatMode, isLoaded]);
+
   // Screen size breakpoint observer
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -56,26 +64,87 @@ export default function XMLFormatterPage() {
     return () => window.removeEventListener('resize', checkSize);
   }, []);
 
-  const formatXml = (xml) => {
-    try {
-      const PADDING = "  ";
-      let formattedText = "";
-      let pad = 0;
-      const cleaned = xml.replace(/>\s*</g, ">\n<");
-      const lines = cleaned.split("\n");
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const isClosing = /^<\/.+?>$/.test(line);
-        const isOpening = /^<[^!?\/][^>]*?>$/.test(line) && !isClosing;
-        const isSelfClosing = /^<[^>]+\/>$/.test(line);
-        const isInlinePair = /^<([^>]+)><\/\1>$/.test(line);
-        if (isClosing && !isInlinePair) pad--;
-        formattedText += PADDING.repeat(pad) + line + "\n";
-        if (isOpening && !isSelfClosing && !isInlinePair) pad++;
+  const formatXml = (xml, mode) => {
+    if (mode === "regex") {
+      try {
+        const PADDING = "  ";
+        let formattedText = "";
+        let pad = 0;
+        const cleaned = xml.replace(/>\s*</g, ">\n<");
+        const lines = cleaned.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          const isClosing = /^<\/.+?>$/.test(line);
+          const isOpening = /^<[^!?\/][^>]*?>$/.test(line) && !isClosing;
+          const isSelfClosing = /^<[^>]+\/>$/.test(line);
+          const isInlinePair = /^<([^>]+)><\/\1>$/.test(line);
+          if (isClosing && !isInlinePair) pad--;
+          formattedText += PADDING.repeat(pad) + line + "\n";
+          if (isOpening && !isSelfClosing && !isInlinePair) pad++;
+        }
+        return formattedText.trim();
+      } catch { return "Malformed or invalid XML schema."; }
+    } else {
+      // DOM Parser mode
+      try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xml, "application/xml");
+        
+        const parserError = xmlDoc.getElementsByTagName("parsererror");
+        if (parserError.length > 0) {
+          return "Malformed or invalid XML schema: " + parserError[0].textContent;
+        }
+        
+        let result = "";
+        const PADDING = "  ";
+        
+        const serializeNode = (node, depth) => {
+          const indent = PADDING.repeat(depth);
+          
+          if (node.nodeType === 1) { // ELEMENT_NODE
+            let tagStr = `${indent}<${node.nodeName}`;
+            if (node.attributes) {
+              for (let i = 0; i < node.attributes.length; i++) {
+                const attr = node.attributes[i];
+                tagStr += ` ${attr.name}="${attr.value}"`;
+              }
+            }
+            
+            if (node.childNodes.length === 0) {
+              result += `${tagStr} />\n`;
+            } else if (node.childNodes.length === 1 && node.childNodes[0].nodeType === 3) { // TEXT_NODE
+              const textVal = node.childNodes[0].nodeValue.trim();
+              result += `${tagStr}>${textVal}</${node.nodeName}>\n`;
+            } else {
+              result += `${tagStr}>\n`;
+              for (let i = 0; i < node.childNodes.length; i++) {
+                serializeNode(node.childNodes[i], depth + 1);
+              }
+              result += `${indent}</${node.nodeName}>\n`;
+            }
+          } else if (node.nodeType === 3) { // TEXT_NODE
+            const textVal = node.nodeValue.trim();
+            if (textVal) {
+              result += `${indent}${textVal}\n`;
+            }
+          } else if (node.nodeType === 8) { // COMMENT_NODE
+            result += `${indent}<!--${node.nodeValue}-->\n`;
+          } else if (node.nodeType === 4) { // CDATA_SECTION_NODE
+            result += `${indent}<![CDATA[${node.nodeValue}]]>\n`;
+          } else if (node.nodeType === 9) { // DOCUMENT_NODE
+            for (let i = 0; i < node.childNodes.length; i++) {
+              serializeNode(node.childNodes[i], depth);
+            }
+          }
+        };
+        
+        serializeNode(xmlDoc, 0);
+        return result.trim();
+      } catch (err) {
+        return "Failed to parse and format XML: " + err.message;
       }
-      return formattedText.trim();
-    } catch { return "Malformed or invalid XML schema."; }
+    }
   };
 
   const highlightXml = (xml) => {
@@ -92,7 +161,7 @@ export default function XMLFormatterPage() {
   };
 
   const handleReset = () => { setInput(""); setFormatted(""); };
-  const executeFormat = () => { if (!input.trim()) return; setFormatted(formatXml(input)); };
+  const executeFormat = () => { if (!input.trim()) return; setFormatted(formatXml(input, formatMode)); };
 
   // Resizing mouse handler
   const startResizingWidth = (mouseDownEvent) => {
@@ -154,7 +223,7 @@ export default function XMLFormatterPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="fx-page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <div className="fx-page-header flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2.5" style={{ color: 'var(--foreground)' }}>
             <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}>
@@ -165,6 +234,30 @@ export default function XMLFormatterPage() {
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Format, beautify, and syntax-highlight nested XML messages.
           </p>
+        </div>
+
+        {/* Toggle Mode */}
+        <div className="flex items-center gap-1 bg-zinc-900/40 p-1 rounded-xl border self-start sm:self-center" style={{ borderColor: 'var(--border)' }}>
+          <button
+            onClick={() => setFormatMode("dom")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
+              formatMode === "dom"
+                ? "bg-[var(--primary)] text-zinc-950 font-bold shadow-md"
+                : "text-zinc-450 hover:text-zinc-200"
+            }`}
+          >
+            DOM Parser
+          </button>
+          <button
+            onClick={() => setFormatMode("regex")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
+              formatMode === "regex"
+                ? "bg-[var(--primary)] text-zinc-950 font-bold shadow-md"
+                : "text-zinc-450 hover:text-zinc-200"
+            }`}
+          >
+            Regex Walk
+          </button>
         </div>
       </div>
 
@@ -178,7 +271,7 @@ export default function XMLFormatterPage() {
               <FileCode className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
               Raw XML Message
             </span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button onClick={executeFormat} disabled={!input.trim()} className="fx-btn-primary">
                 <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Format</span>
               </button>

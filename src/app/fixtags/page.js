@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Search, Layers, ChevronRight, HelpCircle } from 'lucide-react';
+import { BookOpen, Search, ChevronRight, HelpCircle, Upload, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 import TagDetailsModal from '@/components/TagDetailsModal';
+import { parseQuickFixXml, getCustomDialect, clearCustomDialectCache } from '@/lib/dialect';
 
 import fix40 from '@/data/FIX/FIX40.json';
 import fix42 from '@/data/FIX/FIX42.json';
@@ -24,13 +25,34 @@ export default function FIXDictionaryPage() {
   const [activeTag, setActiveTag] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Custom dialect states
+  const [customDialect, setCustomDialect] = useState(null);
+  const [uploadError, setUploadError] = useState("");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(60);
+
   // Load state on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    // Load custom dialect if any
+    const custom = getCustomDialect();
+    if (custom) {
+      setCustomDialect(custom);
+    }
+
     const savedVer = localStorage.getItem('fixify-dict-version');
-    if (savedVer) setSelectedVersion(savedVer);
+    if (savedVer) {
+      setSelectedVersion(savedVer);
+    } else if (custom) {
+      setSelectedVersion(custom.version);
+    }
+
     const savedQuery = localStorage.getItem('fixify-dict-query');
     if (savedQuery) setSearchQuery(savedQuery);
+    
     setIsLoaded(true);
   }, []);
 
@@ -45,11 +67,29 @@ export default function FIXDictionaryPage() {
     localStorage.setItem('fixify-dict-query', searchQuery);
   }, [searchQuery, isLoaded]);
 
+  // Combine static and custom versions
+  const versionsList = useMemo(() => {
+    const list = [...DICT_VERSIONS];
+    if (customDialect) {
+      list.push({
+        value: customDialect.version,
+        label: `Custom Dialect (${customDialect.version})`,
+        data: customDialect
+      });
+    }
+    return list;
+  }, [customDialect]);
+
   // Retrieve current version dictionary fields
   const currentDict = useMemo(() => {
-    const v = DICT_VERSIONS.find(ver => ver.value === selectedVersion);
+    const v = versionsList.find(ver => ver.value === selectedVersion);
     return v ? v.data : fix44;
-  }, [selectedVersion]);
+  }, [selectedVersion, versionsList]);
+
+  // Reset page when filtering or version changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedVersion]);
 
   // Filter fields based on search query
   const filteredFields = useMemo(() => {
@@ -65,10 +105,47 @@ export default function FIXDictionaryPage() {
     );
   }, [currentDict, searchQuery]);
 
-  // Slice list for performance (prevent UI lag with thousands of nodes)
+  const totalPages = Math.ceil(filteredFields.length / pageSize) || 1;
+
+  // Paginate displayed fields
   const displayedFields = useMemo(() => {
-    return filteredFields.slice(0, 120);
-  }, [filteredFields]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredFields.slice(start, start + pageSize);
+  }, [filteredFields, currentPage, pageSize]);
+
+  // Upload XML dialect
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = parseQuickFixXml(reader.result);
+        if (parsed) {
+          localStorage.setItem('fixify-custom-dialect', JSON.stringify(parsed));
+          clearCustomDialectCache();
+          setCustomDialect(parsed);
+          setSelectedVersion(parsed.version);
+          setUploadError("");
+        }
+      } catch (err) {
+        setUploadError(err.message || "Failed to parse QuickFIX XML.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Delete custom dialect
+  const removeCustomDialect = () => {
+    localStorage.removeItem('fixify-custom-dialect');
+    clearCustomDialectCache();
+    setCustomDialect(null);
+    if (selectedVersion === (customDialect?.version || "")) {
+      setSelectedVersion("FIX.4.4");
+    }
+    setUploadError("");
+  };
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
@@ -87,9 +164,59 @@ export default function FIXDictionaryPage() {
         </div>
       </div>
 
+      {/* Custom XML Dialect Uploader Card */}
+      <div
+        className="p-5 rounded-2xl border border-zinc-800 bg-zinc-900/10 space-y-4"
+        style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400">
+              Custom XML Dialect Schema
+            </h3>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Upload a QuickFIX XML schema file (e.g. <code>FIX44-Custom.xml</code>) to override standard tag and enum definitions globally.
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3 shrink-0">
+            {customDialect ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono" style={{ background: 'var(--background)', border: '1px solid var(--border)' }}>
+                <span className="text-emerald-400 font-bold">✓ Active:</span>
+                <span className="text-zinc-350">{customDialect.version}</span>
+                <button
+                  onClick={removeCustomDialect}
+                  className="ml-2 hover:text-red-400 text-zinc-500 transition-colors"
+                  title="Remove Custom Dialect"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <label className="fx-btn-secondary py-1.5 px-3 cursor-pointer text-xs font-mono flex items-center gap-1.5">
+                <Upload className="h-3.5 w-3.5" />
+                <span>Upload XML Schema</span>
+                <input
+                  type="file"
+                  accept=".xml"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+        </div>
+        
+        {uploadError && (
+          <p className="text-xs text-red-400 font-mono">
+            ⚠️ {uploadError}
+          </p>
+        )}
+      </div>
+
       {/* Toolbar Filter */}
       <div
-        className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl items-stretch sm:items-center"
+        className="flex flex-col md:flex-row gap-4 p-4 rounded-2xl items-stretch md:items-center"
         style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
       >
         {/* Search */}
@@ -105,16 +232,32 @@ export default function FIXDictionaryPage() {
           />
         </div>
 
+        {/* Page Size select */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider shrink-0">Page Size:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="px-2.5 py-1.5 border border-zinc-850 rounded-xl text-xs font-mono outline-none cursor-pointer text-zinc-350"
+            style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+          >
+            <option value={30}>30</option>
+            <option value={60}>60</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+          </select>
+        </div>
+
         {/* Version dropdown */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider">Protocol Version:</span>
+          <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider shrink-0">Protocol Version:</span>
           <select
             value={selectedVersion}
             onChange={(e) => setSelectedVersion(e.target.value)}
             className="px-3.5 py-2 border border-zinc-850 rounded-xl text-xs font-mono outline-none cursor-pointer text-zinc-350 focus:border-[var(--primary)]"
             style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
           >
-            {DICT_VERSIONS.map((v) => (
+            {versionsList.map((v) => (
               <option key={v.value} value={v.value}>{v.label}</option>
             ))}
           </select>
@@ -124,13 +267,8 @@ export default function FIXDictionaryPage() {
       {/* Stats indicators */}
       <div className="flex items-center justify-between text-xs font-mono px-1" style={{ color: 'var(--text-muted)' }}>
         <span>
-          Showing {displayedFields.length} of {filteredFields.length} matching tags
+          Showing {displayedFields.length} of {filteredFields.length} matching tags (Page {currentPage} of {totalPages})
         </span>
-        {filteredFields.length > 120 && (
-          <span style={{ color: 'var(--primary)' }}>
-            Refine search query to see remaining {filteredFields.length - 120} tags
-          </span>
-        )}
       </div>
 
       {/* Grid List */}
@@ -195,6 +333,70 @@ export default function FIXDictionaryPage() {
           >
             Clear Search Filter
           </button>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-zinc-900 text-xs font-mono text-zinc-500">
+          <div>
+            Page {currentPage} of {totalPages}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="hidden sm:inline-block px-2.5 py-1.5 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+            >
+              First
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-2.5 py-1.5 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors flex items-center gap-1"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Prev
+            </button>
+            
+            {/* Page number indicators */}
+            <div className="hidden sm:flex items-center gap-1 max-w-[200px] overflow-x-auto">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => Math.abs(page - currentPage) <= 2 || page === 1 || page === totalPages)
+                .map((page, idx, arr) => {
+                  const isGap = idx > 0 && page - arr[idx - 1] > 1;
+                  return (
+                    <React.Fragment key={page}>
+                      {isGap && <span className="px-1 text-zinc-650">...</span>}
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-2.5 py-1 rounded-md text-xs transition-all ${currentPage === page ? 'bg-[var(--primary)] text-black font-extrabold' : 'hover:bg-zinc-800 text-zinc-400'}`}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-2.5 py-1.5 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors flex items-center gap-1"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+            >
+              Next <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="hidden sm:inline-block px-2.5 py-1.5 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+            >
+              Last
+            </button>
+          </div>
         </div>
       )}
 

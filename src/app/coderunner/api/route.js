@@ -1,4 +1,4 @@
-// import fetch from 'node-fetch';
+// src/app/coderunner/api/route.js
 
 const JUDGE0_URL = process.env.JUDGE0_API_URL || "https://judge0-ce.p.rapidapi.com";
 const JUDGE0_KEY = process.env.JUDGE0_API_KEY || "";
@@ -44,12 +44,12 @@ export async function POST(req) {
       return new Response(JSON.stringify({ error: "submission creation failed", raw: create }), { status: 500 });
     }
 
-    // Poll until result
+    // Poll until result (80 attempts * 1500ms = 120 seconds / 2 minutes timeout threshold)
     let out;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 80; i++) {
       out = await getSubmission(create.token);
       if (out.status && out.status.id > 2) break;
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 1500));
     }
 
     return new Response(JSON.stringify(out), { status: 200 });

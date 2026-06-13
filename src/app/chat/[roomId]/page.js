@@ -305,6 +305,20 @@ export default function RoomChatPage({ params }) {
     }
   }, [roomId, userId, username, saveCache]);
 
+  const [isTabVisible, setIsTabVisible] = useState(true);
+
+  // Monitor visibility state to throttle polling in background
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const handleVisibilityChange = () => {
+      setIsTabVisible(document.visibilityState === 'visible');
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // Start polling loop when room is joined
   useEffect(() => {
     if (!isLoaded || !isJoined) return;
@@ -312,12 +326,13 @@ export default function RoomChatPage({ params }) {
     fetchMessages();
 
     if (pollingRef.current) clearInterval(pollingRef.current);
-    pollingRef.current = setInterval(fetchMessages, 2500);
+    const pollInterval = isTabVisible ? 2500 : 30000;
+    pollingRef.current = setInterval(fetchMessages, pollInterval);
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [roomId, username, isLoaded, isJoined, fetchMessages]);
+  }, [roomId, username, isLoaded, isJoined, fetchMessages, isTabVisible]);
 
   // Keep recent rooms directory sync
   const addRecentRoom = useCallback((roomName) => {

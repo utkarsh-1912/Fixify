@@ -1,4 +1,26 @@
 import { FIX_TAGS, FIX_VALUES } from "./fixTags";
+import { getCustomDialect } from "./dialect";
+
+export const getTagName = (tag) => {
+  const custom = getCustomDialect();
+  if (custom && Array.isArray(custom.fields)) {
+    const field = custom.fields.find(f => String(f.tag) === String(tag));
+    if (field) return field.name;
+  }
+  return FIX_TAGS[tag];
+};
+
+export const getValueMeaning = (tag, val) => {
+  const custom = getCustomDialect();
+  if (custom && Array.isArray(custom.fields)) {
+    const field = custom.fields.find(f => String(f.tag) === String(tag));
+    if (field && Array.isArray(field.values)) {
+      const match = field.values.find(v => String(v.enum) === String(val));
+      if (match) return match.description;
+    }
+  }
+  return FIX_VALUES[tag]?.[val] || val;
+};
 
 // Comprehensive map for FIX message type execution order. Lower number = higher priority.
 export const FIX_ORDER_MAP = {
@@ -166,7 +188,7 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
     if (eqIdx !== -1) {
       const tag = field.substring(0, eqIdx).trim();
       const val = field.substring(eqIdx + 1);
-      tagList.push({ tag, val, name: FIX_TAGS[tag] || `CustomTag_${tag}`, meaning: FIX_VALUES[tag]?.[val] || val });
+      tagList.push({ tag, val, name: getTagName(tag) || `CustomTag_${tag}`, meaning: getValueMeaning(tag, val) || val });
       parsedTags[tag] = val;
     }
   });
