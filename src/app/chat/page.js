@@ -62,6 +62,18 @@ export default function ChatLobbyPage() {
     if (typeof window !== "undefined") localStorage.setItem("fixify-chat-username", val);
   };
 
+  const resetForm = () => {
+    setUsername("");
+    setRoomId("conformance-desk");
+    setSecretKey("fix-sec-key-101");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("fixify-chat-username");
+      localStorage.setItem("fixify-chat-secretKey", "fix-sec-key-101");
+      localStorage.setItem("fixify-chat-roomId", "conformance-desk");
+      localStorage.setItem("fixify-chat-isJoined", "false");
+    }
+  };
+
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-zinc-500 font-mono text-xs">
@@ -143,13 +155,22 @@ export default function ChatLobbyPage() {
               </div>
             </div>
 
-            <button
-              onClick={joinChatRoom}
-              className="w-full fx-btn-primary justify-center font-bold"
-              disabled={!username.trim() || !roomId.trim() || !secretKey.trim()}
-            >
-              Join Secured Room
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={joinChatRoom}
+                className="flex-1 fx-btn-primary justify-center font-bold"
+                disabled={!username.trim() || !roomId.trim() || !secretKey.trim()}
+              >
+                Join Secured Room
+              </button>
+              <button
+                onClick={resetForm}
+                className="fx-btn-secondary px-3 py-2 text-xs font-semibold hover:text-red-400 cursor-pointer"
+                title="Clear entered credentials and reset"
+              >
+                Reset
+              </button>
+            </div>
 
             {activeRooms.length > 0 && (
               <div className="space-y-2.5 pt-4 border-t border-zinc-800/80">
@@ -162,9 +183,22 @@ export default function ChatLobbyPage() {
                       key={room}
                       onClick={() => {
                         setRoomId(room);
-                        if (typeof window !== "undefined") localStorage.setItem("fixify-chat-roomId", room);
+                        const fallbackUser = localStorage.getItem("fixify-chat-username") || "Utkarsh";
+                        const fallbackKey = localStorage.getItem("fixify-chat-secretKey") || "fix-sec-key-101";
+                        
+                        const finalUser = username.trim() ? username.trim() : fallbackUser;
+                        const finalKey = secretKey.trim() ? secretKey.trim() : fallbackKey;
+
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("fixify-chat-roomId", room);
+                          localStorage.setItem("fixify-chat-username", finalUser);
+                          localStorage.setItem("fixify-chat-secretKey", finalKey);
+                          localStorage.setItem("fixify-chat-isJoined", "true");
+                        }
+                        router.push(`/chat/${room}`);
                       }}
                       className="text-[10px] font-mono px-2.5 py-1 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-[var(--primary)] hover:border-[var(--primary-border)] transition-all cursor-pointer"
+                      title={`Instant connect to channel #${room}`}
                     >
                       # {room}
                     </button>

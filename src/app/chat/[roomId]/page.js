@@ -25,7 +25,10 @@ import {
   Volume2,
   VolumeX,
   Info,
-  Hash
+  Hash,
+  X,
+  Menu,
+  ChevronLeft
 } from "lucide-react";
 import { encryptMessage, decryptMessage } from "@/lib/cipher";
 
@@ -97,6 +100,18 @@ export default function RoomChatPage({ params }) {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDesktopSidebar, setIsDesktopSidebar] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const checkSize = () => {
+      setIsDesktopSidebar(window.innerWidth >= 1024);
+    };
+    checkSize();
+    window.addEventListener("resize", checkSize);
+    return () => window.removeEventListener("resize", checkSize);
+  }, []);
   
   // Custom picker & reaction states
   const [soundType, setSoundType] = useState("chime");
@@ -725,170 +740,228 @@ export default function RoomChatPage({ params }) {
   }
 
   // ACTIVE CHAT VIEW: Styled like Slack/Discord Group Channels
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-120px)] max-w-screen-2xl mx-auto items-stretch relative">
-      
-      {/* LEFT COLUMN: Channels Directory & Members List (3/12 width) */}
-      <aside 
-        className="lg:col-span-3 flex flex-col gap-5 p-4 rounded-2xl max-h-full overflow-y-auto"
-        style={{ border: "1px solid var(--border)", background: "var(--card)" }}
-      >
-        {/* Sidebar Header */}
-        <div className="flex items-center gap-2 pb-3 border-b" style={{ borderColor: "var(--border)" }}>
+  // Sidebar content shared between desktop aside and mobile drawer
+  const sidebarContent = (
+    <>
+      {/* Sidebar Header */}
+      <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: "var(--border)" }}>
+        <div className="flex items-center gap-2">
           <Hash className="h-5 w-5" style={{ color: "var(--primary)" }} />
           <h2 className="text-xs font-bold uppercase tracking-wider font-mono" style={{ color: "var(--foreground)" }}>
             Chat Channels
           </h2>
         </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={() => setIsSidebarOpen(false)}
+          className="lg:hidden p-1.5 rounded-lg hover:bg-zinc-800/40 text-zinc-400 hover:text-zinc-100 transition-colors"
+          title="Close sidebar"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
 
-        {/* Channels List (Recent Rooms) */}
-        <div className="space-y-2">
-          <p className="text-[10px] uppercase tracking-wider font-mono text-zinc-500 font-bold px-1">
-            Active Rooms
-          </p>
-          <div className="flex flex-col gap-1">
-            {recentRooms.map((room) => {
-              const isActive = room === roomId;
-              return (
-                <div
-                  key={room}
-                  className="group/channel relative w-full flex items-center"
+      {/* Channels List (Recent Rooms) */}
+      <div className="space-y-2">
+        <p className="text-[10px] uppercase tracking-wider font-mono text-zinc-500 font-bold px-1">
+          Active Rooms
+        </p>
+        <div className="flex flex-col gap-1">
+          {recentRooms.map((room) => {
+            const isActive = room === roomId;
+            return (
+              <div
+                key={room}
+                className="group/channel relative w-full flex items-center"
+              >
+                <button
+                  onClick={() => { switchRoom(room); setIsSidebarOpen(false); }}
+                  className="flex-1 text-xs font-mono px-3 py-2 rounded-xl transition-all flex items-center justify-between text-left pr-8 cursor-pointer"
+                  style={{
+                    background: isActive ? "var(--primary-faint)" : "transparent",
+                    border: isActive ? "1px solid var(--primary-border)" : "1px solid transparent",
+                    color: isActive ? "var(--primary)" : "var(--text-muted)"
+                  }}
                 >
-                  <button
-                    onClick={() => switchRoom(room)}
-                    className="flex-1 text-xs font-mono px-3 py-2 rounded-xl transition-all flex items-center justify-between text-left pr-8 cursor-pointer"
-                    style={{
-                      background: isActive ? "var(--primary-faint)" : "transparent",
-                      border: isActive ? "1px solid var(--primary-border)" : "1px solid transparent",
-                      color: isActive ? "var(--primary)" : "var(--text-muted)"
-                    }}
-                  >
-                    <span className="flex items-center gap-1.5 font-bold truncate">
-                      <span># {room}</span>
-                    </span>
-                    {isActive && <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)] shrink-0 animate-pulse" />}
-                  </button>
-                  
-                  {/* Delete Button (visible on hover) */}
-                  <button
-                    onClick={(e) => deleteChannel(e, room)}
-                    className="absolute right-2 opacity-0 group-hover/channel:opacity-100 transition-opacity p-1 rounded hover:bg-zinc-800/40 hover:text-red-400 text-zinc-550 cursor-pointer"
-                    title="Delete channel and database"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                  <span className="flex items-center gap-1.5 font-bold truncate">
+                    <span># {room}</span>
+                  </span>
+                  {isActive && <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)] shrink-0 animate-pulse" />}
+                </button>
+
+                {/* Delete Button (visible on hover) */}
+                <button
+                  onClick={(e) => deleteChannel(e, room)}
+                  className="absolute right-2 opacity-0 group-hover/channel:opacity-100 transition-opacity p-1 rounded hover:bg-zinc-800/40 hover:text-red-400 text-zinc-550 cursor-pointer"
+                  title="Delete channel and database"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
         </div>
+      </div>
 
-        <div style={{ borderTop: "1px solid var(--border)" }} />
+      <div style={{ borderTop: "1px solid var(--border)" }} />
 
-        {/* Active Members list */}
-        <div className="flex flex-col flex-1 min-h-[200px]">
-          <p className="text-[10px] uppercase tracking-wider font-mono text-zinc-500 font-bold px-1 mb-2">
-            Members online ({analytics.present.length})
-          </p>
-          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-            {analytics.present.map((u, i) => (
-              <div key={i} className="flex items-center justify-between text-[11px] font-mono px-1">
-                <span className="text-zinc-200 font-medium flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span className="truncate max-w-[120px]">{u.username}</span>
-                  {u.username === username && <span className="opacity-60 text-[8px] font-bold">(You)</span>}
-                </span>
-                <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>online</span>
-              </div>
-            ))}
-          </div>
-
-          {analytics.left.length > 0 && (
-            <div className="mt-4">
-              <p className="text-[10px] uppercase tracking-wider font-mono text-zinc-650 font-bold px-1 mb-2">
-                Offline ({analytics.left.length})
-              </p>
-              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 opacity-60">
-                {analytics.left.map((u, i) => (
-                  <div key={i} className="flex items-center justify-between text-[11px] font-mono px-1">
-                    <span className="text-zinc-400 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-                      <span className="truncate max-w-[120px]">{u.username}</span>
-                    </span>
-                    <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>offline</span>
-                  </div>
-                ))}
-              </div>
+      {/* Active Members list */}
+      <div className="flex flex-col flex-1 min-h-[180px]">
+        <p className="text-[10px] uppercase tracking-wider font-mono text-zinc-500 font-bold px-1 mb-2">
+          Members online ({analytics.present.length})
+        </p>
+        <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+          {analytics.present.map((u, i) => (
+            <div key={i} className="flex items-center justify-between text-[11px] font-mono px-1">
+              <span className="text-zinc-200 font-medium flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="truncate max-w-[120px]">{u.username}</span>
+                {u.username === username && <span className="opacity-60 text-[8px] font-bold">(You)</span>}
+              </span>
+              <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>online</span>
             </div>
-          )}
+          ))}
         </div>
+
+        {analytics.left.length > 0 && (
+          <div className="mt-4">
+            <p className="text-[10px] uppercase tracking-wider font-mono text-zinc-650 font-bold px-1 mb-2">
+              Offline ({analytics.left.length})
+            </p>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 opacity-60">
+              {analytics.left.map((u, i) => (
+                <div key={i} className="flex items-center justify-between text-[11px] font-mono px-1">
+                  <span className="text-zinc-400 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+                    <span className="truncate max-w-[120px]">{u.username}</span>
+                  </span>
+                  <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>offline</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-[calc(100vh-120px)] max-w-screen-2xl mx-auto items-stretch relative gap-0 lg:gap-6">
+
+      {/* ── MOBILE SIDEBAR BACKDROP ── */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── LEFT SIDEBAR: static on desktop, slide-in drawer on mobile ── */}
+      <aside
+        className={[
+          // shared styles
+          "flex flex-col gap-5 p-4 rounded-2xl overflow-y-auto",
+          // desktop: static in flex row
+          "lg:static lg:translate-x-0 lg:w-72 lg:max-h-full lg:shrink-0 lg:z-auto",
+          // mobile: fixed drawer slides in from left
+          "fixed inset-y-0 left-0 z-40 w-72 max-h-full",
+          "transition-transform duration-300 ease-in-out",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        ].join(" ")}
+        style={{ border: "1px solid var(--border)", background: "var(--card)", top: 0 }}
+      >
+        {sidebarContent}
       </aside>
 
-      {/* RIGHT COLUMN: Active Chat Room Panel (9/12 width) */}
-      <section className="lg:col-span-9 flex flex-col h-full gap-5 relative">
-        
+      {/* ── RIGHT COLUMN: Active Chat Room Panel ── */}
+      <section className="flex-1 flex flex-col h-full gap-4 relative min-w-0">
+
         {/* Active Room Header */}
-        <div 
-          className="p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+        <div
+          className="p-3 sm:p-4 rounded-2xl flex items-center justify-between gap-3 shadow-sm flex-wrap"
           style={{ border: "1px solid var(--border)", background: "var(--card)" }}
         >
-          <div className="space-y-1.5">
-            <h1 className="text-lg font-bold tracking-tight flex items-center gap-2" style={{ color: "var(--foreground)" }}>
-              <div
-                className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: "var(--primary-faint)", border: "1px solid var(--primary-border)" }}
-              >
-                <Lock className="h-4 w-4" style={{ color: "var(--primary)" }} />
+          {/* Left group: hamburger (mobile) + room title */}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl hover:bg-zinc-800/40 text-zinc-400 hover:text-zinc-100 transition-colors shrink-0"
+              title="Open channels sidebar"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2 flex-wrap" style={{ color: "var(--foreground)" }}>
+                <div
+                  className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "var(--primary-faint)", border: "1px solid var(--primary-border)" }}
+                >
+                  <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ color: "var(--primary)" }} />
+                </div>
+                <span className="truncate max-w-[140px] sm:max-w-none">#{roomId}</span>
+                <span
+                  className="text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full uppercase font-mono tracking-wider flex items-center gap-1 shrink-0"
+                  style={{
+                    background: "rgba(16,185,129,0.08)",
+                    border: "1px solid rgba(16,185,129,0.2)",
+                    color: "var(--primary)"
+                  }}
+                >
+                  <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> E2EE
+                </span>
+              </h1>
+
+              <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 mt-1">
+                <span className="flex items-center gap-1">
+                  {isPollingActive ? (
+                    <>
+                      <Wifi className="h-3 w-3 text-emerald-400" />
+                      <span className="text-emerald-400 text-[10px]">Live</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-3 w-3 text-amber-500" />
+                      <span className="text-amber-500 font-bold text-[10px]">Offline</span>
+                    </>
+                  )}
+                </span>
+                <span className="text-zinc-700">·</span>
+                <span className="flex items-center gap-1 text-[var(--primary)] font-semibold text-[10px]">
+                  <Users className="h-3 w-3" />
+                  <span>{analytics.present.length} online</span>
+                </span>
               </div>
-              <span>#{roomId}</span>
-              <span
-                className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase font-mono tracking-wider flex items-center gap-1"
-                style={{
-                  background: "rgba(16,185,129,0.08)",
-                  border: "1px solid rgba(16,185,129,0.2)",
-                  color: "var(--primary)"
-                }}
-              >
-                <CheckCircle className="h-3 w-3" /> E2EE Active
-              </span>
-            </h1>
-            
-            <div className="flex items-center gap-3 text-xs font-mono text-zinc-400">
-              <span className="flex items-center gap-1">
-                {isPollingActive ? (
-                  <>
-                    <Wifi className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="text-emerald-400 text-[10px]">Polling active</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="h-3.5 w-3.5 text-amber-500" />
-                    <span className="text-amber-500 font-bold text-[10px]">Sync offline</span>
-                  </>
-                )}
-              </span>
-              <span>·</span>
-              <span className="flex items-center gap-1 text-[var(--primary)] font-semibold text-[10px]">
-                <Users className="h-3.5 w-3.5" />
-                <span>Members: {analytics.present.length} online</span>
-              </span>
             </div>
           </div>
 
-          <div className="flex gap-2 shrink-0">
+          {/* Right group: action buttons */}
+          <div className="flex gap-1.5 sm:gap-2 shrink-0 items-center">
+            {/* Pinned messages shortcut */}
+            {pinnedMessages.length > 0 && (
+              <button
+                onClick={() => setShowPinnedDrawer(true)}
+                className="fx-btn-secondary px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5"
+                title="Pinned messages"
+              >
+                <Pin className="h-3.5 w-3.5 fill-[var(--primary)] text-[var(--primary)]" />
+                <span className="hidden sm:inline text-[var(--primary)] font-semibold">{pinnedMessages.length}</span>
+              </button>
+            )}
             {/* Info toggle button */}
-            <button 
-              onClick={() => setShowInfoDrawer(true)} 
-              className="fx-btn-secondary px-3 py-1.5 text-xs flex items-center gap-1.5"
+            <button
+              onClick={() => setShowInfoDrawer(true)}
+              className="fx-btn-secondary px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5"
               title="View room configuration & logs"
             >
               <Info className="h-3.5 w-3.5 text-[var(--primary)]" /> <span className="hidden sm:inline">Room Info</span>
             </button>
-            <button onClick={clearChatHistory} className="fx-btn-secondary px-3 py-1.5 text-xs">
-              <Trash2 className="h-3.5 w-3.5 text-red-400" /> <span className="hidden sm:inline">Clear History</span>
+            <button onClick={clearChatHistory} className="fx-btn-secondary px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5">
+              <Trash2 className="h-3.5 w-3.5 text-red-400" /> <span className="hidden sm:inline">Clear</span>
             </button>
-            <button onClick={handleLeaveRoom} className="fx-btn-secondary border-red-500/20 text-red-400 hover:bg-red-500/5 px-3 py-1.5 text-xs" title="Leave room and exit workspace">
-              <LogOut className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Leave Room</span>
+            <button onClick={handleLeaveRoom} className="fx-btn-secondary border-red-500/20 text-red-400 hover:bg-red-500/5 px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5" title="Leave room">
+              <LogOut className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Leave</span>
             </button>
           </div>
         </div>
@@ -985,7 +1058,7 @@ export default function RoomChatPage({ params }) {
                   {/* Floating Options tray (OVERLAPS top boundary so it won't disappear when clicking!) */}
                   <div className="absolute -top-3.5 right-4 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-150 z-20">
                     <div
-                      className="flex gap-1 px-1.5 py-1 rounded-xl shadow-lg items-center"
+                      className="flex gap-0.5 px-1 py-1 rounded-xl shadow-lg items-center"
                       style={{ background: "var(--card)", border: "1px solid var(--border)" }}
                     >
                       {/* Toggle Pin button */}
