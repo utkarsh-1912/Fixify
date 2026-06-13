@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Search, ChevronRight, HelpCircle, Upload, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { BookOpen, Search, ChevronRight, HelpCircle, Upload, Trash2, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, ChevronLeft } from 'lucide-react';
 import TagDetailsModal from '@/components/TagDetailsModal';
 import { parseQuickFixXml, getCustomDialect, clearCustomDialectCache } from '@/lib/dialect';
 
@@ -346,18 +346,20 @@ export default function FIXDictionaryPage() {
             <button
               onClick={() => setCurrentPage(1)}
               disabled={currentPage === 1}
-              className="hidden sm:inline-block px-2.5 py-1.5 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors"
+              className="hidden sm:inline-flex items-center justify-center p-2 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              title="First Page"
             >
-              First
+              <ChevronsLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="px-2.5 py-1.5 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors flex items-center gap-1"
+              className="p-2 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors flex items-center justify-center"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              title="Previous Page"
             >
-              <ArrowLeft className="h-3.5 w-3.5" /> Prev
+              <ChevronLeft className="h-4 w-4" />
             </button>
             
             {/* Page number indicators */}
@@ -383,18 +385,20 @@ export default function FIXDictionaryPage() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="px-2.5 py-1.5 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors flex items-center gap-1"
+              className="p-2 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors flex items-center justify-center"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              title="Next Page"
             >
-              Next <ArrowRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-4 w-4" />
             </button>
             <button
               onClick={() => setCurrentPage(totalPages)}
               disabled={currentPage === totalPages}
-              className="hidden sm:inline-block px-2.5 py-1.5 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors"
+              className="hidden sm:inline-flex items-center justify-center p-2 rounded-lg border border-zinc-850 disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              title="Last Page"
             >
-              Last
+              <ChevronsRight className="h-4 w-4" />
             </button>
           </div>
         </div>
