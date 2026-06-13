@@ -382,9 +382,9 @@ export default function XMLFormatterPage() {
               <button 
                 onClick={handleReset} 
                 disabled={!input.trim()}
-                className="fx-btn-secondary p-2 text-[10px] flex items-center gap-1 disabled:opacity-40"
+                className="fx-btn-secondary py-1 px-2.5 text-[10px] flex items-center gap-1 disabled:opacity-40"
               >
-                <RotateCcw className="h-3 w-3" />
+                <RotateCcw className="h-3 w-3" />  <span className="hidden md:inline">Reset</span>
               </button>
 
               <button 
@@ -392,7 +392,7 @@ export default function XMLFormatterPage() {
                 disabled={!input.trim()} 
                 className="fx-btn-secondary py-1 px-2.5 text-[10px] flex items-center gap-1 disabled:opacity-45"
               >
-                <Minimize2 className="h-3 w-3" /> <span>Minify</span>
+                <Minimize2 className="h-3 w-3" /> <span className="hidden md:inline">Minify</span>
               </button>
 
               <button 
@@ -400,7 +400,7 @@ export default function XMLFormatterPage() {
                 disabled={!input.trim()} 
                 className="fx-btn-primary py-1 px-3 text-[10px] flex items-center gap-1 disabled:opacity-45"
               >
-                <Sparkles className="h-3 w-3" /> <span>Format</span>
+                <Sparkles className="h-3 w-3" /> <span className="hidden md:inline">Format</span>
               </button>
             </div>
 
