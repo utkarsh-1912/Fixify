@@ -508,7 +508,7 @@ export default function TeamChatPage() {
             </div>
             <div className="space-y-1.5">
               <label className="fx-section-label flex items-center gap-1">
-                <Key className="h-3 w-3" /> Secret Decryption Key (E2EE)
+                <Key className="h-3 w-3" /> Secret Decryption Key
               </label>
               <input
                 type="password"
