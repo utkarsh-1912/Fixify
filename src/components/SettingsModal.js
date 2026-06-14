@@ -312,7 +312,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             Cancel
           </button>
           <button onClick={handleSave} className="fx-btn-primary">
-            <Check className="h-3.5 w-3.5" /> Apply Settings
+            <Check className="h-3.5 w-3.5" /> Apply
           </button>
         </div>
       </div>
