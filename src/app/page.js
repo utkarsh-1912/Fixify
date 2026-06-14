@@ -404,15 +404,27 @@ export default function LogsProcessorPage() {
     const seedClOrdID = selectedLineInfo.clOrdID;
     const seedOrigClOrdID = selectedLineInfo.validation?.tags?.['41'];
     const seedOrderID = selectedLineInfo.validation?.tags?.['37'];
+    const seedAllocID = selectedLineInfo.validation?.tags?.['70'];
+    const seedIOIID = selectedLineInfo.validation?.tags?.['23'];
 
-    if (!seedClOrdID && !seedOrigClOrdID && !seedOrderID) return [];
+    if (!seedClOrdID && !seedOrigClOrdID && !seedOrderID && !seedAllocID && !seedIOIID) return [];
 
     const clOrdIDs = new Set();
     const orderIDs = new Set();
+    const allocIDs = new Set();
+    const ioiIDs = new Set();
 
-    if (seedClOrdID) clOrdIDs.add(seedClOrdID.toLowerCase());
-    if (seedOrigClOrdID) clOrdIDs.add(seedOrigClOrdID.toLowerCase());
-    if (seedOrderID) orderIDs.add(seedOrderID.toLowerCase());
+    if (seedOrderID) {
+      const lowerOid = seedOrderID.toLowerCase();
+      orderIDs.add(lowerOid);
+      if (seedClOrdID && seedClOrdID.toLowerCase() !== lowerOid) clOrdIDs.add(seedClOrdID.toLowerCase());
+      if (seedOrigClOrdID && seedOrigClOrdID.toLowerCase() !== lowerOid) clOrdIDs.add(seedOrigClOrdID.toLowerCase());
+    } else {
+      if (seedClOrdID) clOrdIDs.add(seedClOrdID.toLowerCase());
+      if (seedOrigClOrdID) clOrdIDs.add(seedOrigClOrdID.toLowerCase());
+    }
+    if (seedAllocID) allocIDs.add(seedAllocID.toLowerCase());
+    if (seedIOIID) ioiIDs.add(seedIOIID.toLowerCase());
 
     let sizeChanged = true;
     let iterations = 0;
@@ -420,27 +432,39 @@ export default function LogsProcessorPage() {
     while (sizeChanged && iterations < 10) {
       const prevClOrdSize = clOrdIDs.size;
       const prevOrderSize = orderIDs.size;
+      const prevAllocSize = allocIDs.size;
+      const prevIOISize = ioiIDs.size;
 
       files.forEach(fileObj => {
         fileObj.parsedLines.forEach(line => {
           const lineClOrdID = line.clOrdID ? line.clOrdID.toLowerCase() : null;
           const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : null;
           const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
+          const lineAllocID = line.validation?.tags?.['70'] ? line.validation?.tags?.['70'].toLowerCase() : null;
+          const lineIOIID = line.validation?.tags?.['23'] ? line.validation?.tags?.['23'].toLowerCase() : null;
 
           const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
                                (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
           const matchesOrder = line.msgType !== 'D' && lineOrderID && orderIDs.has(lineOrderID);
-          const isMatch = matchesClOrd || matchesOrder;
+          const matchesAlloc = lineAllocID && allocIDs.has(lineAllocID);
+          const matchesIOI = lineIOIID && ioiIDs.has(lineIOIID);
+          const isMatch = matchesClOrd || matchesOrder || matchesAlloc || matchesIOI;
 
           if (isMatch) {
-            if (lineClOrdID) clOrdIDs.add(lineClOrdID);
-            if (lineOrigClOrdID) clOrdIDs.add(lineOrigClOrdID);
             if (lineOrderID) orderIDs.add(lineOrderID);
+            if (lineClOrdID && lineClOrdID !== lineOrderID && !orderIDs.has(lineClOrdID)) {
+              clOrdIDs.add(lineClOrdID);
+            }
+            if (lineOrigClOrdID && lineOrigClOrdID !== lineOrderID && !orderIDs.has(lineOrigClOrdID)) {
+              clOrdIDs.add(lineOrigClOrdID);
+            }
+            if (lineAllocID) allocIDs.add(lineAllocID);
+            if (lineIOIID) ioiIDs.add(lineIOIID);
           }
         });
       });
 
-      sizeChanged = (clOrdIDs.size !== prevClOrdSize) || (orderIDs.size !== prevOrderSize);
+      sizeChanged = (clOrdIDs.size !== prevClOrdSize) || (orderIDs.size !== prevOrderSize) || (allocIDs.size !== prevAllocSize) || (ioiIDs.size !== prevIOISize);
       iterations++;
     }
 
@@ -451,11 +475,15 @@ export default function LogsProcessorPage() {
         const lineClOrdID = line.clOrdID ? line.clOrdID.toLowerCase() : null;
         const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : null;
         const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
+        const lineAllocID = line.validation?.tags?.['70'] ? line.validation?.tags?.['70'].toLowerCase() : null;
+        const lineIOIID = line.validation?.tags?.['23'] ? line.validation?.tags?.['23'].toLowerCase() : null;
 
         const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
                              (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
         const matchesOrder = line.msgType !== 'D' && lineOrderID && orderIDs.has(lineOrderID);
-        const isMatch = matchesClOrd || matchesOrder;
+        const matchesAlloc = lineAllocID && allocIDs.has(lineAllocID);
+        const matchesIOI = lineIOIID && ioiIDs.has(lineIOIID);
+        const isMatch = matchesClOrd || matchesOrder || matchesAlloc || matchesIOI;
 
         if (isMatch) {
           matches.push(line);
@@ -478,10 +506,30 @@ export default function LogsProcessorPage() {
       );
     }
 
-    // Extract all unique OrderIDs (Tag 37) from matches
+    // Extract all unique OrderIDs (Tag 37), ClOrdIDs (Tag 11), AllocIDs (Tag 70), and IOIids (Tag 23) from matches
     const orderIds = Array.from(new Set(
       lifecycleMsgs
         .map(m => m.validation?.tags?.['37'])
+        .filter(id => id && id.trim() !== "")
+    ));
+
+    const orderIdsLower = new Set(orderIds.map(oid => oid.toLowerCase()));
+
+    const clOrdIds = Array.from(new Set(
+      lifecycleMsgs
+        .map(m => m.clOrdID)
+        .filter(id => id && id.trim() !== "" && !orderIdsLower.has(id.toLowerCase()))
+    ));
+
+    const allocIds = Array.from(new Set(
+      lifecycleMsgs
+        .map(m => m.validation?.tags?.['70'])
+        .filter(id => id && id.trim() !== "")
+    ));
+
+    const ioiIds = Array.from(new Set(
+      lifecycleMsgs
+        .map(m => m.validation?.tags?.['23'])
         .filter(id => id && id.trim() !== "")
     ));
 
@@ -507,25 +555,57 @@ export default function LogsProcessorPage() {
     
     return (
       <div className="space-y-4">
-        {/* Order ID Dropdown Filter */}
-        {orderIds.length > 1 && (
-          <div 
-            className="flex items-center justify-between gap-2 p-2.5 rounded-xl border text-[11px] font-mono mb-2" 
-            style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
-          >
-            <span style={{ color: 'var(--text-muted)' }}>Filter Order ID (Tag 37):</span>
-            <select
-              value={selectedOrderIdFilter}
-              onChange={(e) => setSelectedOrderIdFilter(e.target.value)}
-              className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 outline-none focus:border-[var(--primary)] text-[11px] font-mono cursor-pointer"
-            >
-              <option value="all">All Order IDs ({orderIds.length})</option>
-              {orderIds.map(oid => (
-                <option key={oid} value={oid}>{oid}</option>
-              ))}
-            </select>
+        {/* Order Info & Dropdown Filter */}
+        <div 
+          className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-xl border text-[11px] font-mono mb-2" 
+          style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            {clOrdIds.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span style={{ color: 'var(--text-muted)' }}>ClOrdID:</span>
+                <span className="font-bold text-zinc-350">{clOrdIds.join(', ')}</span>
+              </div>
+            )}
+            {clOrdIds.length > 0 && (orderIds.length > 0 || allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
+            
+            {orderIds.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span style={{ color: 'var(--text-muted)' }}>Order ID (Tag 37):</span>
+                {orderIds.length > 1 ? (
+                  <select
+                    value={selectedOrderIdFilter}
+                    onChange={(e) => setSelectedOrderIdFilter(e.target.value)}
+                    className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 outline-none focus:border-[var(--primary)] text-[11px] font-mono cursor-pointer"
+                  >
+                    <option value="all">All Order IDs ({orderIds.length})</option>
+                    {orderIds.map(oid => (
+                      <option key={oid} value={oid}>{oid}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="font-bold text-zinc-350">{orderIds[0]}</span>
+                )}
+              </div>
+            )}
+            {orderIds.length > 0 && (allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
+
+            {allocIds.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span style={{ color: 'var(--text-muted)' }}>AllocID (Tag 70):</span>
+                <span className="font-bold text-zinc-350">{allocIds.join(', ')}</span>
+              </div>
+            )}
+            {allocIds.length > 0 && ioiIds.length > 0 && <span className="text-zinc-800">|</span>}
+
+            {ioiIds.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span style={{ color: 'var(--text-muted)' }}>IOIid (Tag 23):</span>
+                <span className="font-bold text-zinc-350">{ioiIds.join(', ')}</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         <div className="space-y-6 relative pl-4 border-l border-zinc-800 dark:border-zinc-850 ml-2 py-2">
           {displayedMsgs.map((msg, index) => {
@@ -607,7 +687,19 @@ export default function LogsProcessorPage() {
                 </div>
                 
                 <div className="text-[9px] font-mono text-zinc-600 dark:text-zinc-500 flex justify-between items-center pt-1 border-t border-zinc-900">
-                  <span className="truncate max-w-[150px]">ClOrdID: {msg.clOrdID || 'N/A'}</span>
+                  <span className="truncate max-w-[150px]">
+                    {(() => {
+                      if (msg.validation?.tags?.['70']) {
+                        return `AllocID: ${msg.validation.tags['70']}`;
+                      }
+                      if (msg.validation?.tags?.['23']) {
+                        return `IOIid: ${msg.validation.tags['23']}`;
+                      }
+                      const hasClOrd = msg.clOrdID && !orderIdsLower.has(msg.clOrdID.toLowerCase());
+                      const displayClOrd = hasClOrd ? msg.clOrdID : (clOrdIds[0] || 'N/A');
+                      return `ClOrdID: ${displayClOrd}`;
+                    })()}
+                  </span>
                   <span>
                     {msg.timestampObj.toISOString().split('T')[1].replace('Z', '')}
                   </span>
@@ -634,6 +726,26 @@ export default function LogsProcessorPage() {
     const orderIds = Array.from(new Set(
       lifecycleMsgs
         .map(m => m.validation?.tags?.['37'])
+        .filter(id => id && id.trim() !== "")
+    ));
+
+    const orderIdsLower = new Set(orderIds.map(oid => oid.toLowerCase()));
+
+    const clOrdIds = Array.from(new Set(
+      lifecycleMsgs
+        .map(m => m.clOrdID)
+        .filter(id => id && id.trim() !== "" && !orderIdsLower.has(id.toLowerCase()))
+    ));
+
+    const allocIds = Array.from(new Set(
+      lifecycleMsgs
+        .map(m => m.validation?.tags?.['70'])
+        .filter(id => id && id.trim() !== "")
+    ));
+
+    const ioiIds = Array.from(new Set(
+      lifecycleMsgs
+        .map(m => m.validation?.tags?.['23'])
         .filter(id => id && id.trim() !== "")
     ));
 
@@ -702,29 +814,59 @@ export default function LogsProcessorPage() {
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3 text-[10px] font-mono mb-2 p-2.5 rounded-xl border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1.5">
-            <span style={{ color: 'var(--text-muted)' }}>Order ID:</span>
-            {orderIds.length > 1 ? (
-              <select
-                value={selectedOrderIdFilter}
-                onChange={(e) => setSelectedOrderIdFilter(e.target.value)}
-                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer"
-              >
-                <option value="all">All ({orderIds.length})</option>
-                {orderIds.map(oid => (
-                  <option key={oid} value={oid}>{oid}</option>
-                ))}
-              </select>
-            ) : (
-              <span className="font-bold text-zinc-350">{orderIds[0] || 'N/A'}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-zinc-500 text-[9px]">
-            <span>In: <strong className="text-zinc-300 font-bold">{totalIn}</strong></span>
-            <span>Out: <strong className="text-zinc-300 font-bold">{totalOut}</strong></span>
-            <span className="text-zinc-700">|</span>
-            <span>Actors: {numActors}</span>
+        <div className="flex flex-col gap-1 text-[10px] font-mono mb-2 p-2.5 rounded-xl border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {clOrdIds.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <span style={{ color: 'var(--text-muted)' }}>ClOrdID:</span>
+                  <span className="font-bold text-zinc-350">{clOrdIds.join(', ')}</span>
+                </div>
+              )}
+              {clOrdIds.length > 0 && (orderIds.length > 0 || allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
+
+              {orderIds.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <span style={{ color: 'var(--text-muted)' }}>Order ID:</span>
+                  {orderIds.length > 1 ? (
+                    <select
+                      value={selectedOrderIdFilter}
+                      onChange={(e) => setSelectedOrderIdFilter(e.target.value)}
+                      className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer"
+                    >
+                      <option value="all">All ({orderIds.length})</option>
+                      {orderIds.map(oid => (
+                        <option key={oid} value={oid}>{oid}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="font-bold text-zinc-350">{orderIds[0]}</span>
+                  )}
+                </div>
+              )}
+              {orderIds.length > 0 && (allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
+
+              {allocIds.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <span style={{ color: 'var(--text-muted)' }}>AllocID:</span>
+                  <span className="font-bold text-zinc-350">{allocIds.join(', ')}</span>
+                </div>
+              )}
+              {allocIds.length > 0 && ioiIds.length > 0 && <span className="text-zinc-800">|</span>}
+
+              {ioiIds.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <span style={{ color: 'var(--text-muted)' }}>IOIid:</span>
+                  <span className="font-bold text-zinc-350">{ioiIds.join(', ')}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-zinc-500 text-[9px]">
+              <span>In: <strong className="text-zinc-300 font-bold">{totalIn}</strong></span>
+              <span>Out: <strong className="text-zinc-300 font-bold">{totalOut}</strong></span>
+              <span className="text-zinc-700">|</span>
+              <span>Actors: {numActors}</span>
+            </div>
           </div>
         </div>
 
@@ -1409,7 +1551,7 @@ export default function LogsProcessorPage() {
           </div>
 
           {/* Tab Selector */}
-          {selectedLineInfo.clOrdID && (
+          {(selectedLineInfo.clOrdID || selectedLineInfo.validation?.tags?.['37'] || selectedLineInfo.validation?.tags?.['70'] || selectedLineInfo.validation?.tags?.['23']) && (
             <div className="flex border-b border-zinc-850 shrink-0 bg-zinc-950/20">
               <button
                 className={`flex-1 py-3 text-[10px] sm:text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'details' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
