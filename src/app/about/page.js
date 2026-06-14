@@ -41,7 +41,7 @@ export default function AboutPage() {
     <div className="space-y-12 max-w-5xl mx-auto px-4 py-6">
       {/* Header section with gradient glow */}
       <div 
-        className="relative rounded-2xl p-4 overflow-hidden backdrop-blur-sm shadow-sm animate-fade-in"
+        className="relative rounded-2xl p-4 md:p-6 overflow-hidden backdrop-blur-sm shadow-sm animate-fade-in"
         style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
       >
         <div className="absolute top-0 right-0 h-40 w-40 bg-[var(--primary)] opacity-[0.03] rounded-full blur-3xl pointer-events-none" />
@@ -58,7 +58,7 @@ export default function AboutPage() {
               About FIXify Diagnostics
             </h1>
           </div>
-          <p className="text-sm max-w-2xl leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-sm max-w-3xl leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             FIXify is a high-performance web console and conformance utility for financial systems integration engineers, support analysts, and traders. Built from the ground up to unify session logs processing, flowchart generation, P2P coordination, and task management.
           </p>
         </div>
