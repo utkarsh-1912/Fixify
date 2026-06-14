@@ -40,7 +40,7 @@ export default function ContactPage() {
             <Mail className="h-5 w-5" style={{ color: 'var(--primary)' }} />
           </div>
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
-            Support Dispatch Desk
+            Support Desk
           </h1>
         </div>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
