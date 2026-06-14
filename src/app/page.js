@@ -400,28 +400,67 @@ export default function LogsProcessorPage() {
   };
 
   const getOrderLifecycleMessages = useCallback(() => {
-    if (!selectedLineInfo || !selectedLineInfo.clOrdID) return [];
-    
-    const targetClOrdID = selectedLineInfo.clOrdID.toLowerCase();
-    const selOrderID = selectedLineInfo.validation?.tags?.['37']?.toLowerCase();
+    if (!selectedLineInfo) return [];
+    const seedClOrdID = selectedLineInfo.clOrdID;
+    const seedOrigClOrdID = selectedLineInfo.validation?.tags?.['41'];
+    const seedOrderID = selectedLineInfo.validation?.tags?.['37'];
+
+    if (!seedClOrdID && !seedOrigClOrdID && !seedOrderID) return [];
+
+    const clOrdIDs = new Set();
+    const orderIDs = new Set();
+
+    if (seedClOrdID) clOrdIDs.add(seedClOrdID.toLowerCase());
+    if (seedOrigClOrdID) clOrdIDs.add(seedOrigClOrdID.toLowerCase());
+    if (seedOrderID) orderIDs.add(seedOrderID.toLowerCase());
+
+    let sizeChanged = true;
+    let iterations = 0;
+    // Transitive closure resolution (max 10 iterations to prevent infinite runs)
+    while (sizeChanged && iterations < 10) {
+      const prevClOrdSize = clOrdIDs.size;
+      const prevOrderSize = orderIDs.size;
+
+      files.forEach(fileObj => {
+        fileObj.parsedLines.forEach(line => {
+          const lineClOrdID = line.clOrdID ? line.clOrdID.toLowerCase() : null;
+          const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : null;
+          const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
+
+          const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
+                               (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
+          const matchesOrder = lineOrderID && orderIDs.has(lineOrderID);
+
+          if (matchesClOrd || matchesOrder) {
+            if (lineClOrdID) clOrdIDs.add(lineClOrdID);
+            if (lineOrigClOrdID) clOrdIDs.add(lineOrigClOrdID);
+            if (lineOrderID) orderIDs.add(lineOrderID);
+          }
+        });
+      });
+
+      sizeChanged = (clOrdIDs.size !== prevClOrdSize) || (orderIDs.size !== prevOrderSize);
+      iterations++;
+    }
+
+    // Gather all matching lines
     const matches = [];
-    
     files.forEach(fileObj => {
       fileObj.parsedLines.forEach(line => {
-        const lineClOrdID = line.clOrdID ? line.clOrdID.toLowerCase() : '';
-        const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : '';
-        const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : '';
-        
-        const isMatch = 
-          (lineClOrdID === targetClOrdID || lineOrigClOrdID === targetClOrdID) ||
-          (selOrderID && lineOrderID === selOrderID);
-          
+        const lineClOrdID = line.clOrdID ? line.clOrdID.toLowerCase() : null;
+        const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : null;
+        const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
+
+        const isMatch = (lineClOrdID && clOrdIDs.has(lineClOrdID)) ||
+                        (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID)) ||
+                        (lineOrderID && orderIDs.has(lineOrderID));
+
         if (isMatch) {
           matches.push(line);
         }
       });
     });
-    
+
     // Sort chronologically by timestamp
     matches.sort((a, b) => a.timestampObj.getTime() - b.timestampObj.getTime());
     return matches;
