@@ -1312,7 +1312,7 @@ export default function LatencyDashboard() {
 
                 <button
                   onClick={() => setExpandedChart(null)}
-                  className="p-1.5 rounded-lg hover:bg-zinc-800 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
+                  className="hidden md:inline p-1.5 rounded-lg hover:bg-zinc-800 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
                 >
                   <X className="h-5 w-5" />
                 </button>
