@@ -70,7 +70,7 @@ const Footer = () => {
             <span style={{ color: 'var(--border)' }}>|</span>
             <div className="flex items-center gap-1.5 ml-1 select-none">
               <span 
-                className={`h-2 w-2 rounded-full transition-all duration-300 ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.4)]'}`}
+                className={`h-2 w-2 rounded-full transition-all duration-300 ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-red-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.4)]'}`}
               />
               <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: isOnline ? 'var(--text-muted)' : '#e80909' }}>
                 {isOnline ? 'Online' : 'Offline'}
