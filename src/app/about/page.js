@@ -23,7 +23,7 @@ export default function AboutPage() {
     {
       icon: Terminal,
       title: 'FIXi Chat & AURA Intelligence',
-      desc: 'Query protocol details via offline AURA intelligence or Google Gemini 1.5 Flash. Supports multi-line input textarea submissions (Enter to send, Shift+Enter for newline) and batch tag lookups.',
+      desc: 'Query protocol details via offline AURA intelligence or Google Gemini 2.5 Flash. Supports multi-line input textarea submissions (Enter to send, Shift+Enter for newline) and batch tag lookups.',
     },
     {
       icon: Activity,

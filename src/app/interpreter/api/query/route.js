@@ -445,7 +445,7 @@ async function getMarketData(symbol) {
   }
 }
 
-// Direct REST API call to Google Gemini 1.5 Flash
+// Direct REST API call to Google Gemini 2.5 Flash
 async function queryGemini(prompt, apiKey, systemInstruction = "") {
   if (!apiKey) {
     return {
@@ -454,7 +454,7 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
     };
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
   const body = {
     contents: [

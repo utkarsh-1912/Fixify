@@ -783,7 +783,7 @@ export default function InterpreterPage() {
                   </div>
                   <div>
                     <h3 className="text-base font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent font-sans">
-                      Gemini 1.5 Flash
+                      Gemini 2.5 Flash
                     </h3>
                     <p className="text-[10px] text-zinc-400 font-mono">
                       Google LLM Assistant
@@ -795,7 +795,7 @@ export default function InterpreterPage() {
                   <div className="space-y-1">
                     <h4 className="text-xs font-semibold text-zinc-300">Role & Architecture</h4>
                     <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      Gemini 1.5 Flash is Google's high-speed multimodal reasoning model. It operates online, parsing large text streams to diagnose complex, multi-layered log traces.
+                      Gemini 2.5 Flash is Google's high-speed multimodal reasoning model. It operates online, parsing large text streams to diagnose complex, multi-layered log traces.
                     </p>
                   </div>
 
