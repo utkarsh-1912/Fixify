@@ -429,9 +429,10 @@ export default function LogsProcessorPage() {
 
           const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
                                (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
-          const matchesOrder = lineOrderID && orderIDs.has(lineOrderID);
+          const matchesOrder = line.msgType !== 'D' && lineOrderID && orderIDs.has(lineOrderID);
+          const isMatch = matchesClOrd || matchesOrder;
 
-          if (matchesClOrd || matchesOrder) {
+          if (isMatch) {
             if (lineClOrdID) clOrdIDs.add(lineClOrdID);
             if (lineOrigClOrdID) clOrdIDs.add(lineOrigClOrdID);
             if (lineOrderID) orderIDs.add(lineOrderID);
@@ -451,9 +452,10 @@ export default function LogsProcessorPage() {
         const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : null;
         const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
 
-        const isMatch = (lineClOrdID && clOrdIDs.has(lineClOrdID)) ||
-                        (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID)) ||
-                        (lineOrderID && orderIDs.has(lineOrderID));
+        const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
+                             (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
+        const matchesOrder = line.msgType !== 'D' && lineOrderID && orderIDs.has(lineOrderID);
+        const isMatch = matchesClOrd || matchesOrder;
 
         if (isMatch) {
           matches.push(line);
@@ -487,7 +489,20 @@ export default function LogsProcessorPage() {
       ? lifecycleMsgs
       : lifecycleMsgs.filter(m => {
           const oid = m.validation?.tags?.['37'];
-          return oid && oid.toLowerCase() === selectedOrderIdFilter.toLowerCase();
+          if (oid && oid.toLowerCase() === selectedOrderIdFilter.toLowerCase()) return true;
+          
+          const mClOrd = m.clOrdID?.toLowerCase();
+          const mOrigClOrd = m.validation?.tags?.['41']?.toLowerCase();
+          if (!mClOrd && !mOrigClOrd) return false;
+
+          return lifecycleMsgs.some(other => {
+            const otherOid = other.validation?.tags?.['37'];
+            if (!otherOid || otherOid.toLowerCase() !== selectedOrderIdFilter.toLowerCase()) return false;
+            const otherClOrd = other.clOrdID?.toLowerCase();
+            const otherOrigClOrd = other.validation?.tags?.['41']?.toLowerCase();
+            return (mClOrd && (mClOrd === otherClOrd || mClOrd === otherOrigClOrd)) ||
+                   (mOrigClOrd && (mOrigClOrd === otherClOrd || mOrigClOrd === otherOrigClOrd));
+          });
         });
     
     return (
@@ -626,7 +641,20 @@ export default function LogsProcessorPage() {
       ? lifecycleMsgs
       : lifecycleMsgs.filter(m => {
           const oid = m.validation?.tags?.['37'];
-          return oid && oid.toLowerCase() === selectedOrderIdFilter.toLowerCase();
+          if (oid && oid.toLowerCase() === selectedOrderIdFilter.toLowerCase()) return true;
+          
+          const mClOrd = m.clOrdID?.toLowerCase();
+          const mOrigClOrd = m.validation?.tags?.['41']?.toLowerCase();
+          if (!mClOrd && !mOrigClOrd) return false;
+
+          return lifecycleMsgs.some(other => {
+            const otherOid = other.validation?.tags?.['37'];
+            if (!otherOid || otherOid.toLowerCase() !== selectedOrderIdFilter.toLowerCase()) return false;
+            const otherClOrd = other.clOrdID?.toLowerCase();
+            const otherOrigClOrd = other.validation?.tags?.['41']?.toLowerCase();
+            return (mClOrd && (mClOrd === otherClOrd || mClOrd === otherOrigClOrd)) ||
+                   (mOrigClOrd && (mOrigClOrd === otherClOrd || mOrigClOrd === otherOrigClOrd));
+          });
         });
 
     // Extract ordered actors: default client leftmost, default server next, then others
