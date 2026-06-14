@@ -531,10 +531,11 @@ function tryPartialLookup(query, customDialect) {
     }
   }
 
-  // Extract whole word matching field names
+  // Extract whole word matching field names (ignoring noise/stop-words)
+  const stopWords = new Set(["for", "to", "in", "by", "at", "of", "and", "the", "a", "an", "is", "or", "what", "how", "why", "who", "which", "tag", "tags"]);
   const words = query.toLowerCase().split(/[^a-zA-Z0-9]+/);
   for (const word of words) {
-    if (!word) continue;
+    if (!word || stopWords.has(word) || word.length < 3) continue;
     
     if (customDialect && Array.isArray(customDialect.fields)) {
       customDialect.fields.forEach(f => {
@@ -619,6 +620,83 @@ const REJECT_REASONS_103 = {
   "13": "Incorrect Quantity (e.g. round lot mismatch, negative shares).",
   "15": "Invalid Price (e.g. limit price is outside tick boundaries)."
 };
+
+const FIX_TERM_EXPLANATIONS = {
+  "done for day": `### Done for Day (OrdStatus 39 = 3)
+**Definition**: Done for Day is a standard execution order status in the FIX protocol. 
+It indicates that the broker or exchange has finished executing the order for the current trading day. 
+
+**Usage Context**:
+- Any remaining unfilled quantity is handled based on the TimeInForce (Tag 59) rule. For example, for a Day order, the remaining quantity is canceled.
+- This status is commonly returned at the market close for orders that cannot be executed further today.`,
+
+  "partially filled": `### Partially Filled (OrdStatus 39 = 1)
+**Definition**: The order has been executed for a portion of its original quantity.
+
+**Usage Context**:
+- LeavesQty (Tag 151) will represent the remaining shares to be filled.
+- CumQty (Tag 14) will show the cumulative filled quantity.
+- Further Execution Reports (35=8) can follow as additional fills occur.`,
+
+  "filled": `### Filled (OrdStatus 39 = 2)
+**Definition**: The order has been completely executed.
+
+**Usage Context**:
+- CumQty (Tag 14) equals the original OrderQty (Tag 38).
+- LeavesQty (Tag 151) is set to 0.
+- This represents the final state of a successfully executed order.`,
+
+  "pending cancel": `### Pending Cancel (OrdStatus 39 = 6)
+**Definition**: An Order Cancel Request (35=F) has been received, and the cancel is pending processing by the exchange.
+
+**Usage Context**:
+- The order remains active in the order book until a final Canceled (39=4) status is returned.`,
+
+  "pending replace": `### Pending Replace (OrdStatus 39 = E)
+**Definition**: An Order Cancel/Replace Request (35=G) has been received, and the replace is pending processing by the exchange.`,
+
+  "stopped": `### Stopped (OrdStatus 39 = 7)
+**Definition**: The order has been stopped on the exchange (e.g. trading halt, price limit hit, or specialist action).`,
+
+  "suspended": `### Suspended (OrdStatus 39 = 9)
+**Definition**: The order has been temporarily suspended from trading (e.g., due to a short sale restriction or regulatory halt).`,
+
+  "ioc": `### Immediate or Cancel / IOC (TimeInForce 59 = 3)
+**Definition**: Immediate or Cancel (IOC) requires all or part of the order to be executed immediately upon receipt. Any unfilled portion of the order is immediately canceled.
+
+**Usage Context**:
+- Unlike Fill or Kill (FOK), partial fills are permitted for IOC orders.`,
+
+  "immediate or cancel": `### Immediate or Cancel / IOC (TimeInForce 59 = 3)
+**Definition**: Immediate or Cancel (IOC) requires all or part of the order to be executed immediately upon receipt. Any unfilled portion of the order is immediately canceled.`,
+
+  "gtc": `### Good Till Cancel / GTC (TimeInForce 59 = 1)
+**Definition**: Good Till Cancel (GTC) indicates that the order remains active in the market until it is either completely filled, explicitly canceled by the client, or reaches its maximum lifetime (typically 30 to 90 days depending on broker/exchange rules).`,
+
+  "good till cancel": `### Good Till Cancel / GTC (TimeInForce 59 = 1)
+**Definition**: Good Till Cancel (GTC) indicates that the order remains active in the market until it is either completely filled, explicitly canceled by the client, or reaches its maximum lifetime (typically 30 to 90 days depending on broker/exchange rules).`,
+
+  "fok": `### Fill or Kill / FOK (TimeInForce 59 = 4)
+**Definition**: Fill or Kill (FOK) requires the order to be executed in its entirety immediately upon receipt. If the order cannot be completely filled immediately, the entire order is canceled (no partial fills are allowed).`,
+
+  "fill or kill": `### Fill or Kill / FOK (TimeInForce 59 = 4)
+**Definition**: Fill or Kill (FOK) requires the order to be executed in its entirety immediately upon receipt. If the order cannot be completely filled immediately, the entire order is canceled (no partial fills are allowed).`,
+
+  "day order": `### Day Order (TimeInForce 59 = 0)
+**Definition**: A Day order is only active for the current trading session. If it remains unfilled at the market close, the remaining quantity is automatically canceled.`
+};
+
+function tryStatusLookup(query) {
+  const q = query.toLowerCase();
+  for (const [term, explanation] of Object.entries(FIX_TERM_EXPLANATIONS)) {
+    const escapedTerm = term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`\\b${escapedTerm}\\b`, 'i');
+    if (regex.test(q)) {
+      return explanation;
+    }
+  }
+  return null;
+}
 
 function tryBatchTagLookup(query, customDialect) {
   const numbers = query.match(/\b\d+\b/g) || [];
@@ -861,6 +939,7 @@ export async function POST(req) {
         }
       } else {
         // Evaluate offline lookups in order of specificity
+        const statusLookup = tryStatusLookup(query);
         const rejectLookup = tryRejectReasonLookup(query);
         const localResult = tryLocalLookup(query, customDialect);
         
@@ -889,7 +968,9 @@ export async function POST(req) {
         
         const batchLookup = tryBatchTagLookup(query, customDialect);
 
-        if (rejectLookup) {
+        if (statusLookup) {
+          answer = `${statusLookup}\n\n*Response resolved offline by AURA (Displaying status/terminology guides).*`;
+        } else if (rejectLookup) {
           answer = `${rejectLookup}\n\n*Response resolved offline by AURA (Displaying local reject guides).*`;
         } else if (localResult) {
           answer = `${localResult}\n\n*Response resolved offline by AURA.*`;
