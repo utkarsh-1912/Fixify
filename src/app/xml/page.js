@@ -342,7 +342,7 @@ export default function XMLFormatterPage() {
             htmlFor="xml-file-upload-header" 
             className="px-3.5 py-1.5 text-xs rounded-xl border cursor-pointer flex items-center gap-1.5 transition-all text-zinc-400 border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:text-zinc-200 select-none font-sans"
           >
-            <Upload className="h-3.5 w-3.5" /> <span>Upload XML</span>
+            <Upload className="h-3.5 w-3.5" /> <span>Upload</span>
           </label>
 
           {/* Engine Switcher */}
@@ -415,8 +415,9 @@ export default function XMLFormatterPage() {
                 onClick={executeFormat} 
                 disabled={!input.trim()} 
                 className="fx-btn-primary py-1 px-2.5 text-[10px] flex items-center gap-1 disabled:opacity-40"
+                title="Format XML"
               >
-                <Sparkles className="h-3 w-3" /> <span>Format</span>
+                <Sparkles className="h-3 w-3" />
               </button>
               
               <button 
