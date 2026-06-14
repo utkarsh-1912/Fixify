@@ -1218,7 +1218,7 @@ export default function LogsProcessorPage() {
                                       <div
                                         key={lineObj.id}
                                         onClick={() => setSelectedLineInfo(lineObj)}
-                                        className="group/line flex items-start gap-3 px-2 py-1.5 rounded-lg cursor-pointer transition-all"
+                                        className="group/line flex items-start gap-3 px-0.5 sm:px-1 md:px-2 py-1.5 rounded-lg cursor-pointer transition-all"
                                         style={{
                                           background: isSelected
                                             ? 'var(--primary-faint)'
@@ -1253,7 +1253,7 @@ export default function LogsProcessorPage() {
                                           className="opacity-0 group-hover/line:opacity-100 transition-opacity shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]"
                                           style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--primary)' }}
                                         >
-                                          <Eye className="h-3 w-3" /> Inspect
+                                          <Eye className="h-3 w-3" /> <span className="hidden sm:inline">Inspect</span>
                                         </span>
                                       </div>
                                     );
