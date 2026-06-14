@@ -4,11 +4,11 @@ Fixify is a high-performance, developer-first diagnostic suite and Next.js local
 
 ## Advanced Platform Features
 
-- **Logs Processor**: Upload or paste multi-line FIX sessions logs. Automatically parses fields, validates checksum integrity (tag 10) and body length (tag 9), highlights mismatches, filters by custom sequence tags, and filters order states with inline Order ID (tag 37) dropdown selector filters.
-- **FIXi Interpreter**: Interactive chat assistant utilizing Web LLMs. Features automatic italic Markdown formatting (safely ignoring snake_case field highlights like `ORD_99`) and uses a custom theme-synchronized bot avatar styling that adapts to your primary dark/light accent colors.
-- **Latency Hop Visualizer**: Measures absolute offset differences between `SendingTime` (tag 52) and `TransactTime` (tag 60) for network hops, and tracks RTT pairs. Features intelligent automatic logarithmic scaling to compress extreme peak spikes and keep baseline performance statistics perfectly readable.
-- **XML Formatter**: Format and walk XML schemas. Relocates formatting engines (DOM Parser vs. Regex Walk) inside a modern responsive header pill toggle switcher.
-- **Kanban Tasks Board**: Local-first task manager featuring priority badges, interactive subtask checklists, and custom task cards. Built with a full drag-and-drop overlay to resolve card clipping and features a sleek sliding right drawer editor on mobile viewports.
+- **Logs Processor & Comparator**: Paste multi-message FIX session logs. Compare logs side-by-side using *Hide Administrative* and *Show Differences Only* checkboxes. Audits sequence gaps, Logon establishment order, and duplicates (tag 34) exactly once per duplicate sequence number.
+- **FIXi Interpreter**: Interactive chat diagnostics utilising local offline **AURA** intelligence or Google Gemini 1.5 Flash. Features multi-line input textarea queries (Enter to send, Shift+Enter for newline), batch tag lookup cards, reject code parsing, and automatic checksum recalculations. Includes a styled model details modal.
+- **Latency Hop Visualizer**: Measures absolute offset differences between `SendingTime` (tag 52) and `TransactTime` (tag 60) for network hops, and tracks RTT pairs. Offloads log calculations to a background **Web Worker thread** to prevent UI freezing, and exports spreadsheets via **Export CSV**.
+- **XML Formatter**: Format XML schemas using DOM Parser or Regex engines. Jump to nodes using match counters/chevrons, and speed up work with global developer hotkeys (`Ctrl+F` focus, `Escape` clear, `F3`/`Shift+F3` navigations, `Ctrl+S` download, `Ctrl+Enter` format, `Ctrl+Shift+M` minify).
+- **Kanban Tasks Board**: Local-first task manager featuring priority badges, subtask checklists, comments feed, and activity timeline. Styled with neon glassmorphic cockpit columns, blocker task dependency warnings, and a right slide-out panel drawer (full width on mobile screens).
 - **Code Sandbox**: Switchable 3-pane/4-pane editor workspace to execute Python, C++, and Java FIX parser templates with inputs/outputs.
 - **Interactive Flowcharts**: Auto-generate state flow diagrams from parsed FIX messages to inspect sequences and tags.
 - **Secure Room Chat**: Decrypted local team chat fallback with Socket.IO room relays and WebRTC direct peer detection.

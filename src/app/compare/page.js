@@ -506,11 +506,11 @@ export default function FIXComparePage() {
 
       {/* Message Compare Mode */}
       {compareMode === 'message' && (
-        <div className="space-y-6">
+        <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {[
-              { label: 'FIX Message 1 (multi-line supported)', value: msg1, set: setMsg1, ph: '8=FIX.4.2|9=65|35=D|11=ORDER_001|…' },
-              { label: 'FIX Message 2 (multi-line supported)', value: msg2, set: setMsg2, ph: '8=FIX.4.2|9=68|35=D|11=ORDER_001|…' },
+              { label: 'FIX Message 1', value: msg1, set: setMsg1, ph: '8=FIX.4.2|9=65|35=D|11=ORDER_001|…' },
+              { label: 'FIX Message 2', value: msg2, set: setMsg2, ph: '8=FIX.4.2|9=68|35=D|11=ORDER_001|…' },
             ].map((field, i) => (
               <div key={i} className="space-y-2">
                 <label className="fx-section-label">{field.label}</label>
@@ -647,18 +647,7 @@ export default function FIXComparePage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <div className="relative w-full sm:w-60">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} />
-                        <input
-                          type="text"
-                          value={diffSearch}
-                          onChange={(e) => setDiffSearch(e.target.value)}
-                          placeholder="Search tag..."
-                          className="w-full pl-8 pr-3 py-2 rounded-lg text-xs font-mono"
-                          style={inputStyle}
-                        />
-                      </div>
-                      
+                                            
                       <div className="flex items-center gap-3">
                         <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-mono text-zinc-400 hover:text-zinc-200">
                           <input
@@ -679,6 +668,18 @@ export default function FIXComparePage() {
                           />
                           <span>Diffs Only</span>
                         </label>
+                      </div>
+
+                      <div className="relative w-full sm:w-60">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} />
+                        <input
+                          type="text"
+                          value={diffSearch}
+                          onChange={(e) => setDiffSearch(e.target.value)}
+                          placeholder="Search tag..."
+                          className="w-full pl-8 pr-3 py-2 rounded-lg text-xs font-mono"
+                          style={inputStyle}
+                        />
                       </div>
 
                       <button

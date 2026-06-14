@@ -8,32 +8,32 @@ export default function AboutPage() {
     {
       icon: Zap,
       title: 'Real-time Latency Diagnostics',
-      desc: 'Sort, correlate, and inspect trading session records instantly. The Latency Hop Dashboard identifies network delays using auto-scaling logarithmic charts to prevent outlier squashing.',
+      desc: 'Correlate, inspect, and analyze session logs using an inline background Web Worker thread (preventing UI lockups) and export reports instantly to CSV. Logarithmic scaling compresses extreme outlier spikes.',
     },
     {
       icon: Shield,
-      title: 'Byte-Level Validation',
-      desc: 'Verify standard protocol formats on the fly. By checking header fields (tags 8, 9, 35) and checksums (tag 10) dynamically, FIXify identifies integrity mismatches down to the byte.',
+      title: 'Session & Sequence Diagnostics',
+      desc: 'Audit sequence gap anomalies, session Logon order, and MsgSeqNum duplicates (tag 34) in log streams, ensuring compliance with PossDupFlag (tag 43) rules before trading integration.',
     },
     {
       icon: Code,
-      title: 'Interactive Code Sandbox',
-      desc: 'Test parser templates in Python, C++, and Java. Built with dynamic 3-pane/4-pane editor layouts, standard output streams, and syntax highlighting.',
+      title: 'XML Formatter & Key Shortcuts',
+      desc: 'Format XML schemas using DOM Parser or Regex engines. Jump to nodes using match counters/chevrons, and speed up work with global developer hotkeys (Ctrl+F, F3, Ctrl+S, Ctrl+Enter, Ctrl+Shift+M).',
     },
     {
       icon: Terminal,
-      title: 'FIXi Chat Assistant',
-      desc: 'An integrated protocol assistant capable of parsing FIX tags and generating diagnostics details. Features clean italics parsing and active theme-aligned UI styling.',
+      title: 'FIXi Chat & AURA Intelligence',
+      desc: 'Query protocol details via offline AURA intelligence or Google Gemini 1.5 Flash. Supports multi-line input textarea submissions (Enter to send, Shift+Enter for newline) and batch tag lookups.',
     },
     {
       icon: Activity,
-      title: 'Order Lifecycle Tracking',
-      desc: 'Trace transition flows visually via interactive state charts, and filter lifecycle logs instantly by specific Order IDs (tag 37) using built-in dropdown filters.',
+      title: 'Logs Comparator & Flowcharts',
+      desc: 'Compare session logs side-by-side with Hide Administrative and Show Differences Only checkboxes. Map message lifecycles automatically into state diagrams or flowcharts.',
     },
     {
       icon: Package,
-      title: '100% Client-Side Suite',
-      desc: 'No database dependencies. All logs, parsing algorithms, diagrams, and task workspaces compile entirely inside browser memory context for total local security.',
+      title: 'Kanban Tasks & Slide-out Drawer',
+      desc: 'Manage tasks with neon glassmorphic cockpit columns, blockers mapping, and warning badges. Edit inline subtasks, commentary feeds, and timelines inside a slide-out right drawer.',
     },
   ];
 
