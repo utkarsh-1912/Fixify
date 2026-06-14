@@ -413,7 +413,6 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] 
               {isEditing ? <Edit2 className="h-4 w-4" style={{ color: 'var(--primary)' }} /> : <Plus className="h-4 w-4" style={{ color: 'var(--primary)' }} />}
               {isEditing ? `Edit Task ${task.id}` : 'Create New Conformance Task'}
             </h2>
-            <span className="text-[10px] text-zinc-500 font-mono">FIX protocol testing flow</span>
           </div>
           <button
             onClick={onClose}

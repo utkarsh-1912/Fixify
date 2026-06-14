@@ -123,12 +123,32 @@ export default function FIXDictionaryPage() {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return fields;
 
-    return fields.filter(
-      (f) =>
+    const matchesQuery = (text, q) => {
+      if (!text) return false;
+      const normalizedText = String(text).toLowerCase().replace(/_/g, ' ');
+      const normalizedQuery = String(q).toLowerCase().replace(/_/g, ' ');
+      return normalizedText.includes(normalizedQuery);
+    };
+
+    return fields.filter((f) => {
+      if (
         f.tag.toString().includes(query) ||
-        f.name.toLowerCase().includes(query) ||
-        (f.type || "").toLowerCase().includes(query)
-    );
+        matchesQuery(f.name, query) ||
+        matchesQuery(f.type, query)
+      ) {
+        return true;
+      }
+
+      if (Array.isArray(f.values)) {
+        return f.values.some(
+          (val) =>
+            String(val.enum).toLowerCase().includes(query) ||
+            matchesQuery(val.description, query)
+        );
+      }
+
+      return false;
+    });
   }, [currentDict, searchQuery]);
 
   const totalPages = Math.ceil(filteredFields.length / pageSize) || 1;

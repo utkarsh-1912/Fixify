@@ -101,9 +101,10 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
   const enums = fieldInfo.values || [];
 
   const relatedTags = TAG_RELATIONS[tagStr] || [];
+  const normalize = (str) => String(str).toLowerCase().replace(/_/g, ' ');
   const filteredEnums = enums.filter((val) => 
     String(val.enum).toLowerCase().includes(enumSearch.toLowerCase()) ||
-    String(val.description).toLowerCase().includes(enumSearch.toLowerCase())
+    normalize(val.description).includes(normalize(enumSearch))
   );
 
   return (
