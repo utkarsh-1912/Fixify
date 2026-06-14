@@ -698,8 +698,12 @@ export default function LatencyDashboard() {
               background: "var(--card)",
               borderColor: "var(--primary-border)",
               left: `${Math.min(90, Math.max(10, ((hoveredPoint.x / svgWidth) * 100)))}%`,
-              top: `${(hoveredPoint.y / svgHeight) * 100 - 15}%`,
-              transform: "translate(-50%, -100%)"
+              top: hoveredPoint.y < svgHeight / 2 
+                ? `${(hoveredPoint.y / svgHeight) * 100 + 6}%` 
+                : `${(hoveredPoint.y / svgHeight) * 100 - 6}%`,
+              transform: hoveredPoint.y < svgHeight / 2 
+                ? "translate(-50%, 0)" 
+                : "translate(-50%, -100%)"
             }}
           >
             {activeTab === "hop" ? (
