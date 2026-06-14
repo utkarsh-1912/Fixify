@@ -432,6 +432,12 @@ export default function RoomChatPage({ params }) {
           const users = reactions[emoji] || [];
           if (!users.includes(username)) {
             reactions[emoji] = [...users, username];
+          } else {
+            // Remove user reaction
+            reactions[emoji] = users.filter((u) => u !== username);
+            if (reactions[emoji].length === 0) {
+              delete reactions[emoji];
+            }
           }
           return { ...m, reactions };
         }
@@ -1165,12 +1171,14 @@ export default function RoomChatPage({ params }) {
 
                   {/* Reactions list */}
                   {m.reactions && Object.keys(m.reactions).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5 text-xs justify-end">
+                    <div className="flex flex-wrap gap-1 mt-1.5 text-xs justify-end select-none">
                       {Object.entries(m.reactions).map(([emoji, users]) => (
                         <span
                           key={emoji}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px]"
+                          onClick={() => handleReaction(m.id, emoji)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] cursor-pointer hover:bg-zinc-800 transition-colors"
                           style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                          title={users.join(", ")}
                         >
                           {emoji} {users.length}
                         </span>

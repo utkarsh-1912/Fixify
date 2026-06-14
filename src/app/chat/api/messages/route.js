@@ -145,7 +145,13 @@ export async function POST(request) {
         if (!message.reactions[emoji]) {
           message.reactions[emoji] = [];
         }
-        if (!message.reactions[emoji].includes(username)) {
+        const userIndex = message.reactions[emoji].indexOf(username);
+        if (userIndex > -1) {
+          message.reactions[emoji].splice(userIndex, 1);
+          if (message.reactions[emoji].length === 0) {
+            delete message.reactions[emoji];
+          }
+        } else {
           message.reactions[emoji].push(username);
         }
       }
