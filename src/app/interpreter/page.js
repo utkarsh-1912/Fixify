@@ -691,7 +691,7 @@ export default function InterpreterPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type logon flow, resend, checksum, Tag 39, or paste raw: 8=FIX.4.2|9=..."
+          placeholder="Enter the query..."
           disabled={loading}
           onFocus={e => e.target.style.borderColor = 'var(--primary)'}
           onBlur={e => e.target.style.borderColor = 'var(--border)'}
