@@ -1094,9 +1094,9 @@ export default function LatencyDashboard() {
             className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border"
             style={{ border: "1px solid var(--border)", background: "var(--card)" }}
           >
-            <div className="flex items-center gap-2">
+            <div className=" hidden md:flex items-center gap-2">
               <Info className="h-4 w-4 text-[var(--primary)]" />
-              <span className="text-xs font-semibold font-mono hidden md:inline" style={{ color: "var(--text-muted)" }}>
+              <span className="text-xs font-semibold font-mono" style={{ color: "var(--text-muted)" }}>
                 Active Diagnostic View Mode (Controls all charts)
               </span>
             </div>
