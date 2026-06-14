@@ -2,6 +2,282 @@ import { NextResponse } from "next/server";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
 import { validateFIXMessage } from "@/lib/fixParser";
 import yahooFinance from 'yahoo-finance2';
+import fix40 from "@/data/FIX/FIX40.json";
+import fix42 from "@/data/FIX/FIX42.json";
+import fix44 from "@/data/FIX/FIX44.json";
+import fix50 from "@/data/FIX/FIX50.json";
+import fixt11 from "@/data/FIX/FIXT11.json";
+import fixDescription from "@/data/fix-description.json";
+
+const FIX_SPECS = {
+  "FIX.4.0": fix40,
+  "FIX.4.2": fix42,
+  "FIX.4.4": fix44,
+  "FIX.5.0": fix50,
+  "FIXT.1.1": fixt11
+};
+
+function getTagDescription(tagNum) {
+  if (fixDescription && Array.isArray(fixDescription.FIX_Tags_Description)) {
+    const found = fixDescription.FIX_Tags_Description.find(d => String(d.tag) === String(tagNum));
+    if (found) {
+      return {
+        description: found.description,
+        note: found.note
+      };
+    }
+  }
+  return null;
+}
+
+function formatTimeFIX(date) {
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(date.getUTCDate()).padStart(2, '0');
+  const hh = String(date.getUTCHours()).padStart(2, '0');
+  const min = String(date.getUTCMinutes()).padStart(2, '0');
+  const ss = String(date.getUTCSeconds()).padStart(2, '0');
+  const ms = String(date.getUTCMilliseconds()).padStart(2, '0').padEnd(3, '0');
+  return `${yyyy}${mm}${dd}-${hh}:${min}:${ss}.${ms}`;
+}
+
+function generateResponsePayload(parsed) {
+  if (!parsed || !parsed.tags) return null;
+  
+  const tags = parsed.tags;
+  const beginString = tags['8'] || 'FIX.4.2';
+  const msgType = tags['35'];
+  const sender = tags['49'] || 'SENDER';
+  const target = tags['56'] || 'TARGET';
+  
+  // Flip sender and target for response
+  const respSender = target;
+  const respTarget = sender;
+  
+  const sep = parsed.separator || '|';
+  const responseFields = [];
+  
+  // Determine Response MsgType
+  let respMsgType = null;
+  let explanation = '';
+  
+  if (msgType === 'A') { // Logon
+    respMsgType = 'A';
+    explanation = 'In the FIX session protocol, an incoming Logon (35=A) requires an immediate Logon (35=A) response back to confirm session establishment.';
+    responseFields.push({ tag: '98', val: '0' }); // EncryptMethod=None
+    responseFields.push({ tag: '108', val: tags['108'] || '30' }); // HeartBtInt
+  } 
+  else if (msgType === '1') { // Test Request
+    respMsgType = '0';
+    explanation = 'An incoming Test Request (35=1) requires a Heartbeat (35=0) response containing the matching TestReqID (Tag 112) to confirm link status.';
+    responseFields.push({ tag: '112', val: tags['112'] || 'TEST_REQ' });
+  } 
+  else if (msgType === '2') { // Resend Request
+    respMsgType = '4';
+    explanation = 'An incoming Resend Request (35=2) can be answered with a Sequence Reset (35=4) (with GapFillFlag=Y) to skip administrative messages or sequence gaps.';
+    responseFields.push({ tag: '123', val: 'Y' }); // GapFill
+    const beginSeq = parseInt(tags['7'] || '1', 10);
+    const endSeq = parseInt(tags['16'] || '1', 10);
+    responseFields.push({ tag: '36', val: String(endSeq > 0 ? endSeq + 1 : beginSeq + 5) }); // NewSeqNo
+  } 
+  else if (msgType === 'D') { // New Order Single
+    respMsgType = '8';
+    explanation = 'A New Order Single (35=D) is processed by the execution engine, which responds with an Execution Report (35=8) confirming the order status as New (OrdStatus 39=0).';
+    responseFields.push({ tag: '37', val: 'ORD_' + Math.floor(100000 + Math.random() * 900000) }); // OrderID
+    responseFields.push({ tag: '11', val: tags['11'] || 'CLORD_NEW' }); // ClOrdID
+    responseFields.push({ tag: '17', val: 'EXEC_' + Math.floor(100000 + Math.random() * 900000) }); // ExecID
+    responseFields.push({ tag: '150', val: '0' }); // ExecType = New
+    responseFields.push({ tag: '39', val: '0' }); // OrdStatus = New
+    if (tags['55']) responseFields.push({ tag: '55', val: tags['55'] }); // Symbol
+    if (tags['54']) responseFields.push({ tag: '54', val: tags['54'] }); // Side
+    if (tags['38']) responseFields.push({ tag: '38', val: tags['38'] }); // OrderQty
+    if (tags['44']) responseFields.push({ tag: '44', val: tags['44'] }); // Price
+    if (tags['15']) responseFields.push({ tag: '15', val: tags['15'] }); // Currency
+    responseFields.push({ tag: '151', val: tags['38'] || '100' }); // LeavesQty
+    responseFields.push({ tag: '14', val: '0' }); // CumQty
+    responseFields.push({ tag: '6', val: tags['44'] || '0.00' }); // AvgPx
+    responseFields.push({ tag: '60', val: formatTimeFIX(new Date()) }); // TransactTime
+  } 
+  else if (msgType === 'F') { // Order Cancel Request
+    respMsgType = '8';
+    explanation = 'An Order Cancel Request (35=F) is acknowledged with an Execution Report (35=8) indicating the order has been successfully Canceled (OrdStatus 39=4).';
+    responseFields.push({ tag: '37', val: 'ORD_' + Math.floor(100000 + Math.random() * 900000) }); // OrderID
+    responseFields.push({ tag: '11', val: tags['11'] || 'CLORD_CANCEL' }); // ClOrdID
+    responseFields.push({ tag: '41', val: tags['41'] || 'CLORD_ORIG' }); // OrigClOrdID
+    responseFields.push({ tag: '17', val: 'EXEC_' + Math.floor(100000 + Math.random() * 900000) }); // ExecID
+    responseFields.push({ tag: '150', val: '4' }); // ExecType = Canceled
+    responseFields.push({ tag: '39', val: '4' }); // OrdStatus = Canceled
+    if (tags['55']) responseFields.push({ tag: '55', val: tags['55'] }); // Symbol
+    if (tags['54']) responseFields.push({ tag: '54', val: tags['54'] }); // Side
+    if (tags['38']) responseFields.push({ tag: '38', val: tags['38'] }); // OrderQty
+    responseFields.push({ tag: '151', val: '0' }); // LeavesQty
+    responseFields.push({ tag: '14', val: tags['38'] || '100' }); // CumQty
+    responseFields.push({ tag: '6', val: '0.00' }); // AvgPx
+    responseFields.push({ tag: '60', val: formatTimeFIX(new Date()) }); // TransactTime
+  } 
+  else if (msgType === 'G') { // Order Cancel/Replace Request
+    respMsgType = '8';
+    explanation = 'An Order Cancel/Replace Request (35=G) is acknowledged with an Execution Report (35=8) confirming the order has been Replaced (OrdStatus 39=5).';
+    responseFields.push({ tag: '37', val: 'ORD_' + Math.floor(100000 + Math.random() * 900000) }); // OrderID
+    responseFields.push({ tag: '11', val: tags['11'] || 'CLORD_REPLACE' }); // ClOrdID
+    responseFields.push({ tag: '41', val: tags['41'] || 'CLORD_ORIG' }); // OrigClOrdID
+    responseFields.push({ tag: '17', val: 'EXEC_' + Math.floor(100000 + Math.random() * 900000) }); // ExecID
+    responseFields.push({ tag: '150', val: '5' }); // ExecType = Replaced
+    responseFields.push({ tag: '39', val: '5' }); // OrdStatus = Replaced
+    if (tags['55']) responseFields.push({ tag: '55', val: tags['55'] }); // Symbol
+    if (tags['54']) responseFields.push({ tag: '54', val: tags['54'] }); // Side
+    if (tags['38']) responseFields.push({ tag: '38', val: tags['38'] }); // OrderQty
+    if (tags['44']) responseFields.push({ tag: '44', val: tags['44'] }); // Price
+    responseFields.push({ tag: '151', val: tags['38'] || '100' }); // LeavesQty
+    responseFields.push({ tag: '14', val: '0' }); // CumQty
+    responseFields.push({ tag: '6', val: tags['44'] || '0.00' }); // AvgPx
+    responseFields.push({ tag: '60', val: formatTimeFIX(new Date()) }); // TransactTime
+  }
+  
+  if (!respMsgType) return null;
+  
+  // Swap OnBehalfOfCompID (115) and DeliverToCompID (128)
+  if (tags['115']) {
+    responseFields.push({ tag: '128', val: tags['115'] });
+  }
+  if (tags['128']) {
+    responseFields.push({ tag: '115', val: tags['128'] });
+  }
+  
+  // Assemble headers
+  const headerFields = [
+    { tag: '35', val: respMsgType },
+    { tag: '49', val: respSender },
+    { tag: '56', val: respTarget }
+  ];
+  
+  const seqNum = parseInt(tags['34'] || '0', 10);
+  headerFields.push({ tag: '34', val: String(seqNum > 0 ? seqNum + 1 : 1) });
+  headerFields.push({ tag: '52', val: formatTimeFIX(new Date()) });
+  
+  const allBodyFields = [...headerFields, ...responseFields];
+  
+  // Calculate body length
+  const bodyText = allBodyFields.map(f => `${f.tag}=${f.val}`).join(sep) + sep;
+  const bodyLength = bodyText.length;
+  
+  const fullMessageUpToTen = `8=${beginString}${sep}9=${bodyLength}${sep}${bodyText}`;
+  
+  // Calculate Checksum
+  const standardDelimited = fullMessageUpToTen.split(sep).join('\x01');
+  let sum = 0;
+  for (let i = 0; i < standardDelimited.length; i++) {
+    sum += standardDelimited.charCodeAt(i);
+  }
+  const checksumVal = (sum % 256).toString().padStart(3, '0');
+  
+  const rawResponse = `${fullMessageUpToTen}10=${checksumVal}${sep}`;
+  
+  return {
+    rawResponse,
+    explanation,
+    respMsgTypeName: FIX_VALUES['35']?.[respMsgType] || respMsgType
+  };
+}
+
+function analyzeSessionRouting(parsed) {
+  if (!parsed || !parsed.tags) return null;
+  const tags = parsed.tags;
+  const sender = tags['49'];
+  const target = tags['56'];
+  
+  if (!sender && !target) return null;
+  
+  let analysis = `### Session Routing Analysis\n`;
+  if (sender) analysis += `- **SenderCompID (49)**: \`${sender}\`\n`;
+  if (target) analysis += `- **TargetCompID (56)**: \`${target}\`\n`;
+  
+  if (sender && target) {
+    if (sender === target) {
+      analysis += `- **[Warning] Routing Validation Error**: \`SenderCompID\` and \`TargetCompID\` are identical (\`${sender}\`). A sender cannot send a message to itself in a standard FIX session routing configuration.\n`;
+    } else {
+      analysis += `- **Direction**: Message is routing from **${sender}** to **${target}**.\n`;
+    }
+  } else {
+    analysis += `- **[Warning] Missing Routing Field**: Both session routing fields (49 & 56) are recommended to establish standard sequence and session tracking context.\n`;
+  }
+  
+  // Third-party routing tags 115 and 128
+  const onBehalfOf = tags['115'];
+  const deliverTo = tags['128'];
+  if (onBehalfOf) {
+    analysis += `- **OnBehalfOfCompID (115)**: \`${onBehalfOf}\` *(Indicates this message is being sent on behalf of third-party firm ${onBehalfOf})*\n`;
+  }
+  if (deliverTo) {
+    analysis += `- **DeliverToCompID (128)**: \`${deliverTo}\` *(Indicates this message is intended to be delivered to third-party firm ${deliverTo} via an intermediary)*\n`;
+  }
+  
+  // SubIDs or LocationIDs
+  const senderSub = tags['50'];
+  const targetSub = tags['57'];
+  if (senderSub) analysis += `- **SenderSubID (50)**: \`${senderSub}\` *(Sub-routing identifier for the sending entity)*\n`;
+  if (targetSub) analysis += `- **TargetSubID (57)**: \`${targetSub}\` *(Sub-routing identifier for the target entity)*\n`;
+  
+  const senderLoc = tags['142'];
+  const targetLoc = tags['143'];
+  if (senderLoc) analysis += `- **SenderLocationID (142)**: \`${senderLoc}\`\n`;
+  if (targetLoc) analysis += `- **TargetLocationID (143)**: \`${targetLoc}\`\n`;
+  
+  return analysis;
+}
+
+function detectVersion(queryText) {
+  const q = queryText.toUpperCase();
+  if (q.includes("FIX 4.0") || q.includes("FIX.4.0") || q.includes("FIX40")) return "FIX.4.0";
+  if (q.includes("FIX 4.2") || q.includes("FIX.4.2") || q.includes("FIX42")) return "FIX.4.2";
+  if (q.includes("FIX 4.4") || q.includes("FIX.4.4") || q.includes("FIX44")) return "FIX.4.4";
+  if (q.includes("FIX 5.0") || q.includes("FIX.5.0") || q.includes("FIX50")) return "FIX.5.0";
+  if (q.includes("FIXT 1.1") || q.includes("FIXT.1.1") || q.includes("FIXT1.1") || q.includes("FIXT11")) return "FIXT.1.1";
+  return null;
+}
+
+function tryMessageSchemaLookup(queryText) {
+  const q = queryText.toLowerCase();
+  const detectedVer = detectVersion(queryText) || "FIX.4.4";
+  const spec = FIX_SPECS[detectedVer];
+  if (!spec || !Array.isArray(spec.messages)) return null;
+  
+  let matchedMsg = null;
+  for (const msg of spec.messages) {
+    const msgTypeLower = msg.msgtype.toLowerCase();
+    const msgNameSpaced = msg.name.replace(/([A-Z])/g, ' $1').trim().toLowerCase();
+    
+    const msgTypePattern = new RegExp(`(?:msgtype|35)\\s*=\\s*${msgTypeLower}\\b`, 'i');
+    const namePattern = new RegExp(`\\b${msgNameSpaced.replace(/\s+/g, '\\s*')}\\b`, 'i');
+    
+    if (msgTypePattern.test(q)) {
+      matchedMsg = msg;
+      break;
+    }
+    
+    if (namePattern.test(q)) {
+      matchedMsg = msg;
+    }
+  }
+  
+  if (!matchedMsg) return null;
+  
+  let fieldsList = "";
+  if (Array.isArray(matchedMsg.fields)) {
+    fieldsList = matchedMsg.fields.map(f => {
+      const specField = spec.fields?.find(sf => String(sf.tag) === String(f.tag));
+      const typeStr = specField ? ` (${specField.type})` : "";
+      const reqStr = f.required ? "**Required**" : "Optional";
+      return `- **Tag ${f.tag} (${f.name})**${typeStr}: ${reqStr}`;
+    }).join('\n');
+  }
+  
+  return `### Message Schema: ${matchedMsg.name} (MsgType 35=${matchedMsg.msgtype}) [${detectedVer}]\n` +
+    `*Category: ${matchedMsg.category || 'N/A'}*\n\n` +
+    `## Message Fields:\n` +
+    fieldsList + `\n\n` +
+    `*This schema contains field definitions specifically for the ${detectedVer} protocol version.*`;
+}
 
 // Check if message is a FIX message
 function looksLikeFIX(input) {
@@ -24,7 +300,7 @@ async function getMarketData(symbol) {
 async function queryGemini(prompt, apiKey, systemInstruction = "") {
   if (!apiKey) {
     return {
-      answer: "⚠️ Gemini API key not found.",
+      answer: "[Warning] Gemini API key not found.",
       connected: false
     };
   }
@@ -55,7 +331,7 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       return {
-        answer: `⚠️ Gemini API request failed: ${errorData.error?.message || res.statusText}`,
+        answer: `[Warning] Gemini API request failed: ${errorData.error?.message || res.statusText}`,
         connected: false
       };
     }
@@ -64,19 +340,19 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
     const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     return {
-      answer: candidateText || "⚠️ Model returned empty response.",
+      answer: candidateText || "[Warning] Model returned empty response.",
       connected: true
     };
   } catch (err) {
     return {
-      answer: `⚠️ Failed to reach Gemini servers: ${err.message}`,
+      answer: `[Warning] Failed to reach Gemini servers: ${err.message}`,
       connected: false
     };
   }
 }
 
 const FIX_GUIDES = {
-  "logon": `**FIX Logon Session Flow (MsgType 35=A)**\n\nThe Logon message is transmitted by both the initiator (client) and acceptor (server) to establish a FIX session.\n- **Tag 98 (EncryptMethod)**: Encryption method (typically 0 = None / Plaintext).\n- **Tag 108 (HeartBtInt)**: Heartbeat interval in seconds (e.g., 30).\n- **Tag 141 (ResetSeqNumFlag)**: Reset sequence numbers to 1 if set to 'Y'.\n\n*Establish Session sequence:* \nInitiator ──(35=A, Seq 1)──> Acceptor\nInitiator <──(35=A, Seq 1)── Acceptor (Session Established)`,
+  "logon": `**FIX Logon Session Flow (MsgType 35=A)**\n\nThe Logon message is transmitted by both the initiator (client) and acceptor (server) to establish a FIX session.\n- **Tag 98 (EncryptMethod)**: Encryption method (typically 0 = None / Plaintext).\n- **Tag 108 (HeartBtInt)**: Heartbeat interval in seconds (e.g., 30).\n- **Tag 141 (ResetSeqNumFlag)**: Reset sequence numbers to 1 if set to 'Y'.\n\n*Establish Session sequence:* \nInitiator --(35=A, Seq 1)--> Acceptor\nInitiator <--(35=A, Seq 1)-- Acceptor (Session Established)`,
   
   "heartbeat": `**FIX Heartbeat (MsgType 35=0)**\n\nHeartbeat messages are transmitted at the HeartBtInt interval during periods of inactivity to verify link connectivity.\n- If responding to a **Test Request (35=1)**, the Heartbeat must include the matching **TestReqID (Tag 112)** to verify sequence integrity.`,
   
@@ -115,8 +391,8 @@ function tryLocalLookup(query, customDialect) {
     return null;
   };
   
-  // 1. Tag-Value pair: e.g. "35=D" or "Side=1"
-  const tagValMatch = q.match(/^([a-zA-Z0-9_]+)\s*=\s*([^=|]+)$/);
+  // 1. Tag-Value pair: e.g. "35=D" or "Side=1" (supports substring matches like "what is 35=D")
+  const tagValMatch = q.match(/(?:^|\b)([a-zA-Z0-9_]+)\s*=\s*([^=|?\s]+)/);
   if (tagValMatch) {
     let tagOrName = tagValMatch[1].trim();
     const val = tagValMatch[2].trim();
@@ -146,19 +422,32 @@ function tryLocalLookup(query, customDialect) {
       const tagName = FIX_TAGS[tag];
       const enums = FIX_VALUES[tag];
       const meaning = enums ? (enums[val] || enums[Number(val)]) : null;
+      
+      let response = "";
       if (meaning) {
-        return `Tag ${tag} (${tagName}) = ${val} (${meaning})\n\nThis is a standard FIX tag-value definition.`;
+        response = `Tag ${tag} (${tagName}) = ${val} (${meaning})\n\nThis is a standard FIX tag-value definition.`;
       } else {
-        return `Tag ${tag} (${tagName}) = ${val}\n\nThis is a standard FIX tag, but no specific local enum mapping was found for value "${val}".`;
+        response = `Tag ${tag} (${tagName}) = ${val}\n\nThis is a standard FIX tag, but no specific local enum mapping was found for value "${val}".`;
       }
+      
+      const descObj = getTagDescription(tag);
+      if (descObj) {
+        response += `\n\n**Description**:\n${descObj.description}`;
+        if (descObj.note) {
+          response += `\n\n**Usage Note**:\n${descObj.note}`;
+        }
+      }
+      return response;
     }
   }
 
-  // 2. Exact Tag Number: e.g. "35" or "10"
-  if (/^\d+$/.test(q)) {
-    const customField = getCustomField(q);
+  // 2. Single Tag Number match: e.g. "tag 107", "what is 107", or exactly "107"
+  const allNums = q.match(/\b\d+\b/g) || [];
+  if (allNums.length === 1) {
+    const singleNum = allNums[0];
+    const customField = getCustomField(singleNum);
     if (customField) {
-      let response = `Tag ${q} represents "${customField.name}" in your custom XML dialect.\n- Type: ${customField.type}`;
+      let response = `Tag ${singleNum} represents "${customField.name}" in your custom XML dialect.\n- Type: ${customField.type}`;
       if (customField.values && customField.values.length > 0) {
         response += `\n\nAllowed enum values:\n` + 
           customField.values.map(v => `- ${v.enum}: ${v.description}`).join('\n');
@@ -166,10 +455,19 @@ function tryLocalLookup(query, customDialect) {
       return response;
     }
     
-    const tagName = FIX_TAGS[q];
+    const tagName = FIX_TAGS[singleNum];
     if (tagName) {
-      let response = `Tag ${q} represents the field "${tagName}".`;
-      const enums = FIX_VALUES[q];
+      let response = `Tag ${singleNum} represents the field "${tagName}".`;
+      
+      const descObj = getTagDescription(singleNum);
+      if (descObj) {
+        response += `\n\n**Description**:\n${descObj.description}`;
+        if (descObj.note) {
+          response += `\n\n**Usage Note**:\n${descObj.note}`;
+        }
+      }
+      
+      const enums = FIX_VALUES[singleNum];
       if (enums) {
         response += `\n\nAllowed enum values:\n` + 
           Object.entries(enums).map(([val, name]) => `- ${val}: ${name}`).join('\n');
@@ -193,6 +491,15 @@ function tryLocalLookup(query, customDialect) {
   if (foundTag) {
     const [tag, name] = foundTag;
     let response = `Field "${name}" is represented by Tag ${tag}.`;
+    
+    const descObj = getTagDescription(tag);
+    if (descObj) {
+      response += `\n\n**Description**:\n${descObj.description}`;
+      if (descObj.note) {
+        response += `\n\n**Usage Note**:\n${descObj.note}`;
+      }
+    }
+    
     const enums = FIX_VALUES[tag];
     if (enums) {
       response += `\n\nAllowed enum values:\n` + 
@@ -270,6 +577,181 @@ function tryPartialLookup(query, customDialect) {
   return result;
 }
 
+/* --- Advanced Offline Query Upgrades ------------------------------------- */
+
+const CONDITIONAL_RULES = {
+  "logon": `* **Tag 98 (EncryptMethod)**: Required (0 = None / plaintext, etc.).\n* **Tag 108 (HeartBtInt)**: Required (Heartbeat interval in seconds, e.g. \`30\`).\n* **Tag 141 (ResetSeqNumFlag)**: Optional (\`Y\` or \`N\`).`,
+  
+  "new order": `* **Tag 11 (ClOrdID)**: Required (Unique identifier for the order).\n* **Tag 21 (HandlInst)**: Required (1 = Automated exec private, 2 = Automated public, 3 = Manual).\n* **Tag 55 (Symbol)**: Required (ticker symbol, e.g. \`AAPL\`).\n* **Tag 54 (Side)**: Required (1 = Buy, 2 = Sell, etc.).\n* **Tag 38 (OrderQty)**: Required (quantity of shares).\n* **Tag 40 (OrdType)**: Required (1 = Market, 2 = Limit, 3 = Stop, etc.).\n* **Tag 44 (Price)**: Required if \`OrdType=2\` (Limit order), omitted for Market orders.`,
+  
+  "cancel": `* **Tag 11 (ClOrdID)**: Required (New identifier for this cancel request).\n* **Tag 41 (OrigClOrdID)**: Required (ClOrdID of the order you are trying to cancel).\n* **Tag 55 (Symbol)**: Required.\n* **Tag 54 (Side)**: Required.\n* **Tag 38 (OrderQty)**: Required.`,
+  
+  "replace": `* **Tag 11 (ClOrdID)**: Required (New identifier for this modify request).\n* **Tag 41 (OrigClOrdID)**: Required (ClOrdID of the order you are modifying).\n* **Tag 55 (Symbol)**: Required.\n* **Tag 54 (Side)**: Required.\n* **Tag 38 (OrderQty)**: Required.\n* **Tag 40 (OrdType)**: Required.\n* **Tag 44 (Price)**: Required if \`OrdType=2\` (Limit).`
+};
+
+const REJECT_REASONS_373 = {
+  "0": "Invalid Tag (Tag does not exist in this version of the protocol).",
+  "1": "Required Tag Missing (A tag that must be present is missing).",
+  "2": "Tag not defined for this message type (The tag is defined, but not permitted on this MsgType).",
+  "3": "Undefined Tag Value (The value is undefined/missing).",
+  "4": "Tag specified without a value (e.g. tag= followed immediately by delimiter).",
+  "5": "Value is incorrect (out of range) for this tag.",
+  "6": "Incorrect data format for value (e.g. letters in a float field).",
+  "7": "Decryption problem.",
+  "8": "Signature problem.",
+  "9": "CompID problem (SenderCompID or TargetCompID does not match expected session parameters).",
+  "10": "SendingTime accuracy problem (SendingTime tag 52 deviates from system time by more than max clock skew, e.g. 120s).",
+  "11": "Invalid MsgType (The msgType tag 35 value is unknown or unpermitted).",
+  "18": "Invalid/Unsupported Version (Tag 8 value is unsupported)."
+};
+
+const REJECT_REASONS_103 = {
+  "0": "Broker Option (Default reason code).",
+  "1": "Unknown Symbol (The ticker symbol tag 55 does not exist).",
+  "2": "Exchange Closed.",
+  "3": "Order exceeds limit (Order value or shares exceed account size limit).",
+  "4": "Too late to enter (Order entered after trading session close).",
+  "5": "Unknown Order (Attempt to cancel/modify a non-existent ClOrdID).",
+  "6": "Duplicate Order (ClOrdID tag 11 already exists).",
+  "7": "Duplicate of a verbally communicated order.",
+  "8": "Stale Order.",
+  "9": "Trade along required.",
+  "13": "Incorrect Quantity (e.g. round lot mismatch, negative shares).",
+  "15": "Invalid Price (e.g. limit price is outside tick boundaries)."
+};
+
+function tryBatchTagLookup(query, customDialect) {
+  const numbers = query.match(/\b\d+\b/g) || [];
+  const uniqNumbers = Array.from(new Set(numbers)).filter(n => Number(n) > 0 && Number(n) < 20000);
+  
+  if (uniqNumbers.length <= 1) return null;
+  
+  let result = `### Batch Tag Lookup Results\n\n`;
+  let foundAny = false;
+  
+  uniqNumbers.forEach(tag => {
+    if (customDialect && Array.isArray(customDialect.fields)) {
+      const customField = customDialect.fields.find(f => String(f.tag) === String(tag));
+      if (customField) {
+        foundAny = true;
+        result += `* **Tag ${tag} (${customField.name})** [Custom Dialect]: Type ${customField.type}.\n`;
+        if (customField.values && customField.values.length > 0) {
+          result += `  * Values: ${customField.values.map(v => `\`${v.enum}\` = ${v.description}`).join(', ')}\n`;
+        }
+        return;
+      }
+    }
+    
+    const name = FIX_TAGS[tag];
+    if (name) {
+      foundAny = true;
+      result += `* **Tag ${tag} (${name})**: Standard field.\n`;
+      
+      const descObj = getTagDescription(tag);
+      if (descObj) {
+        const cleanDesc = descObj.description.split('\n')[0].replace(/\*\*/g, '');
+        result += `  * *Description*: ${cleanDesc}\n`;
+      }
+      
+      const enums = FIX_VALUES[tag];
+      if (enums) {
+        result += `  * Allowed values: ${Object.entries(enums).slice(0, 8).map(([v, d]) => `\`${v}\` = ${d}`).join(', ')}${Object.keys(enums).length > 8 ? '...' : ''}\n`;
+      }
+    }
+  });
+  
+  return foundAny ? result : null;
+}
+
+function tryConditionalRulesLookup(query) {
+  const q = query.toLowerCase();
+  let matchedTopic = null;
+  if (q.includes("logon") || q.includes("35=a") || q.includes("encryptmethod") || q.includes("heartbtint")) {
+    matchedTopic = "logon";
+  } else if (q.includes("replace") || q.includes("modify") || q.includes("35=g")) {
+    matchedTopic = "replace";
+  } else if (q.includes("cancel") || q.includes("35=f") || q.includes("origclordid")) {
+    matchedTopic = "cancel";
+  } else if (q.includes("new order") || q.includes("35=d") || q.includes("order single") || q.includes("price") || q.includes("ordtype") || q.includes("orderqty") || q.includes("handlinst")) {
+    matchedTopic = "new order";
+  }
+  
+  if (matchedTopic) {
+    return `### Conditional Field Rules for ${matchedTopic.toUpperCase()}\n\n` + 
+      CONDITIONAL_RULES[matchedTopic] + 
+      `\n\n*This list contains key session/execution field validation rules.*`;
+  }
+  return null;
+}
+
+function tryRejectReasonLookup(query) {
+  const q = query.toLowerCase();
+  
+  const reject373Match = q.match(/(?:373\s*=\s*|session\s*reject\s*(?:reason\s*)?)(\d+)/i);
+  if (reject373Match) {
+    const val = reject373Match[1];
+    const meaning = REJECT_REASONS_373[val];
+    if (meaning) {
+      return `### Session Reject Reason (Tag 373 = ${val})\n\n**Definition**: ${meaning}\n\n*Session Reject messages (MsgType 35=3) include Tag 373 to indicate why a message was rejected at the session layer.*`;
+    }
+  }
+  
+  const reject103Match = q.match(/(?:103\s*=\s*|ord\s*rej\s*(?:reason\s*)?)(\d+)/i);
+  if (reject103Match) {
+    const val = reject103Match[1];
+    const meaning = REJECT_REASONS_103[val];
+    if (meaning) {
+      return `### Order Reject Reason (Tag 103 = ${val})\n\n**Definition**: ${meaning}\n\n*Execution Reports (MsgType 35=8, OrdStatus 39=8) include Tag 103 to indicate why an order was rejected at the business layer.*`;
+    }
+  }
+  
+  if (q.includes("reject reason") || q.includes("rejection codes") || q.includes("reject codes")) {
+    return `### Common FIX Rejection Reason Lookup\n\n` +
+      `**Session Rejections (Tag 373)**:\n` +
+      Object.entries(REJECT_REASONS_373).slice(0, 6).map(([c, m]) => `- **${c}**: ${m}`).join('\n') + `\n\n` +
+      `**Order Rejections (Tag 103)**:\n` +
+      Object.entries(REJECT_REASONS_103).slice(0, 6).map(([c, m]) => `- **${c}**: ${m}`).join('\n') + `\n\n` +
+      `*Query specifically (e.g., "373=5" or "103=1") for detailed breakdowns.*`;
+  }
+  return null;
+}
+
+function recalculateFixMessage(queryText) {
+  const parsed = validateFIXMessage(queryText);
+  if (!parsed) return null;
+  
+  if (parsed.isValid) {
+    return null; // Already valid
+  }
+  
+  const tagList = parsed.tagList;
+  const beginString = parsed.tags['8'] || 'FIX.4.4';
+  const msgType = parsed.tags['35'] || '0';
+  const middleFields = tagList.filter(t => t.tag !== '8' && t.tag !== '9' && t.tag !== '10' && t.tag !== '35');
+  const sep = parsed.separator;
+  
+  const bodyText = `35=${msgType}` + (middleFields.length > 0 ? sep + middleFields.map(f => `${f.tag}=${f.val}`).join(sep) : "") + sep;
+  const correctedLength = bodyText.length;
+  const fullMessageUpToTen = `8=${beginString}${sep}9=${correctedLength}${sep}${bodyText}`;
+  
+  const standardDelimited = fullMessageUpToTen.split(sep).join('\x01');
+  let sum = 0;
+  for (let i = 0; i < standardDelimited.length; i++) {
+    sum += standardDelimited.charCodeAt(i);
+  }
+  const correctedChecksum = (sum % 256).toString().padStart(3, '0');
+  const correctedMessage = `${fullMessageUpToTen}10=${correctedChecksum}${sep}`;
+  
+  return `### FIX Message Re-calculation Report\n` +
+    `* **BeginString (8)**: \`${beginString}\`\n` +
+    `* **Original BodyLength (9)**: \`${parsed.tags['9'] || 'N/A'}\` -> **Corrected**: \`${correctedLength}\`\n` +
+    `* **Original Checksum (10)**: \`${parsed.tags['10'] || 'N/A'}\` -> **Corrected**: \`${correctedChecksum}\`\n\n` +
+    `## Corrected raw message payload:\n` +
+    `\`\`\`\n` +
+    `${correctedMessage}\n` +
+    `\`\`\``;
+}
+
 export async function POST(req) {
   try {
     const { query, customDialect } = await req.json();
@@ -316,8 +798,23 @@ export async function POST(req) {
           const geminiRes = await queryGemini(prompt, apiKey, systemInstruction);
           answer = geminiRes.answer;
           hfConnected = geminiRes.connected;
+          
+          const routingAnalysis = analyzeSessionRouting(parsed);
+          const responsePayload = generateResponsePayload(parsed);
+          
+          if (routingAnalysis) {
+            answer += `\n\n${routingAnalysis}`;
+          }
+          if (responsePayload) {
+            answer += `\n\n### Proposed Counterpart Response (FIXi Intelligent Simulator)\n` +
+              `${responsePayload.explanation}\n\n` +
+              `**Expected Response**: \`${responsePayload.respMsgTypeName}\` (MsgType 35=${responsePayload.rawResponse.match(/35=([^|]+)/)?.[1] || ''})\n` +
+              `\`\`\`\n` +
+              `${responsePayload.rawResponse}\n` +
+              `\`\`\``;
+          }
         } else {
-          answer = "⚠️ Failed to parse FIX message structure.";
+          answer = "[Warning] Failed to parse FIX message structure.";
         }
       } else {
         const geminiRes = await queryGemini(query, apiKey, systemInstruction);
@@ -336,35 +833,87 @@ export async function POST(req) {
           const validationStatus = parsed.isValid ? 'Passed' : 'Failed';
           const validationDetails = parsed.isValid ? 'Checksum and BodyLength are correct.' : parsed.errors.join('; ');
           
+          const routingAnalysis = analyzeSessionRouting(parsed);
+          const responsePayload = generateResponsePayload(parsed);
+          
+          let additionalDetails = "";
+          if (routingAnalysis) {
+            additionalDetails += `\n\n${routingAnalysis}`;
+          }
+          if (responsePayload) {
+            additionalDetails += `\n\n### Proposed Counterpart Response (FIXi Intelligent Simulator)\n` +
+              `${responsePayload.explanation}\n\n` +
+              `**Expected Response**: \`${responsePayload.respMsgTypeName}\` (MsgType 35=${responsePayload.rawResponse.match(/35=([^|]+)/)?.[1] || ''})\n` +
+              `\`\`\`\n` +
+              `${responsePayload.rawResponse}\n` +
+              `\`\`\``;
+          }
+
           answer = `### Parsed FIX Message Details\n` +
             `- **Protocol Version**: ${version}\n` +
             `- **Message Type**: \`${msgType}\` (${msgTypeName})\n` +
-            `- **Integrity Check**: **${validationStatus}** (${validationDetails})\n\n` +
-            `⚠️ *Note: Gemini API key is not configured. Running in offline fallback dictionary mode.*`;
+            `- **Integrity Check**: **${validationStatus}** (${validationDetails})` +
+            additionalDetails + `\n\n` +
+            `*Response resolved offline by AURA.*`;
         } else {
-          answer = `⚠️ Failed to parse FIX message structure.\n\n` +
-            `⚠️ *Note: Gemini API key is not configured.*`;
+          answer = `[Warning] Failed to parse FIX message structure.\n\n` +
+            `*Response resolved offline by AURA.*`;
         }
       } else {
-        // Check standard quick-guides first
+        // Evaluate offline lookups in order of specificity
+        const rejectLookup = tryRejectReasonLookup(query);
+        const localResult = tryLocalLookup(query, customDialect);
+        
+        // Prioritize conditional rules if they ask for rules/validation/requirements
         const lowercaseQuery = query.toLowerCase();
-        let guideMatch = null;
-        for (const [topic, text] of Object.entries(FIX_GUIDES)) {
-          if (lowercaseQuery.includes(topic)) {
-            guideMatch = text;
-            break;
+        const asksForRules = lowercaseQuery.includes("rule") || 
+                             lowercaseQuery.includes("conditional") || 
+                             lowercaseQuery.includes("validat") || 
+                             lowercaseQuery.includes("when is") || 
+                             lowercaseQuery.includes("require");
+                             
+        let condRulesLookup = null;
+        let schemaLookup = null;
+        
+        if (asksForRules) {
+          condRulesLookup = tryConditionalRulesLookup(query);
+          if (!condRulesLookup) {
+            schemaLookup = tryMessageSchemaLookup(query);
+          }
+        } else {
+          schemaLookup = tryMessageSchemaLookup(query);
+          if (!schemaLookup) {
+            condRulesLookup = tryConditionalRulesLookup(query);
           }
         }
+        
+        const batchLookup = tryBatchTagLookup(query, customDialect);
 
-        if (guideMatch) {
-          answer = `${guideMatch}\n\n⚠️ *Note: Gemini API key is not configured. Displaying local quick-guide.*`;
+        if (rejectLookup) {
+          answer = `${rejectLookup}\n\n*Response resolved offline by AURA (Displaying local reject guides).*`;
+        } else if (localResult) {
+          answer = `${localResult}\n\n*Response resolved offline by AURA.*`;
+        } else if (condRulesLookup) {
+          answer = `${condRulesLookup}\n\n*Response resolved offline by AURA (Displaying local validation rulebook).*`;
+        } else if (schemaLookup) {
+          answer = `${schemaLookup}\n\n*Response resolved offline by AURA (Displaying local message schema).*`;
+        } else if (batchLookup) {
+          answer = `${batchLookup}\n\n*Response resolved offline by AURA (Running offline batch lookups).*`;
         } else {
-          const localResult = tryLocalLookup(query, customDialect);
-          if (localResult) {
-            answer = `${localResult}\n\n⚠️ *Note: Gemini API key is not configured.*`;
+          // Check standard quick-guides next
+          let guideMatch = null;
+          for (const [topic, text] of Object.entries(FIX_GUIDES)) {
+            if (lowercaseQuery.includes(topic)) {
+              guideMatch = text;
+              break;
+            }
+          }
+
+          if (guideMatch) {
+            answer = `${guideMatch}\n\n*Response resolved offline by AURA (Displaying local quick-guide).*`;
           } else {
             const partials = tryPartialLookup(query, customDialect);
-            answer = `⚠️ *Gemini API key not found.*\n\n${partials}\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
+            answer = `*Response resolved offline by AURA.*\n\n${partials}\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
           }
         }
       }

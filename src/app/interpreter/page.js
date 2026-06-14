@@ -16,7 +16,9 @@ import {
   ChevronRight,
   X,
   User,
-  Bot
+  Bot,
+  Zap,
+  CloudLightning
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
 import TagDetailsModal from "@/components/TagDetailsModal";
@@ -44,6 +46,7 @@ export default function InterpreterPage() {
   const [activeTag, setActiveTag] = useState(null);
   const [activeVersion, setActiveVersion] = useState("FIX.4.4");
   const [showSidebar, setShowSidebar] = useState(false);
+  const [modelDetails, setModelDetails] = useState(null);
 
   // Load state on mount
   useEffect(() => {
@@ -92,12 +95,99 @@ export default function InterpreterPage() {
     ping();
   }, []);
 
+  const renderTextWithGradients = (text, keyPrefix) => {
+    if (!text) return null;
+    const regex = /\b(aura|gemini)\b/gi;
+    const parts = [];
+    let match;
+    let lastIndex = 0;
+    let idx = 0;
+    
+    while ((match = regex.exec(text)) !== null) {
+      const matchIndex = match.index;
+      const matchedWord = match[1];
+      const origWord = text.substring(matchIndex, matchIndex + matchedWord.length);
+      
+      if (matchIndex > lastIndex) {
+        parts.push(<span key={`${keyPrefix}-txt-${idx}`}>{text.substring(lastIndex, matchIndex)}</span>);
+        idx++;
+      }
+      
+      if (matchedWord.toLowerCase() === "aura") {
+        parts.push(
+          <span 
+            key={`${keyPrefix}-aura-${idx}`} 
+            onClick={() => setModelDetails('aura')}
+            className="font-extrabold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent inline-block cursor-pointer hover:opacity-80 transition-all duration-200 active:scale-95 select-none"
+            title="Click to view AURA details"
+          >
+            {origWord}
+          </span>
+        );
+      } else {
+        parts.push(
+          <span 
+            key={`${keyPrefix}-gemini-${idx}`} 
+            onClick={() => setModelDetails('gemini')}
+            className="font-extrabold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent inline-block cursor-pointer hover:opacity-80 transition-all duration-200 active:scale-95 select-none"
+            title="Click to view Gemini details"
+          >
+            {origWord}
+          </span>
+        );
+      }
+      
+      idx++;
+      lastIndex = regex.lastIndex;
+    }
+    
+    if (lastIndex < text.length) {
+      parts.push(<span key={`${keyPrefix}-txt-end`}>{text.substring(lastIndex)}</span>);
+    }
+    
+    return parts;
+  };
+
   // Format bot response text containing Markdown highlights synchronously
   const formatBotResponse = (text) => {
     if (!text) return null;
     const lines = text.split("\n");
+    const elements = [];
+    let inCodeBlock = false;
+    let codeBlockLines = [];
 
-    return lines.map((line, lineIdx) => {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      if (line.startsWith("```")) {
+        if (inCodeBlock) {
+          const codeText = codeBlockLines.join("\n");
+          elements.push(
+            <pre
+              key={`codeblock-${i}`}
+              className="p-3 rounded-xl font-mono text-[11px] leading-relaxed my-2 overflow-x-auto select-all cursor-pointer hover:bg-zinc-800/20"
+              style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--primary)' }}
+              title="Click to copy raw code"
+              onClick={() => {
+                navigator.clipboard.writeText(codeText);
+              }}
+            >
+              <code>{codeText}</code>
+            </pre>
+          );
+          codeBlockLines = [];
+          inCodeBlock = false;
+        } else {
+          inCodeBlock = true;
+        }
+        continue;
+      }
+
+      if (inCodeBlock) {
+        codeBlockLines.push(line);
+        continue;
+      }
+
       let content = line;
       let isHeader = false;
       let headerLevel = 0;
@@ -133,20 +223,20 @@ export default function InterpreterPage() {
         const matchText = match[0];
 
         if (matchIndex > lastIndex) {
-          parts.push(<span key={`txt-${lineIdx}-${partIdx}`}>{content.substring(lastIndex, matchIndex)}</span>);
+          parts.push(<span key={`txt-${i}-${partIdx}`}>{renderTextWithGradients(content.substring(lastIndex, matchIndex), `l${i}-p${partIdx}`)}</span>);
           partIdx++;
         }
 
         if ((matchText.startsWith("**") && matchText.endsWith("**")) || (matchText.startsWith("__") && matchText.endsWith("__"))) {
           parts.push(
-            <strong key={`bold-${lineIdx}-${partIdx}`} style={{ color: 'var(--primary)' }} className="font-extrabold">
-              {matchText.slice(2, -2)}
+            <strong key={`bold-${i}-${partIdx}`} style={{ color: 'var(--primary)' }} className="font-extrabold">
+              {renderTextWithGradients(matchText.slice(2, -2), `bold-${i}-${partIdx}`)}
             </strong>
           );
         } else if (matchText.startsWith("`") && matchText.endsWith("`")) {
           parts.push(
             <code
-              key={`code-${lineIdx}-${partIdx}`}
+              key={`code-${i}-${partIdx}`}
               className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold"
               style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--primary)' }}
             >
@@ -155,8 +245,8 @@ export default function InterpreterPage() {
           );
         } else if (matchText.startsWith("*") && matchText.endsWith("*")) {
           parts.push(
-            <em key={`italic-${lineIdx}-${partIdx}`} className="italic text-zinc-400 font-medium">
-              {matchText.slice(1, -1)}
+            <em key={`italic-${i}-${partIdx}`} className="italic text-zinc-400 font-medium">
+              {renderTextWithGradients(matchText.slice(1, -1), `italic-${i}-${partIdx}`)}
             </em>
           );
         }
@@ -165,32 +255,49 @@ export default function InterpreterPage() {
       }
 
       if (lastIndex < content.length) {
-        parts.push(<span key={`txt-end-${lineIdx}`}>{content.substring(lastIndex)}</span>);
+        parts.push(<span key={`txt-end-${i}`}>{renderTextWithGradients(content.substring(lastIndex), `l${i}-end`)}</span>);
       }
 
-      const key = `line-${lineIdx}`;
+      const key = `line-${i}`;
 
       if (isHeader) {
-        if (headerLevel === 1) return <h1 key={key} className="text-sm font-extrabold mt-4 mb-2 uppercase tracking-wider">{parts}</h1>;
-        if (headerLevel === 2) return <h2 key={key} className="text-xs font-bold mt-3 mb-1.5">{parts}</h2>;
-        return <h3 key={key} className="text-xs font-semibold mt-2 mb-1" style={{ color: 'var(--foreground)' }}>{parts}</h3>;
-      }
-
-      if (isBullet) {
-        return (
+        if (headerLevel === 1) elements.push(<h1 key={key} className="text-sm font-extrabold mt-4 mb-2 uppercase tracking-wider">{parts}</h1>);
+        else if (headerLevel === 2) elements.push(<h2 key={key} className="text-xs font-bold mt-3 mb-1.5">{parts}</h2>);
+        else elements.push(<h3 key={key} className="text-xs font-semibold mt-2 mb-1" style={{ color: 'var(--foreground)' }}>{parts}</h3>);
+      } else if (isBullet) {
+        elements.push(
           <div key={key} className="flex items-start gap-1.5 pl-2.5 my-1.5">
             <span style={{ color: 'var(--primary)' }} className="select-none mt-1 text-[10px]">•</span>
             <span className="flex-1 leading-relaxed text-xs">{parts}</span>
           </div>
         );
+      } else {
+        elements.push(
+          <div key={key} className={line.trim() === "" ? "h-2" : "min-h-[14px] text-xs leading-relaxed"}>
+            {parts}
+          </div>
+        );
       }
+    }
 
-      return (
-        <div key={key} className={line.trim() === "" ? "h-2" : "min-h-[14px] text-xs leading-relaxed"}>
-          {parts}
-        </div>
+    if (inCodeBlock && codeBlockLines.length > 0) {
+      const codeText = codeBlockLines.join("\n");
+      elements.push(
+        <pre
+          key="codeblock-unclosed"
+          className="p-3 rounded-xl font-mono text-[11px] leading-relaxed my-2 overflow-x-auto select-all cursor-pointer hover:bg-zinc-800/20"
+          style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--primary)' }}
+          title="Click to copy raw code"
+          onClick={() => {
+            navigator.clipboard.writeText(codeText);
+          }}
+        >
+          <code>{codeText}</code>
+        </pre>
       );
-    });
+    }
+
+    return elements;
   };
 
   const handleNewChat = () => {
@@ -335,13 +442,12 @@ export default function InterpreterPage() {
                       padding: '0.875rem 1.25rem',
                     }}
                   >
-                    {/* Render Formatted Bot Response or raw user message */}
                     {isUser ? (
-                      <p className="text-xs leading-relaxed font-mono whitespace-pre-wrap text-[var(--foreground)]">
+                      <p className="text-xs leading-relaxed font-mono whitespace-pre-wrap break-all text-[var(--foreground)]">
                         {msg.text}
                       </p>
                     ) : (
-                      <div className="font-mono text-zinc-300 space-y-1">
+                      <div className="font-mono text-zinc-300 space-y-1 break-all">
                         {formatBotResponse(msg.text)}
                       </div>
                     )}                    {/* Validation Card (rendered ONLY in bot response if present) */}
@@ -557,6 +663,121 @@ export default function InterpreterPage() {
           isOpen={!!activeTag}
           onClose={() => setActiveTag(null)}
         />
+      )}
+
+      {/* Model Details Modal */}
+      {modelDetails && (
+        <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-md flex items-center justify-center z-50 p-4 select-text">
+          <div 
+            className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setModelDetails(null)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-200 transition-colors p-1 rounded-lg hover:bg-zinc-800"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {modelDetails === 'aura' ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-xl border border-zinc-800 flex items-center justify-center shrink-0 shadow-lg overflow-hidden bg-zinc-950">
+                    <img src="/aura_logo_icon.png" alt="AURA Logo" className="h-full w-full object-cover" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-sans">
+                      AURA
+                    </h3>
+                    <p className="text-[10px] text-zinc-400 font-mono">
+                      AUgmented Responce Agent
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-zinc-800/85 pt-3.5 space-y-3 font-sans">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-semibold text-zinc-300">Role & Architecture</h4>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      AURA is your built-in local offline intelligence assistant. It runs 100% client-side inside your browser, ensuring total privacy and immediate response times.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-semibold text-zinc-300">Capabilities</h4>
+                    <ul className="list-disc pl-4 text-[11px] text-zinc-400 space-y-1.5 leading-relaxed">
+                      <li><strong>Specs Dictionary</strong>: Dynamically maps message schemas, fields, and types for FIX 4.0, 4.2, 4.4, 5.0, and FIXT 1.1 protocol specifications.</li>
+                      <li><strong>Flow Rulebooks</strong>: Pre-compiled validation constraints for key administrative and execution flows (Logon, Cancel, Replace, New Order).</li>
+                      <li><strong>Reject Diagnostics</strong>: Standard session rejection code lookups (Tags 373 & 103).</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-zinc-950/60 rounded-lg p-2.5 border border-zinc-800">
+                    <p className="text-[10px] text-amber-500 font-semibold flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5" /> Client-Side Offline Priority
+                    </p>
+                    <p className="text-[9px] text-zinc-500 mt-0.5 leading-relaxed">
+                      No network requests are ever sent. Your data never leaves your machine.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-505 via-cyan-505 to-teal-505 flex items-center justify-center shrink-0 shadow-lg">
+                    <Bot className="h-5 w-5 text-zinc-950 font-bold" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent font-sans">
+                      Gemini 1.5 Flash
+                    </h3>
+                    <p className="text-[10px] text-zinc-400 font-mono">
+                      Google LLM Assistant
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-zinc-800/85 pt-3.5 space-y-3 font-sans">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-semibold text-zinc-300">Role & Architecture</h4>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      Gemini 1.5 Flash is Google's high-speed multimodal reasoning model. It operates online, parsing large text streams to diagnose complex, multi-layered log traces.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-semibold text-zinc-300">Capabilities</h4>
+                    <ul className="list-disc pl-4 text-[11px] text-zinc-400 space-y-1.5 leading-relaxed">
+                      <li><strong>Natural Reasoning</strong>: Understands conversational queries, custom log files, and unstructured integration questions.</li>
+                      <li><strong>Deep Conformance Audits</strong>: Explains advanced transaction flows, gaps in session logs, and custom dialect variations.</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-zinc-950/60 rounded-lg p-2.5 border border-zinc-800">
+                    <p className="text-[10px] text-cyan-400 font-semibold flex items-center gap-1.5">
+                      <CloudLightning className="h-3.5 w-3.5" /> API Key Integration Required
+                    </p>
+                    <p className="text-[9px] text-zinc-500 mt-0.5 leading-relaxed">
+                      Requires a valid Gemini API key saved in settings or provided via request header.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Action Button */}
+            <div className="mt-5 flex justify-end">
+              <button 
+                onClick={() => setModelDetails(null)}
+                className="fx-btn-secondary py-1.5 px-4 text-xs font-sans font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
