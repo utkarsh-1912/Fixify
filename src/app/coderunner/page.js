@@ -474,17 +474,15 @@ export default function CodeRunnerPage() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={run} disabled={running} className="fx-btn-primary" title="Run Code">
-                <Play className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{running ? 'Compiling…' : 'Run Code'}</span>
-              </button>
               <button onClick={handleDefault} className="fx-btn-secondary" title="Load default template for current language">
                 <RotateCcw className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Default</span>
               </button>
               <button onClick={handleClear} className="fx-btn-secondary" title="Clear all — empty editor, stdin and output">
                 <Eraser className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Clear</span>
+              </button>
+              <button onClick={run} disabled={running} className="fx-btn-primary" title="Run Code">
+                <Play className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{running ? 'Compiling…' : 'Run Code'}</span>
               </button>
             </div>
           </div>
