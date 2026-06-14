@@ -336,7 +336,8 @@ function auditMultiMessageStream(lines) {
     
     // Check duplicates
     const duplicates = seqs.filter(s => s.num === curr.num);
-    if (duplicates.length > 1 && i === seqs.indexOf(curr)) {
+    const firstIndex = seqs.findIndex(s => s.num === curr.num);
+    if (duplicates.length > 1 && i === firstIndex) {
       seqWarnings.push(`- ⚠️ **Duplicate MsgSeqNum (${curr.num}) detected**: Ensure Tag \`43\` (PossDupFlag) is set to 'Y' if this is a retransmitted duplicate, otherwise this constitutes a session violation.`);
     }
     
@@ -402,18 +403,18 @@ function auditMultiMessageStream(lines) {
   summary += `- **Session Senders**: \`${leftNode}\` ➔ \`${rightNode}\`\n\n`;
   
   if (seqWarnings.length > 0) {
-    summary += `#### Session & Sequence Diagnostics\n`;
+    summary += `## Session & Sequence Diagnostics\n`;
     summary += seqWarnings.join('\n') + `\n\n`;
   } else {
-    summary += `#### Session & Sequence Diagnostics\n`;
+    summary += `## Session & Sequence Diagnostics\n`;
     summary += `✓ All parsed sequence numbers are sequential and Logon flow order is correct.\n\n`;
   }
 
   if (integrityWarnings.length > 0) {
-    summary += `#### Message Integrity Diagnostics\n`;
+    summary += `## Message Integrity Diagnostics\n`;
     summary += integrityWarnings.join('\n') + `\n\n`;
   } else {
-    summary += `#### Message Integrity Diagnostics\n`;
+    summary += `## Message Integrity Diagnostics\n`;
     summary += `✓ All message BodyLengths and Checksums are structurally valid.\n\n`;
   }
 

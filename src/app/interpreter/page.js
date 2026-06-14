@@ -340,6 +340,21 @@ export default function InterpreterPage() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
+  // Auto-grow textarea height as user types or pastes
+  useEffect(() => {
+    if (chatInputRef.current) {
+      chatInputRef.current.style.height = "auto";
+      chatInputRef.current.style.height = `${Math.min(160, chatInputRef.current.scrollHeight)}px`;
+    }
+  }, [input]);
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!input.trim()) return;
@@ -661,17 +676,21 @@ export default function InterpreterPage() {
         >
           <Sparkles className="h-3.5 w-3.5 shrink-0" />
         </button>
-        <input
+        <textarea
           ref={chatInputRef}
-          className="flex-1 py-2 px-3 rounded-xl text-xs font-mono min-w-0"
+          rows={1}
+          className="flex-1 py-2.5 px-3 rounded-xl text-xs font-mono min-w-0 resize-none overflow-y-auto"
           style={{
             background: 'var(--background)',
             border: '1px solid var(--border)',
             color: 'var(--foreground)',
             outline: 'none',
+            minHeight: '38px',
+            height: '38px',
           }}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Type logon flow, resend, checksum, Tag 39, or paste raw: 8=FIX.4.2|9=..."
           disabled={loading}
           onFocus={e => e.target.style.borderColor = 'var(--primary)'}
