@@ -932,10 +932,10 @@ export async function POST(req) {
             `- **Message Type**: \`${msgType}\` (${msgTypeName})\n` +
             `- **Integrity Check**: **${validationStatus}** (${validationDetails})` +
             additionalDetails + `\n\n` +
-            `*Response resolved offline by AURA.*`;
+            `*Response resolved by AURA.*`;
         } else {
           answer = `[Warning] Failed to parse FIX message structure.\n\n` +
-            `*Response resolved offline by AURA.*`;
+            `*Response resolved by AURA.*`;
         }
       } else {
         // Evaluate offline lookups in order of specificity
@@ -969,17 +969,17 @@ export async function POST(req) {
         const batchLookup = tryBatchTagLookup(query, customDialect);
 
         if (statusLookup) {
-          answer = `${statusLookup}\n\n*Response resolved offline by AURA (Displaying status/terminology guides).*`;
+          answer = `${statusLookup}\n\n*Response resolved by AURA (Displaying status/terminology guides).*`;
         } else if (rejectLookup) {
-          answer = `${rejectLookup}\n\n*Response resolved offline by AURA (Displaying local reject guides).*`;
+          answer = `${rejectLookup}\n\n*Response resolved by AURA (Displaying local reject guides).*`;
         } else if (localResult) {
-          answer = `${localResult}\n\n*Response resolved offline by AURA.*`;
+          answer = `${localResult}\n\n*Response resolved by AURA.*`;
         } else if (condRulesLookup) {
-          answer = `${condRulesLookup}\n\n*Response resolved offline by AURA (Displaying local validation rulebook).*`;
+          answer = `${condRulesLookup}\n\n*Response resolved by AURA (Displaying local validation rulebook).*`;
         } else if (schemaLookup) {
-          answer = `${schemaLookup}\n\n*Response resolved offline by AURA (Displaying local message schema).*`;
+          answer = `${schemaLookup}\n\n*Response resolved by AURA (Displaying local message schema).*`;
         } else if (batchLookup) {
-          answer = `${batchLookup}\n\n*Response resolved offline by AURA (Running offline batch lookups).*`;
+          answer = `${batchLookup}\n\n*Response resolved by AURA (Running offline batch lookups).*`;
         } else {
           // Check standard quick-guides next
           let guideMatch = null;
@@ -991,10 +991,10 @@ export async function POST(req) {
           }
 
           if (guideMatch) {
-            answer = `${guideMatch}\n\n*Response resolved offline by AURA (Displaying local quick-guide).*`;
+            answer = `${guideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
           } else {
             const partials = tryPartialLookup(query, customDialect);
-            answer = `*Response resolved offline by AURA.*\n\n${partials}\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
+            answer = `*Response resolved by AURA.*\n\n${partials}\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
           }
         }
       }
