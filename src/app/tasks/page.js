@@ -70,7 +70,7 @@ function DroppableColumn({ id, tasks, onTaskClick, allTasksList }) {
       style={{
         border: '1px solid var(--border)',
         borderTop: `4px solid ${cfg.color}`,
-        background: 'rgba(9, 9, 11, 0.40)',
+        background: 'rgba(9, 9, 11, 0.10)',
         minHeight: 520,
         boxShadow: `0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 15px ${cfg.color}10`,
       }}
@@ -78,7 +78,7 @@ function DroppableColumn({ id, tasks, onTaskClick, allTasksList }) {
       {/* Column header */}
       <div
         className="px-5 py-3.5 flex items-center justify-between"
-        style={{ borderBottom: '1px solid var(--border)', background: 'rgba(9, 9, 11, 0.6)' }}
+        style={{ borderBottom: '1px solid var(--border)', background: 'rgba(9, 9, 11, 0.4)' }}
       >
         <div className="flex items-center gap-2">
           <div className="h-2.5 w-2.5 rounded-full" style={{ background: cfg.color }} />
