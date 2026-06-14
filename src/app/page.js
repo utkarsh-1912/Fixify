@@ -564,7 +564,8 @@ export default function LogsProcessorPage() {
             {clOrdIds.length > 0 && (
               <div className="flex items-center gap-1">
                 <span style={{ color: 'var(--text-muted)' }}>ClOrdID:</span>
-                <span className="font-bold text-zinc-350">{clOrdIds.join(', ')}</span>
+                <span className="font-bold text-zinc-350">{clOrdIds[0]}</span>
+                {/* <span className="font-bold text-zinc-350">{clOrdIds.join(', ')}</span> */}
               </div>
             )}
             {clOrdIds.length > 0 && (orderIds.length > 0 || allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
@@ -820,7 +821,8 @@ export default function LogsProcessorPage() {
               {clOrdIds.length > 0 && (
                 <div className="flex items-center gap-1">
                   <span style={{ color: 'var(--text-muted)' }}>ClOrdID:</span>
-                  <span className="font-bold text-zinc-350">{clOrdIds.join(', ')}</span>
+                  {/* <span className="font-bold text-zinc-350">{clOrdIds.join(', ')}</span> */}
+                  <span className="font-bold text-zinc-350">{clOrdIds[0]}</span>
                 </div>
               )}
               {clOrdIds.length > 0 && (orderIds.length > 0 || allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
