@@ -378,7 +378,7 @@ export default function XMLFormatterPage() {
         <div style={panelStyle}>
           <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-900 bg-zinc-955/20 shrink-0 select-none">
             <span className="flex items-center gap-1.5 text-xs font-semibold">
-              <FileCode className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
+              <FileCode className="h-3.5 w-3.5 hidden md:inline" style={{ color: 'var(--primary)' }} />
               Raw XML Input
             </span>
             
