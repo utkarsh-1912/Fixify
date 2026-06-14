@@ -438,6 +438,7 @@ export default function FIXDictionaryPage() {
           version={selectedVersion}
           isOpen={!!activeTag}
           onClose={() => setActiveTag(null)}
+          onTagSelect={setActiveTag}
         />
       )}
     </div>

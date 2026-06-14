@@ -286,9 +286,150 @@ function tryMessageSchemaLookup(queryText) {
     `*This schema contains field definitions specifically for the ${detectedVer} protocol version.*`;
 }
 
-// Check if message is a FIX message
+// Check if message is a FIX message (supports single or multi-line)
 function looksLikeFIX(input) {
-  return /^8=FIX\./.test(input.trim());
+  if (!input) return false;
+  return input.split("\n").some(line => /^8=FIX\./.test(line.trim()));
+}
+
+function auditMultiMessageStream(lines) {
+  const parsedMessages = [];
+  const errors = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const parsed = validateFIXMessage(line);
+    if (parsed) {
+      parsedMessages.push(parsed);
+    } else {
+      errors.push(`Line ${i + 1}: Failed to parse FIX message structure.`);
+    }
+  }
+
+  if (parsedMessages.length === 0) {
+    return {
+      answer: `### Multi-Message Audit Results\n\nFailed to parse any valid FIX messages in the stream.`,
+      table: null
+    };
+  }
+
+  // 1. Determine Sender/Target roles for sequence diagram
+  const leftNode = parsedMessages[0].tags['49'] || 'CLIENT';
+  const rightNode = parsedMessages[0].tags['56'] || 'BROKER';
+
+  // 2. Perform sequence validation
+  const seqWarnings = [];
+  const seqs = parsedMessages.map(m => ({
+    num: parseInt(m.tags['34'], 10),
+    msgType: m.tags['35'],
+    msgTypeName: m.msgTypeName
+  })).filter(s => !isNaN(s.num));
+
+  // Check logon first message
+  if (parsedMessages[0].tags['35'] !== 'A') {
+    seqWarnings.push(`- ⚠️ **First message is not Logon (35=A)**: Session establishment should precede application messages. Found message type \`${parsedMessages[0].tags['35']}\` (${parsedMessages[0].msgTypeName}) instead.`);
+  }
+
+  // Check sequence numbers
+  for (let i = 0; i < seqs.length; i++) {
+    const curr = seqs[i];
+    
+    // Check duplicates
+    const duplicates = seqs.filter(s => s.num === curr.num);
+    if (duplicates.length > 1 && i === seqs.indexOf(curr)) {
+      seqWarnings.push(`- ⚠️ **Duplicate MsgSeqNum (${curr.num}) detected**: Ensure Tag \`43\` (PossDupFlag) is set to 'Y' if this is a retransmitted duplicate, otherwise this constitutes a session violation.`);
+    }
+    
+    // Check gap with previous sequence
+    if (i > 0) {
+      const prev = seqs[i - 1];
+      if (curr.num > prev.num + 1) {
+        const gapStart = prev.num + 1;
+        const gapEnd = curr.num - 1;
+        const range = gapStart === gapEnd ? `${gapStart}` : `${gapStart}-${gapEnd}`;
+        seqWarnings.push(`- ⚠️ **Sequence Gap Detected**: Gap between MsgSeqNum \`${prev.num}\` and \`${curr.num}\`. Expected the counterparty to issue a **Resend Request (35=2)** for sequence range \`${range}\`.`);
+      }
+    }
+  }
+
+  // Check integrity checks
+  const integrityWarnings = [];
+  parsedMessages.forEach((m, idx) => {
+    if (!m.isValid) {
+      integrityWarnings.push(`- Line ${idx + 1} (${m.msgTypeName}): ${m.errors.join('; ')}`);
+    }
+  });
+
+  // 3. Construct Visual Flowchart
+  let diagram = `### Visual Session Sequence Flow\n\n`;
+  diagram += `\`\`\`text\n`;
+  
+  const leftPad = leftNode.padEnd(12, ' ');
+  const rightPad = rightNode.padStart(12, ' ');
+  diagram += `   ${leftPad}                ${rightPad}\n`;
+  diagram += `        │                            │\n`;
+
+  parsedMessages.forEach((m) => {
+    const seq = m.tags['34'] || '?';
+    const type = m.tags['35'] || '?';
+    const name = m.msgTypeName || 'Message';
+    const sender = m.tags['49'] || 'UNKNOWN';
+    const target = m.tags['56'] || 'UNKNOWN';
+    const isIntegrityPassed = m.isValid;
+    const statusLabel = isIntegrityPassed ? '✓' : '✗';
+
+    const msgLabel = `${name} (35=${type}) Seq:${seq} [${statusLabel}]`;
+
+    if (sender === leftNode) {
+      const arrowBody = `─── ${msgLabel} ───>`;
+      diagram += `        │${arrowBody.padEnd(28, '─')}│\n`;
+    } else if (sender === rightNode) {
+      const arrowBody = `<─── ${msgLabel} ───`;
+      diagram += `        │${arrowBody.padStart(28, '─')}│\n`;
+    } else {
+      const arrowBody = `─── ${msgLabel} ───`;
+      diagram += `  (${sender} ➔ ${target}):\n`;
+      diagram += `        │${arrowBody.padEnd(28, '─')}│\n`;
+    }
+    diagram += `        │                            │\n`;
+  });
+  
+  diagram += `        ▼                            ▼\n`;
+  diagram += `\`\`\`\n`;
+
+  let summary = `### Multi-Message Session Log Audit Results\n`;
+  summary += `- **Total Messages parsed**: ${parsedMessages.length}\n`;
+  summary += `- **Session Senders**: \`${leftNode}\` ➔ \`${rightNode}\`\n\n`;
+  
+  if (seqWarnings.length > 0) {
+    summary += `#### Session & Sequence Diagnostics\n`;
+    summary += seqWarnings.join('\n') + `\n\n`;
+  } else {
+    summary += `#### Session & Sequence Diagnostics\n`;
+    summary += `✓ All parsed sequence numbers are sequential and Logon flow order is correct.\n\n`;
+  }
+
+  if (integrityWarnings.length > 0) {
+    summary += `#### Message Integrity Diagnostics\n`;
+    summary += integrityWarnings.join('\n') + `\n\n`;
+  } else {
+    summary += `#### Message Integrity Diagnostics\n`;
+    summary += `✓ All message BodyLengths and Checksums are structurally valid.\n\n`;
+  }
+
+  summary += diagram;
+  
+  const table = parsedMessages.map((m, idx) => [
+    `Msg #${idx + 1} (Seq:${m.tags['34'] || '?'})`,
+    m.tags['35'] || '?',
+    m.msgTypeName || 'Unknown',
+    m.isValid ? 'Valid' : 'Invalid'
+  ]);
+
+  return {
+    answer: summary + `\n\n*Response resolved by AURA (Offline log stream audit).*`,
+    table: table
+  };
 }
 
 // Fetch market data via yfinance for context
@@ -909,40 +1050,65 @@ export async function POST(req) {
     } else {
       // Offline fallback: Highly detailed local lookups
       if (looksLikeFIX(query)) {
-        const parsed = validateFIXMessage(query);
-        if (parsed) {
-          table = parsed.tagList.map(t => [t.tag, t.val, t.name, t.meaning]);
-          const version = parsed.tags['8'] || 'Unknown';
-          const msgType = parsed.tags['35'] || 'Unknown';
-          const msgTypeName = parsed.msgTypeName || 'Unknown';
-          const validationStatus = parsed.isValid ? 'Passed' : 'Failed';
-          const validationDetails = parsed.isValid ? 'Checksum and BodyLength are correct.' : parsed.errors.join('; ');
-          
-          const routingAnalysis = analyzeSessionRouting(parsed);
-          const responsePayload = generateResponsePayload(parsed);
-          
-          let additionalDetails = "";
-          if (routingAnalysis) {
-            additionalDetails += `\n\n${routingAnalysis}`;
-          }
-          if (responsePayload) {
-            additionalDetails += `\n\n### Proposed Counterpart Response (FIXi Intelligent Simulator)\n` +
-              `${responsePayload.explanation}\n\n` +
-              `**Expected Response**: \`${responsePayload.respMsgTypeName}\` (MsgType 35=${responsePayload.rawResponse.match(/35=([^|]+)/)?.[1] || ''})\n` +
-              `\`\`\`\n` +
-              `${responsePayload.rawResponse}\n` +
-              `\`\`\``;
-          }
-
-          answer = `### Parsed FIX Message Details\n` +
-            `- **Protocol Version**: ${version}\n` +
-            `- **Message Type**: \`${msgType}\` (${msgTypeName})\n` +
-            `- **Integrity Check**: **${validationStatus}** (${validationDetails})` +
-            additionalDetails + `\n\n` +
-            `*Response resolved by AURA.*`;
+        const fixLines = query.split("\n").map(l => l.trim()).filter(l => /^8=FIX\./.test(l));
+        if (fixLines.length > 1) {
+          const auditResult = auditMultiMessageStream(fixLines);
+          answer = auditResult.answer;
+          table = auditResult.table;
         } else {
-          answer = `[Warning] Failed to parse FIX message structure.\n\n` +
-            `*Response resolved by AURA.*`;
+          const parsed = validateFIXMessage(query);
+          if (parsed) {
+            table = parsed.tagList.map(t => [t.tag, t.val, t.name, t.meaning]);
+            const version = parsed.tags['8'] || 'Unknown';
+            const msgType = parsed.tags['35'] || 'Unknown';
+            const msgTypeName = parsed.msgTypeName || 'Unknown';
+            const validationStatus = parsed.isValid ? 'Passed' : 'Failed';
+            const validationDetails = parsed.isValid ? 'Checksum and BodyLength are correct.' : parsed.errors.join('; ');
+            
+            const routingAnalysis = analyzeSessionRouting(parsed);
+            const responsePayload = generateResponsePayload(parsed);
+            
+            let additionalDetails = "";
+            if (routingAnalysis) {
+              additionalDetails += `\n\n${routingAnalysis}`;
+            }
+            if (responsePayload) {
+              additionalDetails += `\n\n### Proposed Counterpart Response (FIXi Intelligent Simulator)\n` +
+                `${responsePayload.explanation}\n\n` +
+                `**Expected Response**: \`${responsePayload.respMsgTypeName}\` (MsgType 35=${responsePayload.rawResponse.match(/35=([^|]+)/)?.[1] || ''})\n` +
+                `\`\`\`\n` +
+                `${responsePayload.rawResponse}\n` +
+                `\`\`\``;
+            }
+
+            let singleDiagram = "";
+            const sender = parsed.tags['49'] || 'CLIENT';
+            const target = parsed.tags['56'] || 'BROKER';
+            const seq = parsed.tags['34'] || '?';
+            const type = parsed.tags['35'] || '?';
+            const name = parsed.msgTypeName || 'Message';
+            const statusLabel = parsed.isValid ? '✓' : '✗';
+            
+            singleDiagram = `\n\n### Visual Message Flow\n` +
+              `\`\`\`text\n` +
+              `   ${sender.padEnd(12, ' ')}                ${target.padStart(12, ' ')}\n` +
+              `        │                            │\n` +
+              `        │─── ${name} (35=${type}) Seq:${seq} [${statusLabel}] ───>│\n` +
+              `        │                            │\n` +
+              `        ▼                            ▼\n` +
+              `\`\`\``;
+
+            answer = `### Parsed FIX Message Details\n` +
+              `- **Protocol Version**: ${version}\n` +
+              `- **Message Type**: \`${msgType}\` (${msgTypeName})\n` +
+              `- **Integrity Check**: **${validationStatus}** (${validationDetails})` +
+              additionalDetails +
+              singleDiagram + `\n\n` +
+              `*Response resolved by AURA.*`;
+          } else {
+            answer = `[Warning] Failed to parse FIX message structure.\n\n` +
+              `*Response resolved by AURA.*`;
+          }
         }
       } else {
         if (isGreeting(query)) {

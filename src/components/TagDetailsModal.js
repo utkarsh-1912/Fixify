@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, BookOpen, Layers, Info, Hash } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, BookOpen, Layers, Info, Hash, ArrowRight } from 'lucide-react';
 import fixDescriptions from '@/data/fix-description.json';
 import fix40 from '@/data/FIX/FIX40.json';
 import fix42 from '@/data/FIX/FIX42.json';
@@ -52,7 +52,34 @@ function formatRichText(text) {
   });
 }
 
-export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onClose, val1, val2, mappedVal1, mappedVal2 }) {
+const TAG_RELATIONS = {
+  // Order identifiers
+  "11": ["41", "37", "17", "66"],      // ClOrdID -> OrigClOrdID, OrderID, ExecID, ListID
+  "41": ["11", "37"],                  // OrigClOrdID -> ClOrdID, OrderID
+  "37": ["11", "41", "17"],            // OrderID -> ClOrdID, OrigClOrdID, ExecID
+  "17": ["37", "11"],                  // ExecID -> OrderID, ClOrdID
+  // Quantities
+  "38": ["14", "151", "150", "39"],    // OrderQty -> CumQty, LeavesQty, ExecType, OrdStatus
+  "14": ["38", "151"],                 // CumQty -> OrderQty, LeavesQty
+  "151": ["38", "14"],                 // LeavesQty -> OrderQty, CumQty
+  // Prices
+  "44": ["40", "99", "38"],            // Price -> OrdType, StopPx, OrderQty
+  "99": ["44", "40"],                  // StopPx -> Price, OrdType
+  "40": ["44", "99"],                  // OrdType -> Price, StopPx
+  // Party identifiers
+  "49": ["56", "115", "128", "50", "57"], // SenderCompID -> TargetCompID, OnBehalfOfCompID, DeliverToCompID, SenderSubID, TargetSubID
+  "56": ["49", "115", "128", "50", "57"], // TargetCompID -> SenderCompID, OnBehalfOfCompID, DeliverToCompID, SenderSubID, TargetSubID
+  "115": ["49", "56", "128"],          // OnBehalfOfCompID -> Sender, Target, DeliverTo
+  "128": ["49", "56", "115"],          // DeliverToCompID -> Sender, Target, OnBehalfOf
+};
+
+export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onClose, onTagSelect, val1, val2, mappedVal1, mappedVal2 }) {
+  const [enumSearch, setEnumSearch] = useState("");
+
+  useEffect(() => {
+    setEnumSearch("");
+  }, [tag, version]);
+
   if (!isOpen || !tag) return null;
 
   const tagStr = String(tag).trim();
@@ -72,6 +99,12 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
   const description = descInfo.description || "No description available for this tag.";
   const note = descInfo.note || null;
   const enums = fieldInfo.values || [];
+
+  const relatedTags = TAG_RELATIONS[tagStr] || [];
+  const filteredEnums = enums.filter((val) => 
+    String(val.enum).toLowerCase().includes(enumSearch.toLowerCase()) ||
+    String(val.description).toLowerCase().includes(enumSearch.toLowerCase())
+  );
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
@@ -143,6 +176,36 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
             </div>
           )}
 
+          
+          {/* Tag Relations (Jump Map) */}
+          {relatedTags.length > 0 && (
+            <div className="space-y-2">
+              <p className="fx-section-label flex items-center gap-1.5 text-zinc-400 font-mono text-[10px]">
+                <Layers className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
+                Related Workflow Tags
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {relatedTags.map((t) => {
+                  const relField = dictData?.fields?.find((f) => String(f.tag) === String(t)) || {};
+                  const relLabel = relField.name || `Tag ${t}`;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => onTagSelect && onTagSelect(t)}
+                      disabled={!onTagSelect}
+                      className="px-2 py-0.5 text-[10px] rounded-lg border flex items-center gap-1 transition-all text-zinc-400 border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 hover:text-zinc-200 select-none font-mono hover:scale-105"
+                    >
+                      <Hash className="h-2.5 w-2.5 text-[var(--primary)]" />
+                      <span>{t}</span>
+                      <span className="opacity-60 text-[9px]">({relLabel})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Render Compared Values if available, otherwise fallback to standard Allowed Values */}
           {(val1 !== undefined || val2 !== undefined) ? (
             <div className="space-y-2.5">
@@ -177,35 +240,52 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
           ) : (
             enums.length > 0 && (
               <div className="space-y-2.5">
-                <p className="fx-section-label flex items-center gap-1.5 text-zinc-400 font-mono text-[10px]">
-                  <Layers className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
-                  Allowed Values ({enums.length})
-                </p>
-                <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-                  <table className="w-full text-xs font-mono text-left">
-                    <thead>
-                      <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800" style={{ color: 'var(--text-muted)' }}>
-                        <th className="py-2 px-3.5 font-semibold w-16">Value</th>
-                        <th className="py-2 px-3.5 font-semibold">Description / Meaning</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {enums.map((val) => (
-                        <tr 
-                          key={val.enum} 
-                          className="border-b border-zinc-100 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-900/30"
-                        >
-                          <td className="py-2 px-3.5 font-bold" style={{ color: 'var(--primary)' }}>
-                            {val.enum}
-                          </td>
-                          <td className="py-2 px-3.5" style={{ color: 'var(--foreground)' }}>
-                            {val.description}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <p className="fx-section-label flex items-center gap-1.5 text-zinc-400 font-mono text-[10px]">
+                    <Layers className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
+                    Allowed Values {enumSearch.trim() ? `(${filteredEnums.length} of ${enums.length})` : `(${enums.length})`}
+                  </p>
+                  
+                  {enums.length > 5 && (
+                    <input
+                      type="text"
+                      placeholder="Filter allowed values..."
+                      value={enumSearch}
+                      onChange={(e) => setEnumSearch(e.target.value)}
+                      className="px-2 py-1 bg-zinc-950/40 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-lg text-[10px] font-mono text-zinc-300 w-full sm:w-44 transition-all"
+                    />
+                  )}
                 </div>
+
+                {filteredEnums.length > 0 ? (
+                  <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <table className="w-full text-xs font-mono text-left">
+                      <thead>
+                        <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800" style={{ color: 'var(--text-muted)' }}>
+                          <th className="py-2 px-3.5 font-semibold w-16">Value</th>
+                          <th className="py-2 px-3.5 font-semibold">Description / Meaning</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredEnums.map((val) => (
+                          <tr 
+                            key={val.enum} 
+                            className="border-b border-zinc-100 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-900/30"
+                          >
+                            <td className="py-2 px-3.5 font-bold" style={{ color: 'var(--primary)' }}>
+                              {val.enum}
+                            </td>
+                            <td className="py-2 px-3.5" style={{ color: 'var(--foreground)' }}>
+                              {val.description}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-zinc-500 font-mono py-1">No allowed values match your search.</p>
+                )}
               </div>
             )
           )}

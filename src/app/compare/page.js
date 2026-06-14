@@ -109,6 +109,8 @@ export default function FIXComparePage() {
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [diffSearch, setDiffSearch] = useState("");
+  const [hideAdmin, setHideAdmin] = useState(false);
+  const [showDiffsOnly, setShowDiffsOnly] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTag, setActiveTag] = useState(null);
 
@@ -376,9 +378,14 @@ export default function FIXComparePage() {
       .sort((a, b) => Number(a.tag) - Number(b.tag));
   };
 
+  const ADMIN_TAGS = new Set(["8", "9", "10", "34", "35", "49", "56", "52", "115", "128", "43", "97", "122"]);
+
   const groupedDiffRows = buildGroupedDiffRows(activePair?.tagDiff.full || []);
   const diffQuery = diffSearch.trim().toLowerCase();
   const filteredDiffRows = groupedDiffRows.filter((row) => {
+    if (hideAdmin && ADMIN_TAGS.has(row.tag)) return false;
+    if (showDiffsOnly && row.status === 'match') return false;
+    
     if (!diffQuery) return true;
     return [
       row.tag,
@@ -639,25 +646,48 @@ export default function FIXComparePage() {
                         Repeating-group occurrences are compressed into comma-separated values.
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="relative w-full sm:w-72">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <div className="relative w-full sm:w-60">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} />
                         <input
                           type="text"
                           value={diffSearch}
                           onChange={(e) => setDiffSearch(e.target.value)}
-                          placeholder="Search tag, name, or value..."
+                          placeholder="Search tag..."
                           className="w-full pl-8 pr-3 py-2 rounded-lg text-xs font-mono"
                           style={inputStyle}
                         />
                       </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-mono text-zinc-400 hover:text-zinc-200">
+                          <input
+                            type="checkbox"
+                            checked={hideAdmin}
+                            onChange={(e) => setHideAdmin(e.target.checked)}
+                            className="rounded border-zinc-800 bg-zinc-950/40 text-[var(--primary)] focus:ring-[var(--primary)] h-3.5 w-3.5"
+                          />
+                          <span>Hide Admin</span>
+                        </label>
+                        
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-mono text-zinc-400 hover:text-zinc-200">
+                          <input
+                            type="checkbox"
+                            checked={showDiffsOnly}
+                            onChange={(e) => setShowDiffsOnly(e.target.checked)}
+                            className="rounded border-zinc-800 bg-zinc-950/40 text-[var(--primary)] focus:ring-[var(--primary)] h-3.5 w-3.5"
+                          />
+                          <span>Diffs Only</span>
+                        </label>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => {
                           setModalContent({ data: filteredDiffRows, title: `Full Tag Comparison (${filteredDiffRows.length} tags)`, type: 'tagDiff' });
                           setShowModal(true);
                         }}
-                        className="fx-btn-secondary shrink-0"
+                        className="fx-btn-secondary shrink-0 py-1.5 px-3 text-[10px] flex items-center gap-1"
                         disabled={filteredDiffRows.length === 0}
                         title="View All"
                       >
@@ -994,6 +1024,13 @@ export default function FIXComparePage() {
           mappedVal2={typeof activeTag === 'object' ? activeTag.mappedVal2 : undefined}
           isOpen={!!activeTag}
           onClose={() => setActiveTag(null)}
+          onTagSelect={(t) => {
+            if (typeof activeTag === 'object') {
+              setActiveTag({ ...activeTag, tag: t });
+            } else {
+              setActiveTag(t);
+            }
+          }}
         />
       )}
     </div>

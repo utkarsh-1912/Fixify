@@ -11,7 +11,8 @@ import {
   Activity,
   ArrowRightLeft,
   Search,
-  Info
+  Info,
+  Download
 } from "lucide-react";
 
 // Standard parser helpers specifically for latency tracking
@@ -97,6 +98,172 @@ const SAMPLE_LATENCY_LOGS = `8=FIX.4.4|9=112|35=D|49=CLIENT_DESK|56=BROKER_GATEW
 8=FIX.4.4|9=112|35=D|49=CLIENT_DESK|56=BROKER_GATEWAY|34=1006|52=20260613-12:00:09.115200|11=ORD_9906|55=MSFT|54=1|60=20260613-12:00:09.119100|38=300|44=421.00|10=200|
 8=FIX.4.4|9=145|35=8|49=BROKER_GATEWAY|56=CLIENT_DESK|34=2006|52=20260613-12:00:09.123500|37=EX_024|11=ORD_9906|17=EXEC_06|20=0|150=0|39=0|55=MSFT|54=1|38=300|60=20260613-12:00:09.121000|10=180|`;
 
+const WORKER_CODE = `
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^\${}()|[\\]\\\\]/g, "\\\\$&");
+  }
+
+  function extractTagValue(line, tag, delimiter) {
+    if (!line) return "";
+    const rx = new RegExp("(?:^|" + escapeRegExp(delimiter) + ")" + tag + "=([^" + escapeRegExp(delimiter) + "]+)");
+    const match = line.match(rx);
+    return match ? match[1] : "";
+  }
+
+  function getMsgTypeName(msgType) {
+    const types = {
+      "0": "Heartbeat",
+      "1": "Test Request",
+      "2": "Resend Request",
+      "3": "Reject",
+      "4": "Sequence Reset",
+      "5": "Logout",
+      "8": "Execution Report",
+      "9": "Order Cancel Reject",
+      "A": "Logon",
+      "D": "New Order Single",
+      "F": "Order Cancel Request",
+      "G": "Order Cancel/Replace Request",
+      "H": "Order Status Request",
+      "J": "Allocation Instruction",
+      "W": "Market Data Snapshot",
+      "X": "Market Data Incremental"
+    };
+    return types[msgType] || "Other (" + msgType + ")";
+  }
+
+  function parseFixTimestampToMicroseconds(ts) {
+    if (!ts) return null;
+    const match = ts.match(/^(?:([0-9]{4})([0-9]{2})([0-9]{2})-)?([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\\.([0-9]+))?$/);
+    if (!match) return null;
+
+    const year = match[1] ? parseInt(match[1], 10) : 2026;
+    const month = match[2] ? parseInt(match[2], 10) - 1 : 0;
+    const day = match[3] ? parseInt(match[3], 10) : 1;
+    const hours = parseInt(match[4], 10);
+    const minutes = parseInt(match[5], 10);
+    const seconds = parseInt(match[6], 10);
+
+    let microseconds = 0;
+    let milliseconds = 0;
+    if (match[7]) {
+      const fraction = match[7];
+      const microstr = fraction.padEnd(6, '0').slice(0, 6);
+      microseconds = parseInt(microstr, 10);
+      milliseconds = Math.floor(microseconds / 1000);
+    }
+
+    const epochMs = Date.UTC(year, month, day, hours, minutes, seconds, milliseconds);
+    if (isNaN(epochMs)) return null;
+
+    const totalMicroseconds = (epochMs * 1000) + (microseconds % 1000);
+    return {
+      totalMicroseconds,
+      formattedTime: hours.toString().padStart(2, '0') + ":" + minutes.toString().padStart(2, '0') + ":" + seconds.toString().padStart(2, '0') + "." + microseconds.toString().padStart(6, '0')
+    };
+  }
+
+  self.onmessage = function(e) {
+    const { rawLogsText, delimiter } = e.data;
+    if (!rawLogsText || !rawLogsText.trim()) {
+      self.postMessage({ messages: [], pairs: [], stats: {} });
+      return;
+    }
+    const lines = rawLogsText.split(/\\r?\\n/).filter(Boolean);
+    const messages = [];
+    const clOrdIdMap = {};
+
+    lines.forEach((line, index) => {
+      const msgType = extractTagValue(line, "35", delimiter);
+      const sendingTimeVal = extractTagValue(line, "52", delimiter);
+      const transactTimeVal = extractTagValue(line, "60", delimiter);
+      const clOrdId = extractTagValue(line, "11", delimiter);
+      const seqNum = extractTagValue(line, "34", delimiter);
+      const sender = extractTagValue(line, "49", delimiter);
+      const target = extractTagValue(line, "56", delimiter);
+
+      const parsedSend = parseFixTimestampToMicroseconds(sendingTimeVal);
+      const parsedTransact = parseFixTimestampToMicroseconds(transactTimeVal);
+
+      let hopLatency = null;
+      if (parsedSend && parsedTransact) {
+        hopLatency = Math.abs(parsedTransact.totalMicroseconds - parsedSend.totalMicroseconds);
+      }
+
+      const msgInfo = {
+        id: "msg-" + index + "-" + Date.now(),
+        seqNum: seqNum || "" + (index + 1),
+        msgType,
+        msgTypeName: getMsgTypeName(msgType),
+        sendingTime: sendingTimeVal,
+        transactTime: transactTimeVal,
+        parsedSend,
+        parsedTransact,
+        hopLatency,
+        clOrdId,
+        sender,
+        target,
+        content: line
+      };
+
+      messages.push(msgInfo);
+
+      if (clOrdId) {
+        if (["D", "F", "G"].includes(msgType)) {
+          clOrdIdMap[clOrdId] = msgInfo;
+        }
+      }
+    });
+
+    const pairs = [];
+    messages.forEach((msg) => {
+      if (msg.clOrdId && ["8", "9"].includes(msg.msgType)) {
+        const reqMsg = clOrdIdMap[msg.clOrdId];
+        if (reqMsg && reqMsg.parsedSend && msg.parsedSend) {
+          const rtt = msg.parsedSend.totalMicroseconds - reqMsg.parsedSend.totalMicroseconds;
+          if (rtt > 0) {
+            pairs.push({
+              clOrdId: msg.clOrdId,
+              requestSeq: reqMsg.seqNum,
+              responseSeq: msg.seqNum,
+              reqTime: reqMsg.parsedSend.formattedTime,
+              respTime: msg.parsedSend.formattedTime,
+              rttMicroseconds: rtt,
+              symbol: extractTagValue(msg.content, "55", delimiter) || "N/A"
+            });
+            msg.rttMicroseconds = rtt;
+          }
+        }
+      }
+    });
+
+    const latencyValues = messages.map(m => m.hopLatency).filter(l => l !== null);
+    const rttValues = pairs.map(p => p.rttMicroseconds);
+
+    const hasLatency = latencyValues.length;
+    const avgHopLatency = hasLatency ? Math.round(latencyValues.reduce((a, b) => a + b, 0) / hasLatency) : 0;
+    const maxHopLatency = hasLatency ? Math.max(...latencyValues) : 0;
+    const minHopLatency = hasLatency ? Math.min(...latencyValues) : 0;
+
+    const totalRttPairs = rttValues.length;
+    const avgRtt = totalRttPairs ? Math.round(rttValues.reduce((a, b) => a + b, 0) / totalRttPairs) : 0;
+
+    self.postMessage({
+      messages,
+      pairs,
+      stats: {
+        totalMessages: messages.length,
+        hasLatency,
+        avgHopLatency,
+        maxHopLatency,
+        minHopLatency,
+        avgRtt,
+        totalRttPairs
+      }
+    });
+  };
+`;
+
 export default function LatencyDashboard() {
   const [pastedText, setPastedText] = useState("");
   const [delimiter, setDelimiter] = useState("|");
@@ -117,15 +284,15 @@ export default function LatencyDashboard() {
   const [activeTab, setActiveTab] = useState("hop"); // "hop" or "rtt"
   const [searchTerm, setSearchTerm] = useState("");
   const [hoveredPoint, setHoveredPoint] = useState(null); // Chart tooltip details
+  const [loading, setLoading] = useState(false);
 
-
-  // Processes raw logs and extracts latencies
-  const processLatencyLogs = useCallback((rawLogsText) => {
+  // Fallback synchronous parser
+  const runSyncParsing = useCallback((rawLogsText) => {
     if (!rawLogsText.trim()) return;
     const lines = rawLogsText.split(/\r?\n/).filter(Boolean);
     
     const messages = [];
-    const clOrdIdMap = {}; // Maps ClOrdID -> Request message info
+    const clOrdIdMap = {};
 
     lines.forEach((line, index) => {
       const msgType = extractTagValue(line, "35", delimiter);
@@ -141,7 +308,6 @@ export default function LatencyDashboard() {
 
       let hopLatency = null;
       if (parsedSend && parsedTransact) {
-        // Absolute offset represents the transmission processing hop delay
         hopLatency = Math.abs(parsedTransact.totalMicroseconds - parsedSend.totalMicroseconds);
       }
 
@@ -163,7 +329,6 @@ export default function LatencyDashboard() {
 
       messages.push(msgInfo);
 
-      // RTT calculations: match requests (D=NOS, F=Cxl, G=CxlReplace) and responses (8=ER, 9=CxlRej)
       if (clOrdId) {
         if (["D", "F", "G"].includes(msgType)) {
           clOrdIdMap[clOrdId] = msgInfo;
@@ -171,7 +336,6 @@ export default function LatencyDashboard() {
       }
     });
 
-    // Compute RTT pairs
     const pairs = [];
     messages.forEach((msg) => {
       if (msg.clOrdId && ["8", "9"].includes(msg.msgType)) {
@@ -188,14 +352,12 @@ export default function LatencyDashboard() {
               rttMicroseconds: rtt,
               symbol: extractTagValue(msg.content, "55", delimiter) || "N/A"
             });
-            // Link RTT back to response message for detail view
             msg.rttMicroseconds = rtt;
           }
         }
       }
     });
 
-    // Compute Stats
     const latencyValues = messages.map(m => m.hopLatency).filter(l => l !== null);
     const rttValues = pairs.map(p => p.rttMicroseconds);
 
@@ -219,6 +381,87 @@ export default function LatencyDashboard() {
       totalRttPairs
     });
   }, [delimiter]);
+
+  // Processes raw logs and extracts latencies via Web Worker
+  const processLatencyLogs = useCallback((rawLogsText) => {
+    if (!rawLogsText.trim()) return;
+    setLoading(true);
+
+    if (typeof window !== "undefined" && window.Worker) {
+      const blob = new Blob([WORKER_CODE], { type: "application/javascript" });
+      const workerUrl = URL.createObjectURL(blob);
+      const worker = new Worker(workerUrl);
+
+      worker.onmessage = (e) => {
+        const { messages, pairs, stats } = e.data;
+        setParsedData(messages);
+        setRttPairs(pairs);
+        setStats(stats);
+        setLoading(false);
+        worker.terminate();
+        URL.revokeObjectURL(workerUrl);
+      };
+
+      worker.onerror = (err) => {
+        console.error("Worker error, falling back to main thread:", err);
+        runSyncParsing(rawLogsText);
+        setLoading(false);
+        worker.terminate();
+        URL.revokeObjectURL(workerUrl);
+      };
+
+      worker.postMessage({ rawLogsText, delimiter });
+    } else {
+      runSyncParsing(rawLogsText);
+      setLoading(false);
+    }
+  }, [delimiter, runSyncParsing]);
+
+  // CSV Report Downloader
+  const exportCSV = () => {
+    if (parsedData.length === 0) return;
+    
+    const headers = [
+      "Sequence",
+      "Msg Type",
+      "Msg Name",
+      "ClOrdID",
+      "Sender",
+      "Target",
+      "SendingTime (52)",
+      "TransactTime (60)",
+      "Hop Latency (ms)",
+      "RTT Duration (ms)"
+    ];
+    
+    const rows = parsedData.map(m => [
+      `#${m.seqNum}`,
+      m.msgType,
+      m.msgTypeName,
+      m.clOrdId || "",
+      m.sender || "",
+      m.target || "",
+      m.parsedSend ? m.parsedSend.formattedTime : "",
+      m.parsedTransact ? m.parsedTransact.formattedTime : "",
+      m.hopLatency !== null ? (m.hopLatency / 1000).toFixed(3) : "",
+      m.rttMicroseconds !== undefined ? (m.rttMicroseconds / 1000).toFixed(3) : ""
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `fixify_latency_report_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Dropzone load files handler
   const onDrop = useCallback((acceptedFiles) => {
@@ -519,9 +762,14 @@ export default function LatencyDashboard() {
         </div>
 
         {isProcessed && (
-          <button onClick={clearAll} className="fx-btn-secondary shrink-0">
-            Clear Logs
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={exportCSV} className="fx-btn-primary py-2 px-4 flex items-center gap-1.5 text-xs font-semibold" disabled={loading}>
+              <Download className="h-4 w-4" /> Export CSV
+            </button>
+            <button onClick={clearAll} className="fx-btn-secondary py-2 px-4 text-xs font-semibold" disabled={loading}>
+              Clear Logs
+            </button>
+          </div>
         )}
       </div>
 
@@ -571,10 +819,10 @@ export default function LatencyDashboard() {
                     style={{ color: isDragActive ? "var(--primary)" : "var(--text-muted)" }}
                   />
                   <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                    Drag &amp; drop trading session logs
+                    {loading ? "Analyzing logs via Web Worker..." : "Drag & drop trading session logs"}
                   </p>
                   <p className="text-xs text-[var(--text-muted)] mt-1">
-                    Supports .txt · .fix · .log
+                    {loading ? "Calculating latencies in the background thread..." : "Supports .txt · .fix · .log"}
                   </p>
                 </div>
               ) : (
@@ -591,13 +839,14 @@ export default function LatencyDashboard() {
                     }}
                     onFocus={e => e.target.style.borderColor = "var(--primary)"}
                     onBlur={e => e.target.style.borderColor = "var(--border)"}
+                    disabled={loading}
                   />
                   <button
                     onClick={() => processLatencyLogs(pastedText)}
-                    disabled={!pastedText.trim()}
+                    disabled={!pastedText.trim() || loading}
                     className="w-full fx-btn-primary justify-center py-2"
                   >
-                    Analyze Latencies
+                    {loading ? "Analyzing logs via Web Worker..." : "Analyze Latencies"}
                   </button>
                 </div>
               )}

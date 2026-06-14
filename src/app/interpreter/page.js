@@ -694,6 +694,7 @@ export default function InterpreterPage() {
           version={activeVersion}
           isOpen={!!activeTag}
           onClose={() => setActiveTag(null)}
+          onTagSelect={setActiveTag}
         />
       )}
 

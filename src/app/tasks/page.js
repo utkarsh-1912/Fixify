@@ -59,20 +59,26 @@ function getPriorityBadgeStyles(priority) {
   }
 }
 
-function DroppableColumn({ id, tasks, onTaskClick }) {
+function DroppableColumn({ id, tasks, onTaskClick, allTasksList }) {
   const { setNodeRef } = useDroppable({ id });
   const cfg = COLUMN_CONFIG[id];
 
   return (
     <div
       ref={setNodeRef}
-      className="flex flex-col rounded-2xl overflow-hidden"
-      style={{ border: '1px solid var(--border)', background: 'var(--card)', minHeight: 520 }}
+      className="flex flex-col rounded-2xl overflow-hidden backdrop-blur-md animate-fade-in"
+      style={{
+        border: '1px solid var(--border)',
+        borderTop: `4px solid ${cfg.color}`,
+        background: 'rgba(9, 9, 11, 0.40)',
+        minHeight: 520,
+        boxShadow: `0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 15px ${cfg.color}10`,
+      }}
     >
       {/* Column header */}
       <div
         className="px-5 py-3.5 flex items-center justify-between"
-        style={{ borderBottom: '1px solid var(--border)', background: cfg.bg }}
+        style={{ borderBottom: '1px solid var(--border)', background: 'rgba(9, 9, 11, 0.6)' }}
       >
         <div className="flex items-center gap-2">
           <div className="h-2.5 w-2.5 rounded-full" style={{ background: cfg.color }} />
@@ -104,18 +110,25 @@ function DroppableColumn({ id, tasks, onTaskClick }) {
           </div>
         )}
         {tasks.map(task => (
-          <DraggableTask key={task.id} id={task.id} task={task} onClick={() => onTaskClick(task)} />
+          <DraggableTask key={task.id} id={task.id} task={task} onClick={() => onTaskClick(task)} allTasksList={allTasksList} />
         ))}
       </div>
     </div>
   );
 }
 
-function TaskCard({ task, onClick }) {
+function TaskCard({ task, onClick, allTasksList = [] }) {
   const totalSubtasks = task.subtasks?.length || 0;
   const completedSubtasks = task.subtasks?.filter(s => s.completed).length || 0;
   const progressPercent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
   const prio = getPriorityBadgeStyles(task.priority);
+
+  // Check blocker status
+  const activeBlockers = (task.blockedBy || []).filter(blockerId => {
+    const blockerTask = allTasksList.find(t => t.id === blockerId);
+    return blockerTask && blockerTask.status !== "done";
+  });
+  const isBlocked = activeBlockers.length > 0;
 
   return (
     <div
@@ -138,6 +151,19 @@ function TaskCard({ task, onClick }) {
       }}
     >
       <div className="space-y-3">
+        {isBlocked && (
+          <div 
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[9px] font-bold border font-mono animate-fade-in"
+            style={{ 
+              background: 'rgba(239, 68, 68, 0.04)', 
+              borderColor: 'rgba(239, 68, 68, 0.15)', 
+              color: '#f87171' 
+            }}
+          >
+            <Flag className="h-3 w-3 shrink-0 animate-pulse text-red-400" />
+            <span className="truncate">Blocked by: {activeBlockers.join(', ')}</span>
+          </div>
+        )}
         {/* Header Title & ID */}
         <div className="flex items-start justify-between gap-2">
           <p className="text-xs font-semibold leading-snug font-sans text-left" style={{ color: 'var(--foreground)' }}>
@@ -214,7 +240,7 @@ function TaskCard({ task, onClick }) {
   );
 }
 
-function DraggableTask({ id, task, onClick }) {
+function DraggableTask({ id, task, onClick, allTasksList }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
   const style = transform
     ? {
@@ -232,12 +258,12 @@ function DraggableTask({ id, task, onClick }) {
       style={style}
       onClick={onClick}
     >
-      <TaskCard task={task} />
+      <TaskCard task={task} allTasksList={allTasksList} />
     </div>
   );
 }
 
-function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
+function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] }) {
   const isEditing = !!task;
 
   // Form states
@@ -246,6 +272,7 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
   const [status, setStatus] = useState(task?.status || "todo");
   const [assignee, setAssignee] = useState(task?.assignee || "");
   const [priority, setPriority] = useState(task?.priority || "medium");
+  const [blockedBy, setBlockedBy] = useState(task?.blockedBy || []);
 
   // Checklist subtask states
   const [subtasks, setSubtasks] = useState(task?.subtasks || []);
@@ -265,6 +292,7 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
     setStatus(task?.status || "todo");
     setAssignee(task?.assignee || "");
     setPriority(task?.priority || "medium");
+    setBlockedBy(task?.blockedBy || []);
     setSubtasks(task?.subtasks || []);
     setComments(task?.comments || []);
     setNewSubtaskText("");
@@ -336,7 +364,8 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
       priority,
       subtasks,
       comments,
-      history: updatedHistory
+      history: updatedHistory,
+      blockedBy
     });
     onClose();
   };
@@ -349,15 +378,34 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
   const progressPercent = subtasks.length > 0 ? Math.round((completedCount / subtasks.length) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 flex justify-end md:items-center md:justify-center z-50 p-0 md:p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <style>{`
+        @keyframes slideInFromRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-in {
+          animation: slideInFromRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
+      
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+        onClick={onClose} 
+      />
+      
+      {/* Drawer Container */}
       <div
-        className="relative z-10 w-full max-w-md md:max-w-xl h-full md:h-auto md:max-h-[85vh] rounded-none rounded-l-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col transition-all duration-300"
-        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+        className="relative z-10 w-full max-w-full sm:max-w-lg md:max-w-xl h-full shadow-2xl flex flex-col animate-slide-in"
+        style={{ 
+          background: 'var(--card)', 
+          borderLeft: '1px solid var(--border)'
+        }}
       >
         {/* Modal Header */}
         <div
-          className="px-6 py-4 flex items-center justify-between"
+          className="px-6 py-4 flex items-center justify-between shrink-0"
           style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
         >
           <div className="space-y-0.5">
@@ -367,19 +415,17 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
             </h2>
             <span className="text-[10px] text-zinc-500 font-mono">FIX protocol testing flow</span>
           </div>
-          {isEditing && (
-            <button
-              onClick={() => { onDelete(task.id, task.status); onClose(); }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
-              style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)' }}
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Remove
-            </button>
-          )}
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Tabs Bar inside Modal */}
-        <div className="px-6 bg-zinc-950/40 border-b border-zinc-850 flex gap-4 text-xs font-mono">
+        <div className="px-6 bg-zinc-950/40 border-b border-zinc-850 flex gap-4 text-xs font-mono shrink-0">
           {[
             { id: "details", label: "Details", icon: Edit2 },
             { id: "checklist", label: `Checklist (${subtasks.length})`, icon: ListTodo },
@@ -462,6 +508,39 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
                     <option value="medium">⚡ Medium</option>
                     <option value="low">💤 Low</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="fx-section-label">Prerequisite Tasks (Blocked By)</label>
+                <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-2 rounded-xl border border-zinc-850 bg-zinc-950/40">
+                  {allTasksList.filter(t => t.id !== task?.id).length === 0 ? (
+                    <span className="text-[10px] text-zinc-500 italic">No other tasks to select as blockers.</span>
+                  ) : (
+                    allTasksList.filter(t => t.id !== task?.id).map(ot => {
+                      const isSelected = blockedBy.includes(ot.id);
+                      return (
+                        <button
+                          key={ot.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setBlockedBy(blockedBy.filter(id => id !== ot.id));
+                            } else {
+                              setBlockedBy([...blockedBy, ot.id]);
+                            }
+                          }}
+                          className={`px-2 py-0.5 text-[10px] rounded-lg border flex items-center gap-1 transition-all ${
+                            isSelected 
+                              ? "bg-red-500/10 border-red-500/30 text-red-400 font-bold font-mono" 
+                              : "bg-zinc-900 border-zinc-800 text-zinc-400 font-mono"
+                          }`}
+                        >
+                          {isSelected ? "⚠️" : ""} {ot.id}: {ot.title.slice(0, 20)}...
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
@@ -610,13 +689,26 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task }) {
 
         {/* Modal Footer */}
         <div
-          className="px-6 py-4 flex justify-end gap-3"
+          className="px-6 py-4 flex items-center justify-between gap-3 mt-auto shrink-0"
           style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}
         >
-          <button onClick={onClose} className="fx-btn-secondary">Cancel</button>
-          <button onClick={handleSave} disabled={!title.trim()} className="fx-btn-primary">
-            <CheckCircle className="h-3.5 w-3.5" /> Save Task
-          </button>
+          <div>
+            {isEditing && (
+              <button
+                onClick={() => { onDelete(task.id, task.status); onClose(); }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)' }}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Remove
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="fx-btn-secondary">Cancel</button>
+            <button onClick={handleSave} disabled={!title.trim()} className="fx-btn-primary">
+              <CheckCircle className="h-3.5 w-3.5" /> Save Task
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -635,6 +727,8 @@ export default function KanbanPage() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   const activeTask = activeId ? Object.values(tasks).flat().find(t => t.id === activeId) : null;
+
+
 
   // Load tasks from localStorage on mount
   useEffect(() => {
@@ -816,6 +910,7 @@ export default function KanbanPage() {
               id={col}
               tasks={getFilteredTasks(col)}
               onTaskClick={(task) => { setSelectedTask(task); setModalOpen(true); }}
+              allTasksList={Object.values(tasks).flat()}
             />
           ))}
         </div>
@@ -823,7 +918,7 @@ export default function KanbanPage() {
         <DragOverlay>
           {activeId && activeTask ? (
             <div style={{ transform: 'rotate(2deg)', opacity: 0.95, cursor: 'grabbing' }}>
-              <TaskCard task={activeTask} />
+              <TaskCard task={activeTask} allTasksList={Object.values(tasks).flat()} />
             </div>
           ) : null}
         </DragOverlay>
@@ -837,6 +932,7 @@ export default function KanbanPage() {
           onSave={saveTask}
           onDelete={deleteTask}
           task={selectedTask}
+          allTasksList={Object.values(tasks).flat()}
         />
       )}
     </div>
