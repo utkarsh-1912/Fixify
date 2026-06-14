@@ -880,9 +880,13 @@ export default function FIXComparePage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => { setShowModal(false); setModalContent(null); }}
+        >
           <div
-            className="w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
             style={{ background: 'var(--card)', border: '1px solid var(--border)', maxHeight: '85vh' }}
           >
             <div

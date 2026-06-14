@@ -719,7 +719,10 @@ export default function InterpreterPage() {
 
       {/* Model Details Modal */}
       {modelDetails && (
-        <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-md flex items-center justify-center z-50 p-4 select-text">
+        <div 
+          className="fixed inset-0 bg-zinc-950/70 backdrop-blur-md flex items-center justify-center z-50 p-4 select-text"
+          onClick={() => setModelDetails(null)}
+        >
           <div 
             className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}

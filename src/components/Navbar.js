@@ -257,10 +257,13 @@ export default function Navbar() {
 
       {/* App Search modal */}
       {searchOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[15vh] p-4">
-          <div className="fixed inset-0" onClick={() => { setSearchOpen(false); setSearchQuery(""); }} />
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[15vh] p-4"
+          onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+        >
           <div
-            className="relative w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[70vh]"
+            className="relative w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[70vh] animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
             style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
             {/* Input field */}

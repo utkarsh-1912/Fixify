@@ -1037,9 +1037,13 @@ export default function CodeRunnerPage() {
 
       {/* Fullscreen Overlay Modals */}
       {activeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md"
+          onClick={() => setActiveModal(null)}
+        >
           <div
-            className="w-full h-full max-w-6xl max-h-[90vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl"
+            className="w-full h-full max-w-6xl max-h-[90vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
             style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
             {/* Modal Header */}

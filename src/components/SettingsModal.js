@@ -95,16 +95,14 @@ export default function SettingsModal({ isOpen, onClose }) {
   ];
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-md"
-        onClick={onClose}
-      />
-
+    <div 
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
       {/* Dialog */}
       <div
-        className="relative z-10 w-full max-w-xl flex flex-col overflow-hidden rounded-2xl shadow-2xl"
+        className="relative z-10 w-full max-w-xl flex flex-col overflow-hidden rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--card)',
           border: '1px solid var(--border)',

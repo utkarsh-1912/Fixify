@@ -24,6 +24,7 @@ import {
   extractTimestamp,
   getTagValue,
   validateFIXMessage,
+  getValueMeaning,
   FIX_ORDER_MAP
 } from "@/lib/fixParser";
 import TagDetailsModal from "@/components/TagDetailsModal";
@@ -573,6 +574,16 @@ export default function LogsProcessorPage() {
       );
     }
 
+    const orderIds = Array.from(new Set(
+      lifecycleMsgs
+        .map(m => m.validation?.tags?.['37'])
+        .filter(id => id && id.trim() !== "")
+    ));
+
+    const displayedMsgs = selectedOrderIdFilter === "all"
+      ? lifecycleMsgs
+      : lifecycleMsgs.filter(m => m.validation?.tags?.['37'] === selectedOrderIdFilter);
+
     // Extract ordered actors: default client leftmost, default server next, then others
     const firstMsg = lifecycleMsgs[0];
     const defaultSender = firstMsg?.validation?.tags?.['49'] || 'Client';
@@ -603,13 +614,29 @@ export default function LogsProcessorPage() {
 
     const rowHeight = 60;
     const headerHeight = 50;
-    const svgHeight = headerHeight + lifecycleMsgs.length * rowHeight + 30;
+    const svgHeight = headerHeight + displayedMsgs.length * rowHeight + 30;
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
-          <span>Click arrows to inspect messages</span>
-          <span className="text-zinc-500 text-[10px]">Actors: {numActors}</span>
+        <div className="flex items-center justify-between gap-3 text-[10px] font-mono mb-2 p-2.5 rounded-xl border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+          <div className="flex items-center gap-1.5">
+            <span style={{ color: 'var(--text-muted)' }}>Order ID:</span>
+            {orderIds.length > 1 ? (
+              <select
+                value={selectedOrderIdFilter}
+                onChange={(e) => setSelectedOrderIdFilter(e.target.value)}
+                className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer"
+              >
+                <option value="all">All ({orderIds.length})</option>
+                {orderIds.map(oid => (
+                  <option key={oid} value={oid}>{oid}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="font-bold text-zinc-350">{orderIds[0] || 'N/A'}</span>
+            )}
+          </div>
+          <span className="text-zinc-500 text-[9px]">Actors: {numActors}</span>
         </div>
 
         <div className="overflow-x-auto p-1 bg-zinc-950/40 rounded-2xl border border-zinc-900/80 backdrop-blur-md">
@@ -655,7 +682,7 @@ export default function LogsProcessorPage() {
             })}
 
             {/* Draw message flows */}
-            {lifecycleMsgs.map((msg, index) => {
+            {displayedMsgs.map((msg, index) => {
               const fromActor = msg.validation?.tags?.['49'] || 'Client';
               const toActor = msg.validation?.tags?.['56'] || 'Server';
               
@@ -674,10 +701,27 @@ export default function LogsProcessorPage() {
               
               let latencyStr = "";
               if (index > 0) {
-                const prevMsg = lifecycleMsgs[index - 1];
+                const prevMsg = displayedMsgs[index - 1];
                 const diffMs = msg.timestampObj.getTime() - prevMsg.timestampObj.getTime();
                 latencyStr = `+${diffMs}ms`;
               }
+
+              const execType = msg.validation?.tags?.['150'];
+              const ordStatus = msg.validation?.tags?.['39'];
+              let infoParts = [];
+              if (execType) {
+                const execTypeMeaning = getValueMeaning('150', execType);
+                if (execTypeMeaning && execTypeMeaning !== execType) {
+                  infoParts.push(`Exec: ${execTypeMeaning}`);
+                }
+              }
+              if (ordStatus) {
+                const ordStatusMeaning = getValueMeaning('39', ordStatus);
+                if (ordStatusMeaning && ordStatusMeaning !== ordStatus) {
+                  infoParts.push(`Status: ${ordStatusMeaning}`);
+                }
+              }
+              const infoStr = infoParts.join(', ');
 
               // Determine arrow direction & markers
               const isLeftToRight = xFrom < xTo;
@@ -758,7 +802,7 @@ export default function LogsProcessorPage() {
                     fontSize="7px"
                     fill="var(--text-muted)"
                   >
-                    {seq ? `Seq: ${seq}` : ''} {latencyStr ? `(${latencyStr})` : ''}
+                    {seq ? `Seq: ${seq}` : ''} {latencyStr ? `(${latencyStr})` : ''} {infoStr ? `| ${infoStr}` : ''}
                   </text>
 
                   {/* Small circle node at source point */}
