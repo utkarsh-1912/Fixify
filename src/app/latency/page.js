@@ -12,7 +12,9 @@ import {
   ArrowRightLeft,
   Search,
   Info,
-  Download
+  Download,
+  Maximize2,
+  X
 } from "lucide-react";
 
 // Standard parser helpers specifically for latency tracking
@@ -285,6 +287,7 @@ export default function LatencyDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [hoveredPoint, setHoveredPoint] = useState(null); // Chart tooltip details
   const [loading, setLoading] = useState(false);
+  const [expandedChart, setExpandedChart] = useState(null); // "timeline", "distribution" or null
 
   // Fallback synchronous parser
   const runSyncParsing = useCallback((rawLogsText) => {
@@ -547,6 +550,14 @@ export default function LatencyDashboard() {
     const sortedValues = [...rawValues].sort((a, b) => a - b);
     const median = sortedValues[Math.floor(sortedValues.length / 2)] || 1;
 
+    // Calculate timeline stats (Min, Max, 90th percentile, 99th percentile)
+    const maxVal = absoluteMax;
+    const minVal = Math.min(...rawValues) || 0;
+    const p90Idx = Math.min(sortedValues.length - 1, Math.max(0, Math.ceil(sortedValues.length * 0.9) - 1));
+    const p90Val = sortedValues[p90Idx] || 0;
+    const p99Idx = Math.min(sortedValues.length - 1, Math.max(0, Math.ceil(sortedValues.length * 0.99) - 1));
+    const p99Val = sortedValues[p99Idx] || 0;
+
     // Automatically determine if logarithmic scale is needed to prevent peak squashing
     const useLogScale = (absoluteMax / median) > 10 && absoluteMax > 10000;
     
@@ -602,140 +613,276 @@ export default function LatencyDashboard() {
     };
 
     return (
-      <div className="relative w-full overflow-hidden rounded-xl border border-zinc-900 bg-zinc-950/20">
-        <div className="overflow-x-auto w-full p-2">
-          <svg 
-            viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
-            style={{ width: "100%" }} 
-            className="h-auto select-none overflow-visible transition-all duration-200"
-          >
-            {/* Background grid */}
-            {gridLines.map((gl, i) => (
-              <g key={i}>
-                <line
-                  x1={paddingLeft}
-                  y1={gl.y}
-                  x2={svgWidth - paddingRight}
-                  y2={gl.y}
-                  stroke="var(--border)"
-                  strokeDasharray="4 4"
-                  strokeWidth="1"
-                />
-                <text
-                  x={paddingLeft - 8}
-                  y={gl.y + 4}
-                  textAnchor="end"
-                  className="text-[9px] font-mono fill-[var(--text-muted)]"
-                >
-                  {formatTickLabel(gl.val)}
-                </text>
-              </g>
-            ))}
-
-            {/* Line Path */}
-            <path
-              d={pathD}
-              fill="none"
-              stroke="var(--primary)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="transition-all duration-300"
-            />
-
-            {/* Data Nodes */}
-            {coordinates.map((pt, idx) => {
-              const isHovered = hoveredPoint && hoveredPoint.index === idx;
-              return (
-                <circle
-                  key={idx}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={isHovered ? 6 : 4}
-                  fill={isHovered ? "var(--primary)" : "var(--background)"}
-                  stroke="var(--primary)"
-                  strokeWidth={isHovered ? 3 : 2}
-                  className="cursor-pointer transition-all duration-100"
-                  onMouseEnter={(e) => {
-                    setHoveredPoint({
-                      index: idx,
-                      val: pt.val,
-                      data: pt.data,
-                      x: pt.x,
-                      y: pt.y
-                    });
-                  }}
-                  onMouseLeave={() => setHoveredPoint(null)}
-                />
-              );
-            })}
-
-            {/* X-axis indicators */}
-            <line
-              x1={paddingLeft}
-              y1={paddingTop + chartHeight}
-              x2={svgWidth - paddingRight}
-              y2={paddingTop + chartHeight}
-              stroke="var(--border)"
-              strokeWidth="1.5"
-            />
-            <text
-              x={paddingLeft + chartWidth / 2}
-              y={svgHeight - 10}
-              textAnchor="middle"
-              className="text-[10px] font-mono fill-[var(--text-muted)]"
+      <div className="space-y-4">
+        <div className="relative w-full overflow-hidden rounded-xl border border-zinc-900 bg-zinc-950/20">
+          <div className="overflow-x-auto w-full p-2">
+            <svg 
+              viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
+              style={{ width: "100%" }} 
+              className="h-auto select-none overflow-visible transition-all duration-200"
             >
-              Captured Session Message Sequence Timeline
-            </text>
-          </svg>
+              {/* Background grid */}
+              {gridLines.map((gl, i) => (
+                <g key={i}>
+                  <line
+                    x1={paddingLeft}
+                    y1={gl.y}
+                    x2={svgWidth - paddingRight}
+                    y2={gl.y}
+                    stroke="var(--border)"
+                    strokeDasharray="4 4"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={paddingLeft - 8}
+                    y={gl.y + 4}
+                    textAnchor="end"
+                    className="text-[9px] font-mono fill-[var(--text-muted)]"
+                  >
+                    {formatTickLabel(gl.val)}
+                  </text>
+                </g>
+              ))}
+
+              {/* Line Path */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="var(--primary)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="transition-all duration-300"
+              />
+
+              {/* Data Nodes */}
+              {coordinates.map((pt, idx) => {
+                const isHovered = hoveredPoint && hoveredPoint.index === idx;
+                return (
+                  <circle
+                    key={idx}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={isHovered ? 6 : 4}
+                    fill={isHovered ? "var(--primary)" : "var(--background)"}
+                    stroke="var(--primary)"
+                    strokeWidth={isHovered ? 3 : 2}
+                    className="cursor-pointer transition-all duration-100"
+                    onMouseEnter={(e) => {
+                      setHoveredPoint({
+                        index: idx,
+                        val: pt.val,
+                        data: pt.data,
+                        x: pt.x,
+                        y: pt.y
+                      });
+                    }}
+                    onMouseLeave={() => setHoveredPoint(null)}
+                  />
+                );
+              })}
+
+              {/* X-axis indicators */}
+              <line
+                x1={paddingLeft}
+                y1={paddingTop + chartHeight}
+                x2={svgWidth - paddingRight}
+                y2={paddingTop + chartHeight}
+                stroke="var(--border)"
+                strokeWidth="1.5"
+              />
+              <text
+                x={paddingLeft + chartWidth / 2}
+                y={svgHeight - 10}
+                textAnchor="middle"
+                className="text-[10px] font-mono fill-[var(--text-muted)]"
+              >
+                Captured Session Message Sequence Timeline
+              </text>
+            </svg>
+          </div>
+
+          {/* Floating Tooltip details */}
+          {hoveredPoint && (
+            <div
+              className="absolute z-30 p-3 rounded-xl border pointer-events-none text-xs font-mono shadow-xl bg-zinc-950"
+              style={{
+                background: "var(--card)",
+                borderColor: "var(--primary-border)",
+                left: `${Math.min(90, Math.max(10, ((hoveredPoint.x / svgWidth) * 100)))}%`,
+                top: hoveredPoint.y < svgHeight / 2 
+                  ? `${(hoveredPoint.y / svgHeight) * 100 + 6}%` 
+                  : `${(hoveredPoint.y / svgHeight) * 100 - 6}%`,
+                transform: hoveredPoint.y < svgHeight / 2 
+                  ? "translate(-50%, 0)" 
+                  : "translate(-50%, -100%)"
+              }}
+            >
+              {activeTab === "hop" ? (
+                <>
+                  <p className="font-bold text-[var(--primary)] text-center mb-1">
+                    Latency: {(hoveredPoint.val / 1000).toFixed(3)} ms
+                  </p>
+                  <div className="space-y-0.5 text-[10px] text-[var(--text-muted)]">
+                    <p>Seq: #{hoveredPoint.data.seqNum}</p>
+                    <p>Type: {hoveredPoint.data.msgTypeName}</p>
+                    <p>Tag 52 (Send): {hoveredPoint.data.parsedSend?.formattedTime}</p>
+                    <p>Tag 60 (Trans): {hoveredPoint.data.parsedTransact?.formattedTime}</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="font-bold text-[var(--primary)] text-center mb-1">
+                    RTT: {(hoveredPoint.val / 1000).toFixed(3)} ms
+                  </p>
+                  <div className="space-y-0.5 text-[10px] text-[var(--text-muted)]">
+                    <p>ClOrdID: {hoveredPoint.data.clOrdId}</p>
+                    <p>Symbol: {hoveredPoint.data.symbol}</p>
+                    <p>Req Seq: #{hoveredPoint.data.requestSeq}</p>
+                    <p>Resp Seq: #{hoveredPoint.data.responseSeq}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Floating Tooltip details */}
-        {hoveredPoint && (
-          <div
-            className="absolute z-30 p-3 rounded-xl border pointer-events-none text-xs font-mono shadow-xl bg-zinc-950"
-            style={{
-              background: "var(--card)",
-              borderColor: "var(--primary-border)",
-              left: `${Math.min(90, Math.max(10, ((hoveredPoint.x / svgWidth) * 100)))}%`,
-              top: hoveredPoint.y < svgHeight / 2 
-                ? `${(hoveredPoint.y / svgHeight) * 100 + 6}%` 
-                : `${(hoveredPoint.y / svgHeight) * 100 - 6}%`,
-              transform: hoveredPoint.y < svgHeight / 2 
-                ? "translate(-50%, 0)" 
-                : "translate(-50%, -100%)"
-            }}
-          >
-            {activeTab === "hop" ? (
-              <>
-                <p className="font-bold text-[var(--primary)] text-center mb-1">
-                  Latency: {(hoveredPoint.val / 1000).toFixed(3)} ms
-                </p>
-                <div className="space-y-0.5 text-[10px] text-[var(--text-muted)]">
-                  <p>Seq: #{hoveredPoint.data.seqNum}</p>
-                  <p>Type: {hoveredPoint.data.msgTypeName}</p>
-                  <p>Tag 52 (Send): {hoveredPoint.data.parsedSend?.formattedTime}</p>
-                  <p>Tag 60 (Trans): {hoveredPoint.data.parsedTransact?.formattedTime}</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="font-bold text-[var(--primary)] text-center mb-1">
-                  RTT: {(hoveredPoint.val / 1000).toFixed(3)} ms
-                </p>
-                <div className="space-y-0.5 text-[10px] text-[var(--text-muted)]">
-                  <p>ClOrdID: {hoveredPoint.data.clOrdId}</p>
-                  <p>Symbol: {hoveredPoint.data.symbol}</p>
-                  <p>Req Seq: #{hoveredPoint.data.requestSeq}</p>
-                  <p>Resp Seq: #{hoveredPoint.data.responseSeq}</p>
-                </div>
-              </>
-            )}
+        {/* Statistical Summary Panel */}
+        <div className="grid grid-cols-2 gap-x-0 gap-y-2 text-[10px] font-mono p-3 rounded-xl border border-zinc-900 bg-zinc-950/40">
+          <div className="space-y-1 pr-4 fx-v-divider">
+            <p className="flex justify-between"><span className="text-[var(--text-muted)]">Min:</span> <span className="font-bold text-emerald-400">{(minVal / 1000).toFixed(3)} ms</span></p>
+            <p className="flex justify-between"><span className="text-[var(--text-muted)]">Max:</span> <span className="font-bold text-red-400">{(maxVal / 1000).toFixed(3)} ms</span></p>
           </div>
-        )}
+          <div className="space-y-1 pl-4">
+            <p className="flex justify-between"><span className="text-[var(--text-muted)]">90th %ile:</span> <span className="font-bold text-indigo-400">{(p90Val / 1000).toFixed(3)} ms</span></p>
+            <p className="flex justify-between"><span className="text-[var(--text-muted)]">99th %ile:</span> <span className="font-bold text-amber-400">{(p99Val / 1000).toFixed(3)} ms</span></p>
+          </div>
+        </div>
       </div>
     );
   };
+
+  const renderDistributionCurve = () => {
+    const dataPoints = activeTab === "hop" 
+      ? parsedData.filter(d => d.hopLatency !== null)
+      : rttPairs;
+
+    if (dataPoints.length === 0) {
+      return (
+        <div className="h-48 flex items-center justify-center border border-dashed rounded-xl" style={{ borderColor: "var(--border)" }}>
+          <p className="text-xs font-mono text-[var(--text-muted)]">No data for distribution</p>
+        </div>
+      );
+    }
+
+    const values = activeTab === "hop" 
+      ? dataPoints.map(d => d.hopLatency)
+      : dataPoints.map(d => d.rttMicroseconds);
+
+    // Math Calculations
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+    const stdDev = Math.sqrt(variance) || 1;
+
+    const sorted = [...values].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)] || 0;
+
+    const svgWidth = 380;
+    const svgHeight = 180;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 30;
+
+    const chartWidth = svgWidth - paddingLeft - paddingRight;
+    const chartHeight = svgHeight - paddingTop - paddingBottom;
+
+    // Helper to generate bell curve bands path
+    const getBandPath = (zStart, zEnd) => {
+      const steps = 30;
+      let path = `M ${paddingLeft + ((zStart - (-3.5)) / 7.0) * chartWidth} ${paddingTop + chartHeight}`;
+      for (let i = 0; i <= steps; i++) {
+        const z = zStart + (i / steps) * (zEnd - zStart);
+        const x = paddingLeft + ((z - (-3.5)) / 7.0) * chartWidth;
+        const y = paddingTop + chartHeight - Math.exp(-0.5 * z * z) * (chartHeight - 10);
+        path += ` L ${x} ${y}`;
+      }
+      path += ` L ${paddingLeft + ((zEnd - (-3.5)) / 7.0) * chartWidth} ${paddingTop + chartHeight} Z`;
+      return path;
+    };
+
+    // Main line path
+    let curvePath = "";
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+      const z = -3.5 + (i / steps) * 7.0;
+      const x = paddingLeft + (i / steps) * chartWidth;
+      const y = paddingTop + chartHeight - Math.exp(-0.5 * z * z) * (chartHeight - 10);
+      curvePath += (i === 0 ? "M" : " L") + ` ${x} ${y}`;
+    }
+
+    const zMedian = (median - mean) / stdDev;
+    const medianX = paddingLeft + ((Math.max(-3.5, Math.min(3.5, zMedian)) - (-3.5)) / 7.0) * chartWidth;
+    const meanX = paddingLeft + 0.5 * chartWidth;
+
+    return (
+      <div className="space-y-4">
+        <div className="relative w-full rounded-xl border border-zinc-900 bg-zinc-950/20 p-2">
+          <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ width: "100%" }} className="h-auto select-none overflow-visible">
+            {/* Shaded Standard Dev Bands */}
+            <path d={getBandPath(-3, -2)} fill="rgba(245, 158, 11, 0.04)" />
+            <path d={getBandPath(2, 3)} fill="rgba(245, 158, 11, 0.04)" />
+            <path d={getBandPath(-2, -1)} fill="rgba(59, 130, 246, 0.08)" />
+            <path d={getBandPath(1, 2)} fill="rgba(59, 130, 246, 0.08)" />
+            <path d={getBandPath(-1, 1)} fill="rgba(16, 185, 129, 0.1)" />
+
+            {/* Bell Curve Main Line */}
+            <path d={curvePath} fill="none" stroke="var(--primary)" strokeWidth="2" />
+
+            {/* Mean & Median indicator lines */}
+            <line x1={meanX} y1={paddingTop} x2={meanX} y2={paddingTop + chartHeight} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3 3" />
+            <line x1={medianX} y1={paddingTop} x2={medianX} y2={paddingTop + chartHeight} stroke="#10b981" strokeWidth="1.5" strokeDasharray="3 3" />
+
+            {/* Labels at lines */}
+            <text x={meanX + 4} y={paddingTop + 12} className="text-[8px] font-mono fill-[#ef4444] font-bold">Mean (μ)</text>
+            <text x={medianX - 4} y={paddingTop + 24} textAnchor="end" className="text-[8px] font-mono fill-[#10b981] font-bold">Med</text>
+
+            {/* X-axis ticks */}
+            <line x1={paddingLeft} y1={paddingTop + chartHeight} x2={svgWidth - paddingRight} y2={paddingTop + chartHeight} stroke="var(--border)" strokeWidth="1.5" />
+            {[-3, -2, -1, 0, 1, 2, 3].map((z) => {
+              const x = paddingLeft + ((z - (-3.5)) / 7.0) * chartWidth;
+              const val = mean + z * stdDev;
+              return (
+                <g key={z}>
+                  <line x1={x} y1={paddingTop + chartHeight} x2={x} y2={paddingTop + chartHeight + 4} stroke="var(--border)" />
+                  <text x={x} y={paddingTop + chartHeight + 12} textAnchor="middle" className="text-[7px] font-mono fill-[var(--text-muted)]">
+                    {z === 0 ? "μ" : `${z > 0 ? "+" : ""}${z}σ`}
+                  </text>
+                  <text x={x} y={paddingTop + chartHeight + 20} textAnchor="middle" className="text-[6.5px] font-mono fill-zinc-650">
+                    {(val / 1000).toFixed(1)}ms
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Statistical Summary Panel */}
+        <div className="grid grid-cols-2 gap-x-0 gap-y-2 text-[10px] font-mono p-3 rounded-xl border border-zinc-900 bg-zinc-950/40">
+          <div className="space-y-1 pr-4 fx-v-divider">
+            <p className="flex justify-between"><span className="text-[var(--text-muted)]">Mean (μ):</span> <span className="font-bold text-zinc-300">{(mean / 1000).toFixed(3)} ms</span></p>
+            <p className="flex justify-between"><span className="text-[var(--text-muted)]">Median:</span> <span className="font-bold text-emerald-400">{(median / 1000).toFixed(3)} ms</span></p>
+          </div>
+          <div className="space-y-1 pl-4">
+            <p className="flex justify-between"><span className="text-[var(--text-muted)]">Std Dev (σ):</span> <span className="font-bold text-indigo-400">{(stdDev / 1000).toFixed(3)} ms</span></p>
+            <p className="flex justify-between"><span className="text-[var(--text-muted)]">Variance (σ²):</span> <span className="font-bold text-amber-400">{(variance / 1000000).toFixed(4)} ms²</span></p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
 
   const isProcessed = parsedData.length > 0;
 
@@ -942,38 +1089,86 @@ export default function LatencyDashboard() {
             </div>
           </div>
 
-          {/* Charts view */}
+          {/* Diagnostic View Mode Bar */}
           <div 
-            className="rounded-xl overflow-hidden"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border"
             style={{ border: "1px solid var(--border)", background: "var(--card)" }}
           >
-            <div 
-              className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              style={{ borderBottom: "1px solid var(--border)", background: "var(--background)" }}
-            >
-              <span className="font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
-                <Activity className="h-4 w-4 text-[var(--primary)]" /> Latency Diagnostics Visualizer
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-[var(--primary)]" />
+              <span className="text-xs font-semibold font-mono" style={{ color: "var(--text-muted)" }}>
+                Active Diagnostic View Mode (Controls all charts)
               </span>
+            </div>
+            <div className="fx-tab-group">
+              <button
+                className={`fx-tab${activeTab === "hop" ? " active" : ""}`}
+                onClick={() => setActiveTab("hop")}
+              >
+                Hop Latency (52 to 60)
+              </button>
+              <button
+                className={`fx-tab${activeTab === "rtt" ? " active" : ""}`}
+                onClick={() => setActiveTab("rtt")}
+              >
+                Round-Trip Time (RTT)
+              </button>
+            </div>
+          </div>
 
-              <div className="fx-tab-group">
+          {/* Charts Visualizer Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Timeline Visualizer Card */}
+            <div 
+              className="rounded-xl overflow-hidden flex flex-col justify-between"
+              style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+            >
+              <div 
+                className="px-5 py-4 flex items-center justify-between gap-3"
+                style={{ borderBottom: "1px solid var(--border)", background: "var(--background)" }}
+              >
+                <span className="font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
+                  <Activity className="h-4 w-4 text-[var(--primary)]" /> Latency Timeline
+                </span>
                 <button
-                  className={`fx-tab${activeTab === "hop" ? " active" : ""}`}
-                  onClick={() => setActiveTab("hop")}
+                  onClick={() => setExpandedChart("timeline")}
+                  className="p-1 rounded hover:bg-zinc-800 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
+                  title="Expand timeline view"
                 >
-                  Hop Latency (52 to 60)
+                  <Maximize2 className="h-3.5 w-3.5" />
                 </button>
-                <button
-                  className={`fx-tab${activeTab === "rtt" ? " active" : ""}`}
-                  onClick={() => setActiveTab("rtt")}
-                >
-                  Round-Trip Time (RTT)
-                </button>
+              </div>
+              <div className="p-5 flex-1 flex flex-col justify-center">
+                {renderSVGChart()}
               </div>
             </div>
 
-            <div className="p-6">
-              {renderSVGChart()}
+            {/* Standard Deviation Distribution Card */}
+            <div 
+              className="rounded-xl overflow-hidden flex flex-col justify-between"
+              style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+            >
+              <div 
+                className="px-5 py-4 flex items-center justify-between gap-3"
+                style={{ borderBottom: "1px solid var(--border)", background: "var(--background)" }}
+              >
+                <span className="font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
+                  <Activity className="h-4 w-4 text-[var(--primary)]" /> Standard Deviation
+                </span>
+                <button
+                  onClick={() => setExpandedChart("distribution")}
+                  className="p-1 rounded hover:bg-zinc-800 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
+                  title="Expand distribution view"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="p-5 flex-1 flex flex-col justify-center">
+                {renderDistributionCurve()}
+              </div>
             </div>
+
           </div>
 
           {/* Interactive Logs Table */}
@@ -1070,6 +1265,75 @@ export default function LatencyDashboard() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Expanded Chart Modal */}
+      {expandedChart && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 md:p-10 select-none animate-fade-in"
+          onClick={() => setExpandedChart(null)}
+        >
+          <div 
+            className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border flex flex-col"
+            style={{ 
+              background: 'var(--card)', 
+              borderColor: 'var(--border)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div 
+              className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
+            >
+              <span className="font-semibold text-sm uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
+                <Activity className="h-4 w-4 text-[var(--primary)]" /> 
+                {expandedChart === "timeline" && "Latency Timeline (Expanded)"}
+                {expandedChart === "distribution" && "Standard Deviation Distribution (Expanded)"}
+              </span>
+              
+              <div className="flex items-center gap-3.5 flex-wrap">
+                {/* Modal view mode toggle */}
+                <div className="fx-tab-group">
+                  <button
+                    className={`fx-tab${activeTab === "hop" ? " active" : ""}`}
+                    onClick={() => setActiveTab("hop")}
+                  >
+                    Hop Latency (52 to 60)
+                  </button>
+                  <button
+                    className={`fx-tab${activeTab === "rtt" ? " active" : ""}`}
+                    onClick={() => setActiveTab("rtt")}
+                  >
+                    Round-Trip Time (RTT)
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setExpandedChart(null)}
+                  className="p-1.5 rounded-lg hover:bg-zinc-800 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[80vh] flex-1">
+              {expandedChart === "timeline" && (
+                <div className="w-full h-auto">
+                  {renderSVGChart()}
+                </div>
+              )}
+              {expandedChart === "distribution" && (
+                <div className="w-full h-auto">
+                  {renderDistributionCurve()}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
