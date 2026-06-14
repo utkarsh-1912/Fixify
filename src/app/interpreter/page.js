@@ -248,7 +248,7 @@ export default function InterpreterPage() {
 
   return (
     <div
-      className="flex flex-col gap-4 relative"
+      className="flex flex-col gap-1 relative"
       style={{ height: 'calc(100dvh - 110px)' }}
     >
       {/* Header */}
