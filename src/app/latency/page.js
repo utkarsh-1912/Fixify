@@ -858,7 +858,7 @@ export default function LatencyDashboard() {
                   <text x={x} y={paddingTop + chartHeight + 12} textAnchor="middle" className="text-[7px] font-mono fill-[var(--text-muted)]">
                     {z === 0 ? "μ" : `${z > 0 ? "+" : ""}${z}σ`}
                   </text>
-                  <text x={x} y={paddingTop + chartHeight + 20} textAnchor="middle" className="text-[6.5px] font-mono fill-zinc-650">
+                  <text x={x} y={paddingTop + chartHeight + 20} textAnchor="middle" className="text-[6.5px] font-mono fill-[var(--primary)]">
                     {(val / 1000).toFixed(1)}ms
                   </text>
                 </g>
