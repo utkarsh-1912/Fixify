@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Braces,
   Copy,
@@ -13,7 +13,9 @@ import {
   Minimize2,
   Download,
   AlertTriangle,
-  X
+  X,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 
 /* ─── Helper Functions ─────────────────────────────────────────────────── */
@@ -136,6 +138,11 @@ export default function XMLFormatterPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sanitizerLog, setSanitizerLog] = useState({ sohCount: 0, ctrlCount: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  
+  const [activeSearchIndex, setActiveSearchIndex] = useState(0);
+  const [totalMatches, setTotalMatches] = useState(0);
+  
+  const printWindowRef = useRef(null);
 
   // Load state on mount
   useEffect(() => {
@@ -174,6 +181,48 @@ export default function XMLFormatterPage() {
     return () => window.removeEventListener('resize', checkSize);
   }, []);
 
+  // Reset or update search indices and match counts
+  useEffect(() => {
+    if (!searchQuery.trim() || !formatted) {
+      setTotalMatches(0);
+      setActiveSearchIndex(0);
+      return;
+    }
+    
+    try {
+      const escaped = formatted.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const escapedQuery = searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(`(${escapedQuery})(?![^<>]*>)`, 'gi');
+      const matches = escaped.match(regex);
+      const count = matches ? matches.length : 0;
+      
+      setTotalMatches(count);
+      setActiveSearchIndex(prev => {
+        if (prev >= count) return 0;
+        return prev;
+      });
+    } catch {
+      setTotalMatches(0);
+      setActiveSearchIndex(0);
+    }
+  }, [searchQuery, formatted]);
+
+  // Scroll active match into view
+  useEffect(() => {
+    if (totalMatches === 0 || !printWindowRef.current) return;
+    
+    const container = printWindowRef.current;
+    const activeEl = container.querySelector(`[data-match-index="${activeSearchIndex}"]`);
+    
+    if (activeEl) {
+      activeEl.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest"
+      });
+    }
+  }, [activeSearchIndex, totalMatches]);
+
   const highlightXml = (xml) => {
     const escaped = xml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     let highlighted = escaped
@@ -182,7 +231,18 @@ export default function XMLFormatterPage() {
 
     if (searchQuery.trim()) {
       const escapedQuery = searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      highlighted = highlighted.replace(new RegExp(`(${escapedQuery})(?![^<>]*>)`, 'gi'), '<span style="background:rgba(245,158,11,0.3);border-bottom:1.5px solid #f59e0b;color:#f59e0b;padding:0 2px;border-radius:2px">$1</span>');
+      const regex = new RegExp(`(${escapedQuery})(?![^<>]*>)`, 'gi');
+      
+      let matchCount = 0;
+      highlighted = highlighted.replace(regex, (match) => {
+        const idx = matchCount;
+        matchCount++;
+        const isActive = idx === activeSearchIndex;
+        const style = isActive
+          ? "background:rgba(245,158,11,0.9);color:#09090b;font-weight:700;padding:0 2px;border-radius:2px"
+          : "background:rgba(245,158,11,0.25);border-bottom:1.5px solid #f59e0b;color:#f59e0b;padding:0 2px;border-radius:2px";
+        return `<span class="xml-search-match" data-match-index="${idx}" style="${style}">${match}</span>`;
+      });
     }
     return highlighted;
   };
@@ -504,11 +564,57 @@ export default function XMLFormatterPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (totalMatches > 0) {
+                        if (e.shiftKey) {
+                          setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches);
+                        } else {
+                          setActiveSearchIndex(prev => (prev + 1) % totalMatches);
+                        }
+                      }
+                    }
+                  }}
                   placeholder="Filter nodes / values..."
                   className="flex-1 bg-transparent border-none text-[10px] font-mono outline-none text-zinc-300 placeholder-zinc-605 font-sans"
                 />
+                
+                {searchQuery.trim() && totalMatches > 0 && (
+                  <span className="text-[10px] text-zinc-400 font-mono shrink-0 select-none px-1">
+                    {activeSearchIndex + 1} of {totalMatches}
+                  </span>
+                )}
+                
+                {searchQuery.trim() && totalMatches === 0 && (
+                  <span className="text-[10px] text-red-400 font-mono shrink-0 select-none px-1">
+                    0 matches
+                  </span>
+                )}
+
+                {searchQuery.trim() && totalMatches > 0 && (
+                  <div className="flex items-center border-l border-zinc-800 pl-1 shrink-0 gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches)}
+                      className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                      title="Previous match"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveSearchIndex(prev => (prev + 1) % totalMatches)}
+                      className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                      title="Next match"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} className="text-zinc-500 hover:text-zinc-350">
+                  <button onClick={() => setSearchQuery("")} className="text-zinc-500 hover:text-zinc-350 shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -517,6 +623,7 @@ export default function XMLFormatterPage() {
 
             {/* Print Window */}
             <div
+              ref={printWindowRef}
               className="flex-1 p-4 overflow-auto text-xs font-mono whitespace-pre leading-relaxed w-full min-h-0"
               style={{ color: 'var(--text-muted)' }}
             >
