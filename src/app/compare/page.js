@@ -422,7 +422,7 @@ export default function FIXComparePage() {
   });
 
   return (
-    <div className="space-y-8 max-w-screen-xl mx-auto">
+    <div className="space-y-6 max-w-screen-xl mx-auto">
 
       {/* Page Header */}
       <div className="fx-page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -506,7 +506,7 @@ export default function FIXComparePage() {
 
       {/* Message Compare Mode */}
       {compareMode === 'message' && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {[
               { label: 'FIX Message 1', value: msg1, set: setMsg1, ph: '8=FIX.4.2|9=65|35=D|11=ORDER_001|…' },
