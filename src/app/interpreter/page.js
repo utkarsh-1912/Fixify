@@ -691,7 +691,7 @@ export default function InterpreterPage() {
                       AURA
                     </h3>
                     <p className="text-[10px] text-zinc-400 font-mono">
-                      AUgmented Responce Agent
+                      AUgmented Response Agent
                     </p>
                   </div>
                 </div>
