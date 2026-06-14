@@ -41,6 +41,7 @@ export default function InterpreterPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
+  const chatInputRef = useRef(null);
   const [hfConnected, setHfConnected] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTag, setActiveTag] = useState(null);
@@ -308,6 +309,36 @@ export default function InterpreterPage() {
       }
     ]);
   };
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Ctrl+F or Ctrl+I to focus input
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'i')) {
+        e.preventDefault();
+        if (chatInputRef.current) {
+          chatInputRef.current.focus();
+          chatInputRef.current.select();
+        }
+      }
+      // Escape to clear search and blur
+      if (e.key === 'Escape') {
+        if (document.activeElement === chatInputRef.current) {
+          e.preventDefault();
+          setInput("");
+          chatInputRef.current.blur();
+        }
+      }
+      // Ctrl+L or Cmd+K to clear chat
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'l' || e.key.toLowerCase() === 'k')) {
+        e.preventDefault();
+        handleNewChat();
+      }
+    };
+    
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -631,6 +662,7 @@ export default function InterpreterPage() {
           <Sparkles className="h-3.5 w-3.5 shrink-0" />
         </button>
         <input
+          ref={chatInputRef}
           className="flex-1 py-2 px-3 rounded-xl text-xs font-mono min-w-0"
           style={{
             background: 'var(--background)',

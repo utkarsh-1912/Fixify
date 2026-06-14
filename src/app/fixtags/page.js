@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BookOpen, Search, ChevronRight, HelpCircle, Upload, Trash2, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, ChevronLeft } from 'lucide-react';
 import TagDetailsModal from '@/components/TagDetailsModal';
 import { parseQuickFixXml, getCustomDialect, clearCustomDialectCache } from '@/lib/dialect';
@@ -24,6 +24,32 @@ export default function FIXDictionaryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const searchInputRef = useRef(null);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Ctrl+F or Cmd+F to focus search input
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        }
+      }
+      // Escape to clear search and blur
+      if (e.key === 'Escape') {
+        if (document.activeElement === searchInputRef.current) {
+          e.preventDefault();
+          setSearchQuery("");
+          searchInputRef.current.blur();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // Custom dialect states
   const [customDialect, setCustomDialect] = useState(null);
@@ -223,6 +249,7 @@ export default function FIXDictionaryPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Search by Tag ID, Field Name, or Data Type..."
             value={searchQuery}

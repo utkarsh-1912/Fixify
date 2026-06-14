@@ -141,8 +141,18 @@ export default function XMLFormatterPage() {
   
   const [activeSearchIndex, setActiveSearchIndex] = useState(0);
   const [totalMatches, setTotalMatches] = useState(0);
+  const [showSearch, setShowSearch] = useState(false);
   
   const printWindowRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  // Auto-focus and select search input when toggled open
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+      searchInputRef.current.select();
+    }
+  }, [showSearch]);
 
   // Load state on mount
   useEffect(() => {
@@ -222,6 +232,7 @@ export default function XMLFormatterPage() {
       });
     }
   }, [activeSearchIndex, totalMatches]);
+
 
   const highlightXml = (xml) => {
     const escaped = xml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -332,6 +343,52 @@ export default function XMLFormatterPage() {
     };
     reader.readAsText(file);
   };
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Ctrl+F or Cmd+F to open search
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        if (formatted) {
+          e.preventDefault();
+          if (!showSearch) {
+            setShowSearch(true);
+          } else if (searchInputRef.current) {
+            searchInputRef.current.focus();
+            searchInputRef.current.select();
+          }
+        }
+      }
+      // Escape to close search
+      if (e.key === 'Escape' && showSearch) {
+        e.preventDefault();
+        setSearchQuery("");
+        setShowSearch(false);
+      }
+      // Ctrl+S or Cmd+S to download formatted XML
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        if (formatted) {
+          e.preventDefault();
+          handleDownload();
+        }
+      }
+      // F3 or Ctrl+G for next match
+      if (showSearch && totalMatches > 0) {
+        const isNextKey = e.key === 'F3' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g');
+        if (isNextKey) {
+          e.preventDefault();
+          if (e.shiftKey) {
+            setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches);
+          } else {
+            setActiveSearchIndex(prev => (prev + 1) % totalMatches);
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showSearch, formatted, totalMatches, handleDownload]);
 
   const panelStyle = isDesktop ? {
     background: 'var(--card)',
@@ -511,6 +568,15 @@ export default function XMLFormatterPage() {
             placeholder="<root><tag>example_value</tag></root>"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                executeFormat();
+              } else if ((e.ctrlKey || e.metaKey) && (e.altKey || e.shiftKey) && e.key.toLowerCase() === 'm') {
+                e.preventDefault();
+                executeMinify();
+              }
+            }}
           />
         </div>
 
@@ -534,16 +600,32 @@ export default function XMLFormatterPage() {
             {formatted && (
               <div className="flex items-center bg-zinc-900/60 p-0.5 rounded-lg border border-zinc-800">
                 <button 
+                  onClick={() => {
+                    if (showSearch) {
+                      setSearchQuery("");
+                    }
+                    setShowSearch(!showSearch);
+                  }} 
+                  title="Search XML"
+                  className={`p-1.5 rounded transition-all outline-none ${
+                    showSearch 
+                      ? "bg-[var(--primary-faint)] text-[var(--primary)]" 
+                      : "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                </button>
+                <button 
                   onClick={handleDownload} 
                   title="Download XML"
-                  className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-205 transition-all outline-none"
+                  className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-202 transition-all outline-none border-l border-zinc-800/80"
                 >
                   <Download className="h-3.5 w-3.5" />
                 </button>
                 <button 
                   onClick={handleCopy} 
                   title="Copy XML"
-                  className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-205 transition-all outline-none"
+                  className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-205 transition-all outline-none border-l border-zinc-800/80"
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-[var(--primary)]" />
@@ -557,10 +639,11 @@ export default function XMLFormatterPage() {
 
           <div className="flex-1 flex flex-col min-h-0 bg-[var(--background)]">
             {/* Filter Search Bar */}
-            {formatted && (
-              <div className="px-4 py-2 border-b flex items-center gap-2 bg-zinc-950/20 border-zinc-900 shrink-0 select-none">
+            {showSearch && formatted && (
+              <div className="px-4 py-2 border-b flex items-center gap-2 bg-zinc-950/20 border-zinc-900 shrink-0 select-none animate-in slide-in-from-top-2 duration-200">
                 <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -573,6 +656,16 @@ export default function XMLFormatterPage() {
                         } else {
                           setActiveSearchIndex(prev => (prev + 1) % totalMatches);
                         }
+                      }
+                    } else if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      if (totalMatches > 0) {
+                        setActiveSearchIndex(prev => (prev + 1) % totalMatches);
+                      }
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      if (totalMatches > 0) {
+                        setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches);
                       }
                     }
                   }}
@@ -613,8 +706,12 @@ export default function XMLFormatterPage() {
                   </div>
                 )}
 
-                {searchQuery && (
+                {searchQuery ? (
                   <button onClick={() => setSearchQuery("")} className="text-zinc-500 hover:text-zinc-350 shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <button onClick={() => setShowSearch(false)} className="text-zinc-500 hover:text-zinc-350 shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
