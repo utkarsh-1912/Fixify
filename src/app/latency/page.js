@@ -1289,8 +1289,8 @@ export default function LatencyDashboard() {
             >
               <span className="font-semibold text-sm uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
                 <Activity className="h-4 w-4 text-[var(--primary)]" /> 
-                {expandedChart === "timeline" && "Latency Timeline (Expanded)"}
-                {expandedChart === "distribution" && "Standard Deviation Distribution (Expanded)"}
+                {expandedChart === "timeline" && "Latency Timeline"}
+                {expandedChart === "distribution" && "Standard Deviation"}
               </span>
               
               <div className="flex items-center gap-3.5 flex-wrap">
