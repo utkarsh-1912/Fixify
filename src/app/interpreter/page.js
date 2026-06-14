@@ -736,7 +736,7 @@ export default function InterpreterPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-12 rounded-xl border border-zinc-800 flex items-center justify-center shrink-0 shadow-lg overflow-hidden bg-zinc-950">
-                    <img src="/aura_logo_icon.png" alt="AURA Logo" className="h-full w-full object-cover" />
+                    <img src="/aura_logo_icon.png" alt="AURA Logo" className="h-full w-full rounded-xl object-cover" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-sans">
@@ -779,7 +779,7 @@ export default function InterpreterPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-505 via-cyan-505 to-teal-505 flex items-center justify-center shrink-0 shadow-lg">
-                    <Bot className="h-5 w-5 text-zinc-950 font-bold" />
+                    <img src="/gemini_logo.jpeg" alt="Gemini Logo" className="h-full w-full rounded-xl object-cover" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent font-sans">
