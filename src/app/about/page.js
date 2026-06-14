@@ -40,14 +40,17 @@ export default function AboutPage() {
   return (
     <div className="space-y-12 max-w-5xl mx-auto px-4 py-6">
       {/* Header section with gradient glow */}
-      <div className="relative rounded-2xl p-8 overflow-hidden border border-zinc-900 bg-zinc-950/40 backdrop-blur-sm">
+      <div 
+        className="relative rounded-2xl p-4 overflow-hidden backdrop-blur-sm shadow-sm animate-fade-in"
+        style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
+      >
         <div className="absolute top-0 right-0 h-40 w-40 bg-[var(--primary)] opacity-[0.03] rounded-full blur-3xl pointer-events-none" />
         
-        <div className="space-y-3 relative z-10">
+        <div className="space-y-2 relative z-10">
           <div className="flex items-center gap-3">
             <div
-              className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
+              className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
             >
               <Info className="h-5 w-5" style={{ color: 'var(--primary)' }} />
             </div>
