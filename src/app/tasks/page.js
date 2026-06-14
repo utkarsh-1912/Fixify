@@ -749,7 +749,7 @@ export default function KanbanPage() {
           className="fx-btn-primary shrink-0"
           title="New Task"
         >
-          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span>
+          <Plus className="h-4 w-4" /> <span className="inline">New Task</span>
         </button>
       </div>
 
