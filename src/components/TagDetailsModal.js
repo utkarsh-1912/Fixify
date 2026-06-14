@@ -208,7 +208,8 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
           )}
 
           {/* Render Compared Values if available, otherwise fallback to standard Allowed Values */}
-          {(val1 !== undefined || val2 !== undefined) ? (
+          {/* Render Compared Values if both are available */}
+          {(val1 !== undefined && val2 !== undefined) ? (
             <div className="space-y-2.5">
               <p className="fx-section-label flex items-center gap-1.5 text-zinc-400 font-mono text-[10px]">
                 <Layers className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
@@ -239,56 +240,81 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
               </div>
             </div>
           ) : (
-            enums.length > 0 && (
-              <div className="space-y-2.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <>
+              {val1 !== undefined && (
+                <div className="space-y-2">
                   <p className="fx-section-label flex items-center gap-1.5 text-zinc-400 font-mono text-[10px]">
                     <Layers className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
-                    Allowed Values {enumSearch.trim() ? `(${filteredEnums.length} of ${enums.length})` : `(${enums.length})`}
+                    Active Message Value
                   </p>
-                  
-                  {enums.length > 5 && (
-                    <input
-                      type="text"
-                      placeholder="Filter allowed values..."
-                      value={enumSearch}
-                      onChange={(e) => setEnumSearch(e.target.value)}
-                      className="px-2 py-1 bg-zinc-950/40 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-lg text-[10px] font-mono text-zinc-300 w-full sm:w-44 transition-all"
-                    />
+                  <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 flex items-center justify-between font-mono text-xs" style={{ background: 'var(--background)' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Current Value:</span>
+                    <span className="font-bold flex items-center gap-2">
+                      <span className="text-[var(--primary)] font-extrabold">{val1}</span>
+                      {mappedVal1 && mappedVal1 !== val1 && (
+                        <span style={{ color: 'var(--foreground)' }}>({mappedVal1})</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {enums.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <p className="fx-section-label flex items-center gap-1.5 text-zinc-400 font-mono text-[10px]">
+                      <Layers className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
+                      Allowed Values {enumSearch.trim() ? `(${filteredEnums.length} of ${enums.length})` : `(${enums.length})`}
+                    </p>
+                    {enums.length > 5 && (
+                      <input
+                        type="text"
+                        placeholder="Filter allowed values..."
+                        value={enumSearch}
+                        onChange={(e) => setEnumSearch(e.target.value)}
+                        className="px-2 py-1 bg-zinc-950/40 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-lg text-[10px] font-mono text-zinc-300 w-full sm:w-44 transition-all"
+                      />
+                    )}
+                  </div>
+
+                  {filteredEnums.length > 0 ? (
+                    <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                      <table className="w-full text-xs font-mono text-left">
+                        <thead>
+                          <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800" style={{ color: 'var(--text-muted)' }}>
+                            <th className="py-2 px-3.5 font-semibold w-16">Value</th>
+                            <th className="py-2 px-3.5 font-semibold">Description / Meaning</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredEnums.map((val) => {
+                            const isCurrent = String(val.enum) === String(val1);
+                            return (
+                              <tr 
+                                key={val.enum} 
+                                className="border-b border-zinc-100 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-900/30"
+                                style={{
+                                  background: isCurrent ? 'var(--primary-faint)' : 'transparent',
+                                }}
+                              >
+                                <td className="py-2 px-3.5 font-bold flex items-center gap-1.5" style={{ color: isCurrent ? 'var(--primary)' : 'var(--foreground)' }}>
+                                  {isCurrent && <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)] shrink-0 animate-pulse" />}
+                                  <span style={{ color: 'var(--primary)' }}>{val.enum}</span>
+                                </td>
+                                <td className="py-2 px-3.5 font-semibold" style={{ color: isCurrent ? 'var(--primary)' : 'var(--foreground)' }}>
+                                  {val.description}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-zinc-500 font-mono py-1">No allowed values match your search.</p>
                   )}
                 </div>
-
-                {filteredEnums.length > 0 ? (
-                  <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-                    <table className="w-full text-xs font-mono text-left">
-                      <thead>
-                        <tr className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800" style={{ color: 'var(--text-muted)' }}>
-                          <th className="py-2 px-3.5 font-semibold w-16">Value</th>
-                          <th className="py-2 px-3.5 font-semibold">Description / Meaning</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredEnums.map((val) => (
-                          <tr 
-                            key={val.enum} 
-                            className="border-b border-zinc-100 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-900/30"
-                          >
-                            <td className="py-2 px-3.5 font-bold" style={{ color: 'var(--primary)' }}>
-                              {val.enum}
-                            </td>
-                            <td className="py-2 px-3.5" style={{ color: 'var(--foreground)' }}>
-                              {val.description}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-xs italic text-zinc-500 font-mono py-1">No allowed values match your search.</p>
-                )}
-              </div>
-            )
+              )}
+            </>
           )}
         </div>
       </div>

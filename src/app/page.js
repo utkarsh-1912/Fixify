@@ -27,6 +27,7 @@ import {
   FIX_ORDER_MAP
 } from "@/lib/fixParser";
 import TagDetailsModal from "@/components/TagDetailsModal";
+import ErrorAnalyticsModal from "@/components/ErrorAnalyticsModal";
 
 function evaluateFQL(lineContent, query, delimiter = "|") {
   if (!query || !query.trim()) return true;
@@ -90,6 +91,7 @@ export default function LogsProcessorPage() {
   const [selectedLineInfo, setSelectedLineInfo] = useState(null);
   const [inspectorTab, setInspectorTab] = useState("details"); // "details" or "lifecycle"
   const [selectedOrderIdFilter, setSelectedOrderIdFilter] = useState("all");
+  const [activeErrorType, setActiveErrorType] = useState(null); // 'checksum', 'length' or null
 
   useEffect(() => {
     setInspectorTab("details");
@@ -729,34 +731,42 @@ export default function LogsProcessorPage() {
 
   const statCards = stats.totalMessages > 0 ? [
     {
+      id: 'total',
       label: 'Total Messages',
       value: stats.totalMessages,
       icon: TrendingUp,
       color: 'var(--foreground)',
-      bg: 'var(--card-hover)'
+      bg: 'var(--card-hover)',
+      clickable: false
     },
     {
+      id: 'validation',
       label: 'Validation Rate',
       value: `${((stats.validMessages / stats.totalMessages) * 100).toFixed(1)}%`,
       icon: CheckCircle,
       color: 'var(--primary)',
-      bg: 'var(--primary-faint)'
+      bg: 'var(--primary-faint)',
+      clickable: false
     },
     {
+      id: 'checksum',
       label: 'Checksum Errors',
       value: stats.checksumErrors,
       subtext: stats.checksumFailedSeqs?.length > 0 ? `Failed: ${stats.checksumFailedSeqs.slice(0, 3).join(', ')}${stats.checksumFailedSeqs.length > 3 ? '...' : ''}` : 'No mismatches',
       icon: AlertTriangle,
       color: '#f87171',
-      bg: 'rgba(239,68,68,0.08)'
+      bg: 'rgba(239,68,68,0.08)',
+      clickable: stats.checksumErrors > 0
     },
     {
+      id: 'length',
       label: 'Length Errors',
       value: stats.bodyLengthErrors,
       subtext: stats.bodyLengthFailedSeqs?.length > 0 ? `Failed: ${stats.bodyLengthFailedSeqs.slice(0, 3).join(', ')}${stats.bodyLengthFailedSeqs.length > 3 ? '...' : ''}` : 'No mismatches',
       icon: AlertTriangle,
       color: '#fb923c',
-      bg: 'rgba(251,146,60,0.08)'
+      bg: 'rgba(251,146,60,0.08)',
+      clickable: stats.bodyLengthErrors > 0
     },
   ] : [];
 
@@ -797,8 +807,26 @@ export default function LogsProcessorPage() {
               {statCards.map((card) => (
                 <div
                   key={card.label}
-                  className="flex items-center gap-4 p-5 rounded-xl"
-                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                  onClick={() => card.clickable && setActiveErrorType(card.id)}
+                  className={`flex items-center gap-4 p-5 rounded-xl ${card.clickable ? 'cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all' : ''}`}
+                  style={{
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    cursor: card.clickable ? 'pointer' : 'default',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (card.clickable) {
+                      e.currentTarget.style.borderColor = card.color;
+                      e.currentTarget.style.boxShadow = `0 4px 12px ${card.color}15`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (card.clickable) {
+                      e.currentTarget.style.borderColor = 'var(--border)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
+                  }}
                 >
                   <div
                     className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
@@ -807,7 +835,7 @@ export default function LogsProcessorPage() {
                     <card.icon className="h-5 w-5" style={{ color: card.color }} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-xl font-bold font-mono" style={{ color: card.color }}>
+                    <div className="text-xl font-bold font-mono flex items-center gap-1.5" style={{ color: card.color }}>
                       {card.value}
                     </div>
                     <div className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>
@@ -1185,6 +1213,24 @@ export default function LogsProcessorPage() {
           version={selectedLineInfo?.validation?.tagList?.find(t => t.tag === '8')?.val || 'FIX.4.4'}
           isOpen={!!activeTag}
           onClose={() => setActiveTag(null)}
+          onTagSelect={setActiveTag}
+          val1={selectedLineInfo?.validation?.tagList?.find(t => t.tag === activeTag)?.val}
+          mappedVal1={selectedLineInfo?.validation?.tagList?.find(t => t.tag === activeTag)?.meaning}
+        />
+      )}
+
+      {/* Diagnostics Error Analytics Modal */}
+      {activeErrorType && (
+        <ErrorAnalyticsModal
+          errorType={activeErrorType}
+          files={files}
+          isOpen={!!activeErrorType}
+          onClose={() => setActiveErrorType(null)}
+          onInspect={(line) => {
+            setSelectedLineInfo(line);
+            setActiveErrorType(null);
+            setInspectorTab("details");
+          }}
         />
       )}
     </div>
