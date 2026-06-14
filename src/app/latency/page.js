@@ -1013,7 +1013,7 @@ export default function LatencyDashboard() {
               style={{ border: "1px solid var(--border)", background: "var(--card)" }}
             >
               <div 
-                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                className="h-10 w-10 rounded-xl items-center justify-center shrink-0 hidden sm:flex"
                 style={{ background: "var(--background)" }}
               >
                 <FileText className="h-5 w-5" style={{ color: "var(--text-muted)" }} />
@@ -1033,7 +1033,7 @@ export default function LatencyDashboard() {
               style={{ border: "1px solid var(--border)", background: "var(--card)" }}
             >
               <div 
-                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                className="h-10 w-10 rounded-xl items-center justify-center shrink-0 hidden sm:flex"
                 style={{ background: "rgba(16,185,129,0.08)" }}
               >
                 <Clock className="h-5 w-5 text-emerald-400" />
@@ -1053,7 +1053,7 @@ export default function LatencyDashboard() {
               style={{ border: "1px solid var(--border)", background: "var(--card)" }}
             >
               <div 
-                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                className="h-10 w-10 rounded-xl items-center justify-center shrink-0 hidden sm:flex"
                 style={{ background: "var(--primary-faint)" }}
               >
                 <ArrowRightLeft className="h-5 w-5" style={{ color: "var(--primary)" }} />
@@ -1073,7 +1073,7 @@ export default function LatencyDashboard() {
               style={{ border: "1px solid var(--border)", background: "var(--card)" }}
             >
               <div 
-                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                className="h-10 w-10 rounded-xl items-center justify-center shrink-0 hidden sm:flex"
                 style={{ background: "rgba(251,191,36,0.08)" }}
               >
                 <Zap className="h-5 w-5 text-amber-400" />
@@ -1096,7 +1096,7 @@ export default function LatencyDashboard() {
           >
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4 text-[var(--primary)]" />
-              <span className="text-xs font-semibold font-mono" style={{ color: "var(--text-muted)" }}>
+              <span className="text-xs font-semibold font-mono hidden md:inline" style={{ color: "var(--text-muted)" }}>
                 Active Diagnostic View Mode (Controls all charts)
               </span>
             </div>
