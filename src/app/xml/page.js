@@ -12,7 +12,8 @@ import {
   Upload,
   Minimize2,
   Download,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from "lucide-react";
 
 /* ─── Helper Functions ─────────────────────────────────────────────────── */
