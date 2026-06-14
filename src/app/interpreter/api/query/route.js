@@ -501,6 +501,12 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
 }
 
 const FIX_GUIDES = {
+  "fix protocol": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
+  
+  "fix": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
+
+  "trading": `**Electronic Trading & FIX Routing**\n\nElectronic trading relies on FIX (Financial Information eXchange) messages to route orders and confirm executions in real-time.\n- **Order Entry**: A client sends a **New Order Single (35=D)** specifying the price (44), size (38), symbol (55), side (54), and order type (40).\n- **Execution Reports**: The exchange or broker responds with **Execution Reports (35=8)** representing order status changes (39) like New, Partially Filled, Filled, Canceled, or Rejected.\n- **Order Modification**: Clients can cancel or replace active orders via **Order Cancel Request (35=F)** and **Order Cancel/Replace Request (35=G)**.`,
+
   "logon": `**FIX Logon Session Flow (MsgType 35=A)**\n\nThe Logon message is transmitted by both the initiator (client) and acceptor (server) to establish a FIX session.\n- **Tag 98 (EncryptMethod)**: Encryption method (typically 0 = None / Plaintext).\n- **Tag 108 (HeartBtInt)**: Heartbeat interval in seconds (e.g., 30).\n- **Tag 141 (ResetSeqNumFlag)**: Reset sequence numbers to 1 if set to 'Y'.\n\n*Establish Session sequence:* \nInitiator --(35=A, Seq 1)--> Acceptor\nInitiator <--(35=A, Seq 1)-- Acceptor (Session Established)`,
   
   "heartbeat": `**FIX Heartbeat (MsgType 35=0)**\n\nHeartbeat messages are transmitted at the HeartBtInt interval during periods of inactivity to verify link connectivity.\n- If responding to a **Test Request (35=1)**, the Heartbeat must include the matching **TestReqID (Tag 112)** to verify sequence integrity.`,
@@ -691,12 +697,34 @@ function tryPartialLookup(query, customDialect) {
         if (f.name.toLowerCase().includes(word) && !customMatches.some(m => m.tag === f.tag)) {
           customMatches.push(f);
         }
+        if (f.values && Array.isArray(f.values)) {
+          const hasEnumMatch = f.values.some(v => 
+            v.enum.toLowerCase() === word ||
+            v.description.toLowerCase().includes(word) ||
+            v.description.toLowerCase().replace(/_/g, ' ').includes(word)
+          );
+          if (hasEnumMatch && !customMatches.some(m => m.tag === f.tag)) {
+            customMatches.push(f);
+          }
+        }
       });
     }
     
     for (const [tag, name] of Object.entries(FIX_TAGS)) {
       if (name.toLowerCase().includes(word)) {
         matchedTags.add(tag);
+      }
+    }
+
+    for (const [tag, enums] of Object.entries(FIX_VALUES)) {
+      for (const [enumVal, enumDesc] of Object.entries(enums)) {
+        if (
+          String(enumVal).toLowerCase() === word ||
+          enumDesc.toLowerCase().includes(word) ||
+          enumDesc.toLowerCase().replace(/_/g, ' ').includes(word)
+        ) {
+          matchedTags.add(tag);
+        }
       }
     }
   }

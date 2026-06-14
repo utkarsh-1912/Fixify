@@ -52,16 +52,16 @@ export function parseQuickFixXml(xmlText) {
       const description = vNode.getAttribute("description");
       if (enumVal !== null && description !== null) {
         values.push({
-          enum: enumVal,
-          description
+          enum: enumVal.trim().replace(/\s+/g, '_'),
+          description: description.trim().replace(/\s+/g, '_')
         });
       }
     }
     
     fields.push({
       tag,
-      name,
-      type,
+      name: name ? name.trim().replace(/\s+/g, '_') : name,
+      type: type.trim().replace(/\s+/g, '_'),
       ...(values.length > 0 ? { values } : {})
     });
   }

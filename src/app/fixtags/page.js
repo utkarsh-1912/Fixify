@@ -142,7 +142,7 @@ export default function FIXDictionaryPage() {
       if (Array.isArray(f.values)) {
         return f.values.some(
           (val) =>
-            String(val.enum).toLowerCase().includes(query) ||
+            matchesQuery(val.enum, query) ||
             matchesQuery(val.description, query)
         );
       }
