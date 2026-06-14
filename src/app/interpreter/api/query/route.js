@@ -17,6 +17,13 @@ const FIX_SPECS = {
   "FIXT.1.1": fixt11
 };
 
+const GREETING_WORDS = new Set(["hi", "hello", "hey", "hola", "yo", "greetings", "good morning", "good afternoon", "good evening", "welcome"]);
+
+function isGreeting(query) {
+  const normalized = query.trim().toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "");
+  return GREETING_WORDS.has(normalized);
+}
+
 function getTagDescription(tagNum) {
   if (fixDescription && Array.isArray(fixDescription.FIX_Tags_Description)) {
     const found = fixDescription.FIX_Tags_Description.find(d => String(d.tag) === String(tagNum));
@@ -938,63 +945,76 @@ export async function POST(req) {
             `*Response resolved by AURA.*`;
         }
       } else {
-        // Evaluate offline lookups in order of specificity
-        const statusLookup = tryStatusLookup(query);
-        const rejectLookup = tryRejectReasonLookup(query);
-        const localResult = tryLocalLookup(query, customDialect);
-        
-        // Prioritize conditional rules if they ask for rules/validation/requirements
-        const lowercaseQuery = query.toLowerCase();
-        const asksForRules = lowercaseQuery.includes("rule") || 
-                             lowercaseQuery.includes("conditional") || 
-                             lowercaseQuery.includes("validat") || 
-                             lowercaseQuery.includes("when is") || 
-                             lowercaseQuery.includes("require");
-                             
-        let condRulesLookup = null;
-        let schemaLookup = null;
-        
-        if (asksForRules) {
-          condRulesLookup = tryConditionalRulesLookup(query);
-          if (!condRulesLookup) {
-            schemaLookup = tryMessageSchemaLookup(query);
-          }
-        } else {
-          schemaLookup = tryMessageSchemaLookup(query);
-          if (!schemaLookup) {
-            condRulesLookup = tryConditionalRulesLookup(query);
-          }
-        }
-        
-        const batchLookup = tryBatchTagLookup(query, customDialect);
+        if (isGreeting(query)) {
+          answer = `Hello! I am **AURA** (AUgmented Response Agent), your offline FIX protocol diagnostics companion. 
 
-        if (statusLookup) {
-          answer = `${statusLookup}\n\n*Response resolved by AURA (Displaying status/terminology guides).*`;
-        } else if (rejectLookup) {
-          answer = `${rejectLookup}\n\n*Response resolved by AURA (Displaying local reject guides).*`;
-        } else if (localResult) {
-          answer = `${localResult}\n\n*Response resolved by AURA.*`;
-        } else if (condRulesLookup) {
-          answer = `${condRulesLookup}\n\n*Response resolved by AURA (Displaying local validation rulebook).*`;
-        } else if (schemaLookup) {
-          answer = `${schemaLookup}\n\n*Response resolved by AURA (Displaying local message schema).*`;
-        } else if (batchLookup) {
-          answer = `${batchLookup}\n\n*Response resolved by AURA (Running offline batch lookups).*`;
+How can I help you today? You can:
+- Look up specific FIX tags (e.g. "what is tag 35" or "explain tag 49")
+- Search message schemas (e.g. "Logon schema" or "ExecutionReport fields")
+- Audit conditional validation rules (e.g. "when is price required?")
+- Look up session rejection codes (e.g. "rejection reason 5" or "373=5")
+- Paste a raw FIX message string (starting with \`8=FIX.\`) to run structural validations, routing audits, and counterpart response simulations.
+
+*Response resolved by AURA.*`;
         } else {
-          // Check standard quick-guides next
-          let guideMatch = null;
-          for (const [topic, text] of Object.entries(FIX_GUIDES)) {
-            if (lowercaseQuery.includes(topic)) {
-              guideMatch = text;
-              break;
+          // Evaluate offline lookups in order of specificity
+          const statusLookup = tryStatusLookup(query);
+          const rejectLookup = tryRejectReasonLookup(query);
+          const localResult = tryLocalLookup(query, customDialect);
+          
+          // Prioritize conditional rules if they ask for rules/validation/requirements
+          const lowercaseQuery = query.toLowerCase();
+          const asksForRules = lowercaseQuery.includes("rule") || 
+                               lowercaseQuery.includes("conditional") || 
+                               lowercaseQuery.includes("validat") || 
+                               lowercaseQuery.includes("when is") || 
+                               lowercaseQuery.includes("require");
+                               
+          let condRulesLookup = null;
+          let schemaLookup = null;
+          
+          if (asksForRules) {
+            condRulesLookup = tryConditionalRulesLookup(query);
+            if (!condRulesLookup) {
+              schemaLookup = tryMessageSchemaLookup(query);
+            }
+          } else {
+            schemaLookup = tryMessageSchemaLookup(query);
+            if (!schemaLookup) {
+              condRulesLookup = tryConditionalRulesLookup(query);
             }
           }
+          
+          const batchLookup = tryBatchTagLookup(query, customDialect);
 
-          if (guideMatch) {
-            answer = `${guideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
+          if (statusLookup) {
+            answer = `${statusLookup}\n\n*Response resolved by AURA (Displaying status/terminology guides).*`;
+          } else if (rejectLookup) {
+            answer = `${rejectLookup}\n\n*Response resolved by AURA (Displaying local reject guides).*`;
+          } else if (localResult) {
+            answer = `${localResult}\n\n*Response resolved by AURA.*`;
+          } else if (condRulesLookup) {
+            answer = `${condRulesLookup}\n\n*Response resolved by AURA (Displaying local validation rulebook).*`;
+          } else if (schemaLookup) {
+            answer = `${schemaLookup}\n\n*Response resolved by AURA (Displaying local message schema).*`;
+          } else if (batchLookup) {
+            answer = `${batchLookup}\n\n*Response resolved by AURA (Running offline batch lookups).*`;
           } else {
-            const partials = tryPartialLookup(query, customDialect);
-            answer = `*Response resolved by AURA.*\n\n${partials}\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
+            // Check standard quick-guides next
+            let guideMatch = null;
+            for (const [topic, text] of Object.entries(FIX_GUIDES)) {
+              if (lowercaseQuery.includes(topic)) {
+                guideMatch = text;
+                break;
+              }
+            }
+
+            if (guideMatch) {
+              answer = `${guideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
+            } else {
+              const partials = tryPartialLookup(query, customDialect);
+              answer = `*Response resolved by AURA.*\n\n${partials}\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
+            }
           }
         }
       }
