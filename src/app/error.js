@@ -26,7 +26,7 @@ export default function GlobalError({ error, reset }) {
   const rawFixMessage = `8=FIX.4.4\x019=168\x0135=j\x0134=500\x0149=FIXIFY\x0156=VISITOR\x01380=5\x0158=${error.message || 'Unknown Exception Intercepted'}\x0110=042\x01`;
 
   return (
-    <div className="flex flex-col items-center justify-center py-10 md:py-16 max-w-2xl mx-auto space-y-8 animate-fadeIn">
+    <div className="flex flex-col items-center justify-center py-10 md:py-16 max-w-4xl mx-auto space-y-8 animate-fadeIn">
       {/* Header Alert Section */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl mb-2" style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
