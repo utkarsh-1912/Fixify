@@ -209,7 +209,7 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
     errors.push("Invalid structure: BodyLength (tag 9) must be the second field.");
   }
   if (tagList[2].tag !== '35') {
-    errors.push("Invalid structure: MsgType (tag 35) must be the third field.");
+    warnings.push("Structure warning: MsgType (tag 35) is not the third field.");
   }
   if (tagList[tagList.length - 1].tag !== '10') {
     errors.push("Invalid structure: CheckSum (tag 10) must be the final field.");

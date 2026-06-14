@@ -563,6 +563,221 @@ export default function LogsProcessorPage() {
     );
   };
 
+  const renderSequenceFlowDiagram = () => {
+    const lifecycleMsgs = getOrderLifecycleMessages();
+    if (lifecycleMsgs.length === 0) {
+      return (
+        <div className="py-12 text-center text-xs italic" style={{ color: 'var(--text-muted)' }}>
+          No linked order messages found.
+        </div>
+      );
+    }
+
+    // Extract ordered actors: default client leftmost, default server next, then others
+    const firstMsg = lifecycleMsgs[0];
+    const defaultSender = firstMsg?.validation?.tags?.['49'] || 'Client';
+    const defaultTarget = firstMsg?.validation?.tags?.['56'] || 'Server';
+
+    const otherActors = Array.from(new Set(
+      lifecycleMsgs.flatMap(m => {
+        const s = m.validation?.tags?.['49'] || 'Client';
+        const t = m.validation?.tags?.['56'] || 'Server';
+        return [s, t];
+      })
+    )).filter(a => a !== defaultSender && a !== defaultTarget);
+
+    const orderedActors = [defaultSender, defaultTarget, ...otherActors];
+    const numActors = orderedActors.length;
+
+    // Grid details for SVG
+    const width = 400;
+    const padding = 50;
+    const actorWidth = 80;
+    
+    // Calculate X coordinate for each actor
+    const getActorX = (index) => {
+      if (numActors <= 1) return width / 2;
+      const step = (width - padding * 2) / (numActors - 1);
+      return padding + index * step;
+    };
+
+    const rowHeight = 60;
+    const headerHeight = 50;
+    const svgHeight = headerHeight + lifecycleMsgs.length * rowHeight + 30;
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+          <span>Click arrows to inspect messages</span>
+          <span className="text-zinc-500 text-[10px]">Actors: {numActors}</span>
+        </div>
+
+        <div className="overflow-x-auto p-1 bg-zinc-950/40 rounded-2xl border border-zinc-900/80 backdrop-blur-md">
+          <svg viewBox={`0 0 ${width} ${svgHeight}`} className="w-full h-auto font-mono">
+            {/* Draw Actor Headers & Lifelines */}
+            {orderedActors.map((actor, idx) => {
+              const x = getActorX(idx);
+              return (
+                <g key={actor}>
+                  {/* Lifeline line */}
+                  <line
+                    x1={x}
+                    y1={headerHeight - 10}
+                    x2={x}
+                    y2={svgHeight - 20}
+                    stroke="var(--border)"
+                    strokeDasharray="4 4"
+                    strokeWidth="1.5"
+                  />
+                  {/* Actor Header Box */}
+                  <rect
+                    x={x - actorWidth / 2}
+                    y={10}
+                    width={actorWidth}
+                    height={26}
+                    rx={6}
+                    fill="var(--background)"
+                    stroke="var(--border)"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={x}
+                    y={26}
+                    textAnchor="middle"
+                    fontSize="9px"
+                    fontWeight="bold"
+                    fill="var(--foreground)"
+                  >
+                    {actor.length > 11 ? actor.slice(0, 9) + '..' : actor}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Draw message flows */}
+            {lifecycleMsgs.map((msg, index) => {
+              const fromActor = msg.validation?.tags?.['49'] || 'Client';
+              const toActor = msg.validation?.tags?.['56'] || 'Server';
+              
+              const fromIdx = orderedActors.indexOf(fromActor);
+              const toIdx = orderedActors.indexOf(toActor);
+              
+              const xFrom = getActorX(fromIdx !== -1 ? fromIdx : 0);
+              const xTo = getActorX(toIdx !== -1 ? toIdx : 1);
+              
+              const y = headerHeight + index * rowHeight + 30;
+              const isCurrent = msg.id === selectedLineInfo.id;
+              
+              const msgType = msg.validation?.msgTypeName || "Message";
+              const typeCode = msg.msgType;
+              const seq = msg.validation?.msgSeqNum || '';
+              
+              let latencyStr = "";
+              if (index > 0) {
+                const prevMsg = lifecycleMsgs[index - 1];
+                const diffMs = msg.timestampObj.getTime() - prevMsg.timestampObj.getTime();
+                latencyStr = `+${diffMs}ms`;
+              }
+
+              // Determine arrow direction & markers
+              const isLeftToRight = xFrom < xTo;
+              
+              return (
+                <g
+                  key={msg.id}
+                  onClick={() => setSelectedLineInfo(msg)}
+                  className="cursor-pointer group/arrow"
+                >
+                  {/* Invisible broad hover path for easy clicking */}
+                  <line
+                    x1={xFrom}
+                    y1={y}
+                    x2={xTo}
+                    y2={y}
+                    stroke="transparent"
+                    strokeWidth="12"
+                  />
+
+                  {/* Visual Line */}
+                  <line
+                    x1={xFrom}
+                    y1={y}
+                    x2={xTo}
+                    y2={y}
+                    stroke={isCurrent ? "var(--primary)" : "var(--text-muted)"}
+                    strokeWidth={isCurrent ? "2.5" : "1.5"}
+                    strokeDasharray={typeCode === '3' || typeCode === '9' ? "2 2" : "none"} // Reject messages dashed
+                    className="group-hover/arrow:stroke-[var(--primary)] transition-all"
+                  />
+
+                  {/* Arrowhead */}
+                  {xFrom !== xTo && (
+                    <polygon
+                      points={
+                        isLeftToRight
+                          ? `${xTo - 6},${y - 4} ${xTo},${y} ${xTo - 6},${y + 4}`
+                          : `${xTo + 6},${y - 4} ${xTo},${y} ${xTo + 6},${y + 4}`
+                      }
+                      fill={isCurrent ? "var(--primary)" : "var(--text-muted)"}
+                      className="group-hover/arrow:fill-[var(--primary)] transition-all"
+                    />
+                  )}
+
+                  {/* Label background highlight if selected */}
+                  {isCurrent && (
+                    <rect
+                      x={Math.min(xFrom, xTo) + Math.abs(xFrom - xTo)/2 - 65}
+                      y={y - 22}
+                      width={130}
+                      height={14}
+                      rx={3}
+                      fill="var(--primary-faint)"
+                      stroke="var(--primary-border)"
+                      strokeWidth="0.5"
+                    />
+                  )}
+
+                  {/* Message Label */}
+                  <text
+                    x={xFrom + (xTo - xFrom) / 2}
+                    y={y - 12}
+                    textAnchor="middle"
+                    fontSize="8px"
+                    fontWeight={isCurrent ? "bold" : "normal"}
+                    fill={isCurrent ? "var(--primary)" : "var(--foreground)"}
+                    className="group-hover/arrow:fill-[var(--primary)] transition-all"
+                  >
+                    {msgType.length > 25 ? msgType.slice(0, 22) + '..' : msgType} ({typeCode})
+                  </text>
+
+                  {/* Latency and sequence subtext */}
+                  <text
+                    x={xFrom + (xTo - xFrom) / 2}
+                    y={y + 11}
+                    textAnchor="middle"
+                    fontSize="7px"
+                    fill="var(--text-muted)"
+                  >
+                    {seq ? `Seq: ${seq}` : ''} {latencyStr ? `(${latencyStr})` : ''}
+                  </text>
+
+                  {/* Small circle node at source point */}
+                  <circle
+                    cx={xFrom}
+                    cy={y}
+                    r={3}
+                    fill={isCurrent ? "var(--primary)" : "var(--text-muted)"}
+                    className="group-hover/arrow:fill-[var(--primary)]"
+                  />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </div>
+    );
+  };
+
   const isProcessed = stats.totalMessages > 0;
 
   const renderControlsCard = () => (
@@ -1062,18 +1277,24 @@ export default function LogsProcessorPage() {
 
           {/* Tab Selector */}
           {selectedLineInfo.clOrdID && (
-            <div className="flex border-b border-zinc-900 shrink-0 bg-zinc-950/20">
+            <div className="flex border-b border-zinc-850 shrink-0 bg-zinc-950/20">
               <button
-                className={`flex-1 py-3 text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'details' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
+                className={`flex-1 py-3 text-[10px] sm:text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'details' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
                 onClick={() => setInspectorTab('details')}
               >
-                Message Details
+                Details
               </button>
               <button
-                className={`flex-1 py-3 text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'lifecycle' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
+                className={`flex-1 py-3 text-[10px] sm:text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'lifecycle' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
                 onClick={() => setInspectorTab('lifecycle')}
               >
-                Order Lifecycle
+                Timeline
+              </button>
+              <button
+                className={`flex-1 py-3 text-[10px] sm:text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'sequence' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
+                onClick={() => setInspectorTab('sequence')}
+              >
+                Sequence Flow
               </button>
             </div>
           )}
@@ -1188,8 +1409,10 @@ export default function LogsProcessorPage() {
                   </div>
                 </div>
               </>
-            ) : (
+            ) : inspectorTab === 'lifecycle' ? (
               renderLifecycleTimeline()
+            ) : (
+              renderSequenceFlowDiagram()
             )}
           </div>
 
