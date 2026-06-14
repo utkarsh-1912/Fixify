@@ -402,18 +402,18 @@ export default function LogsProcessorPage() {
   const getOrderLifecycleMessages = useCallback(() => {
     if (!selectedLineInfo || !selectedLineInfo.clOrdID) return [];
     
-    const targetClOrdID = selectedLineInfo.clOrdID;
+    const targetClOrdID = selectedLineInfo.clOrdID.toLowerCase();
+    const selOrderID = selectedLineInfo.validation?.tags?.['37']?.toLowerCase();
     const matches = [];
     
     files.forEach(fileObj => {
       fileObj.parsedLines.forEach(line => {
-        const lineClOrdID = line.clOrdID;
-        const lineOrigClOrdID = line.validation?.tags?.['41'];
-        const lineOrderID = line.validation?.tags?.['37'];
-        const selOrderID = selectedLineInfo.validation?.tags?.['37'];
+        const lineClOrdID = line.clOrdID ? line.clOrdID.toLowerCase() : '';
+        const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : '';
+        const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : '';
         
         const isMatch = 
-          (targetClOrdID && (lineClOrdID === targetClOrdID || lineOrigClOrdID === targetClOrdID)) ||
+          (lineClOrdID === targetClOrdID || lineOrigClOrdID === targetClOrdID) ||
           (selOrderID && lineOrderID === selOrderID);
           
         if (isMatch) {
@@ -446,7 +446,10 @@ export default function LogsProcessorPage() {
 
     const displayedMsgs = selectedOrderIdFilter === "all"
       ? lifecycleMsgs
-      : lifecycleMsgs.filter(m => m.validation?.tags?.['37'] === selectedOrderIdFilter);
+      : lifecycleMsgs.filter(m => {
+          const oid = m.validation?.tags?.['37'];
+          return oid && oid.toLowerCase() === selectedOrderIdFilter.toLowerCase();
+        });
     
     return (
       <div className="space-y-4">
@@ -582,12 +585,26 @@ export default function LogsProcessorPage() {
 
     const displayedMsgs = selectedOrderIdFilter === "all"
       ? lifecycleMsgs
-      : lifecycleMsgs.filter(m => m.validation?.tags?.['37'] === selectedOrderIdFilter);
+      : lifecycleMsgs.filter(m => {
+          const oid = m.validation?.tags?.['37'];
+          return oid && oid.toLowerCase() === selectedOrderIdFilter.toLowerCase();
+        });
 
     // Extract ordered actors: default client leftmost, default server next, then others
     const firstMsg = lifecycleMsgs[0];
     const defaultSender = firstMsg?.validation?.tags?.['49'] || 'Client';
     const defaultTarget = firstMsg?.validation?.tags?.['56'] || 'Server';
+
+    let totalIn = 0;
+    let totalOut = 0;
+    displayedMsgs.forEach(m => {
+      const fromActor = m.validation?.tags?.['49'] || 'Client';
+      if (fromActor === defaultSender) {
+        totalOut++;
+      } else {
+        totalIn++;
+      }
+    });
 
     const otherActors = Array.from(new Set(
       lifecycleMsgs.flatMap(m => {
@@ -614,7 +631,7 @@ export default function LogsProcessorPage() {
 
     const rowHeight = 60;
     const headerHeight = 50;
-    const svgHeight = headerHeight + displayedMsgs.length * rowHeight + 30;
+    const svgHeight = headerHeight + displayedMsgs.length * rowHeight + 45;
 
     return (
       <div className="space-y-4">
@@ -636,7 +653,12 @@ export default function LogsProcessorPage() {
               <span className="font-bold text-zinc-350">{orderIds[0] || 'N/A'}</span>
             )}
           </div>
-          <span className="text-zinc-500 text-[9px]">Actors: {numActors}</span>
+          <div className="flex items-center gap-2 text-zinc-500 text-[9px]">
+            <span>In: <strong className="text-zinc-300 font-bold">{totalIn}</strong></span>
+            <span>Out: <strong className="text-zinc-300 font-bold">{totalOut}</strong></span>
+            <span className="text-zinc-700">|</span>
+            <span>Actors: {numActors}</span>
+          </div>
         </div>
 
         <div className="overflow-x-auto p-1 bg-zinc-950/40 rounded-2xl border border-zinc-900/80 backdrop-blur-md">
@@ -651,7 +673,7 @@ export default function LogsProcessorPage() {
                     x1={x}
                     y1={headerHeight - 10}
                     x2={x}
-                    y2={svgHeight - 20}
+                    y2={svgHeight - 15}
                     stroke="var(--border)"
                     strokeDasharray="4 4"
                     strokeWidth="1.5"
