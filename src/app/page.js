@@ -254,6 +254,7 @@ export default function LogsProcessorPage() {
             timestampObj: extractTimestamp(line, delimiter),
             clOrdID: getTagValue(line, '11', delimiter),
             msgType: getTagValue(line, '35', delimiter),
+            msgSeqNum: getTagValue(line, '34', delimiter),
             validation
           };
         });
@@ -301,6 +302,7 @@ export default function LogsProcessorPage() {
           timestampObj: extractTimestamp(line, delimiter),
           clOrdID: getTagValue(line, '11', delimiter),
           msgType: getTagValue(line, '35', delimiter),
+          msgSeqNum: getTagValue(line, '34', delimiter),
           validation
         };
       });
@@ -316,6 +318,7 @@ export default function LogsProcessorPage() {
             timestampObj: extractTimestamp(line, delimiter),
             clOrdID: getTagValue(line, '11', delimiter),
             msgType: getTagValue(line, '35', delimiter),
+            msgSeqNum: getTagValue(line, '34', delimiter),
             validation
           };
         });
@@ -340,6 +343,11 @@ export default function LogsProcessorPage() {
         const orderA = FIX_ORDER_MAP[a.msgType] || 99;
         const orderB = FIX_ORDER_MAP[b.msgType] || 99;
         if (orderA !== orderB) return orderA - orderB;
+        const seqA = a.msgSeqNum ? parseInt(a.msgSeqNum, 10) : 0;
+        const seqB = b.msgSeqNum ? parseInt(b.msgSeqNum, 10) : 0;
+        if (!isNaN(seqA) && !isNaN(seqB) && seqA !== seqB) {
+          return sortOrder === 'asc' ? seqA - seqB : seqB - seqA;
+        }
         return 0;
       });
 
