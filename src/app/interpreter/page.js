@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import {
-  BrainCircuit,
+  Brain,
   Send,
   PlusCircle,
   AlertCircle,
@@ -405,14 +405,14 @@ export default function InterpreterPage() {
       style={{ height: 'calc(100dvh - 110px)' }}
     >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-900 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 shrink-0">
         <div className="space-y-1">
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
             <div
               className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
             >
-              <BrainCircuit className="h-4 w-4" style={{ color: 'var(--primary)' }} />
+              <Brain className="h-4 w-4" style={{ color: 'var(--primary)' }} />
             </div>
             FIXi Interpreter
           </h1>

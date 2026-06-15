@@ -1321,7 +1321,7 @@ export default function LogsProcessorPage() {
                   }}
                 >
                   <div
-                    className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                    className="h-10 w-10 rounded-xl hidden md:flex items-center justify-center shrink-0"
                     style={{ background: card.bg }}
                   >
                     <card.icon className="h-5 w-5" style={{ color: card.color }} />
