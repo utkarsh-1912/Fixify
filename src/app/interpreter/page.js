@@ -28,14 +28,14 @@ const SUGGESTIONS = [
   { label: "Explain Logon Flow", query: "logon flow" },
   { label: "How is Checksum calculated?", query: "checksum calculation" },
   { label: "Decode Tag 39 (OrdStatus)", query: "39" },
-  { label: "Analyze New Order Single", query: "8=FIX.4.2|9=82|35=D|49=CLIENT|56=BROKER|34=1|11=ORD1|55=AAPL|54=1|38=100|44=175.00|10=082|" }
+  { label: "Analyze New Order Single", query: "8=FIX.4.2|9=68|35=D|49=CLIENT|56=BROKER|34=1|11=ORD1|55=AAPL|54=1|38=100|44=175.00|10=251|" }
 ];
 
 export default function InterpreterPage() {
   const [messages, setMessages] = useState([
     {
       role: "bot",
-      text: "Hello! I am FIXi, your AI-powered companion for FIX protocol diagnostics.\n\nYou can ask me general questions about the FIX session layers, or paste a raw FIX message string (beginning with '8=FIX.') to run structural validations and tag lookup audits.",
+      text: "Hello! I am AURA, your AI-powered companion for FIX protocol diagnostics.\n\nYou can ask me general questions about the FIX session layers, or paste a raw FIX message string (beginning with '8=FIX.') to run structural validations and tag lookup audits.",
     }
   ]);
   const [input, setInput] = useState("");
