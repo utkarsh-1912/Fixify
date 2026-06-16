@@ -2014,11 +2014,11 @@ function ClOrdIdChainModal({ isOpen, onClose, chain }) {
         style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">Client Order ID Chain</h3>
+        <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">Client OrderID Chain</h3>
           <button 
             onClick={onClose} 
-            className="text-[var(--text-muted)] hover:text-[var(--foreground)] p-1 rounded-lg hover:bg-zinc-800 transition-all font-mono"
+            className="text-[var(--text-muted)] hover:text-[var(--foreground)] px-1 rounded-lg hover:bg-zinc-800 transition-all font-mono"
           >
             ✕
           </button>
