@@ -14,7 +14,11 @@ import {
   Info,
   Download,
   Maximize2,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from "lucide-react";
 
 // Standard parser helpers specifically for latency tracking
@@ -289,6 +293,22 @@ export default function LatencyDashboard() {
   const [loading, setLoading] = useState(false);
   const [expandedChart, setExpandedChart] = useState(null); // "timeline", "distribution" or null
 
+  // Zoom range states
+  const [zoomRange, setZoomRange] = useState(null); // { start: number, end: number } or null
+  const [dragStart, setDragStart] = useState(null); // SVG coordinate X
+  const [dragCurrent, setDragCurrent] = useState(null); // SVG coordinate X
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Reset zoom & page when data/tab changes
+  useEffect(() => {
+    setZoomRange(null);
+    setCurrentPage(1);
+  }, [parsedData, activeTab, searchTerm]);
+
   // Fallback synchronous parser
   const runSyncParsing = useCallback((rawLogsText) => {
     if (!rawLogsText.trim()) return;
@@ -513,11 +533,11 @@ export default function LatencyDashboard() {
 
   // SVG Chart Renderer
   const renderSVGChart = () => {
-    const dataPoints = activeTab === "hop" 
+    const allDataPoints = activeTab === "hop" 
       ? parsedData.filter(d => d.hopLatency !== null)
       : rttPairs;
 
-    if (dataPoints.length === 0) {
+    if (allDataPoints.length === 0) {
       return (
         <div 
           className="h-64 flex flex-col items-center justify-center border border-dashed rounded-xl"
@@ -530,6 +550,10 @@ export default function LatencyDashboard() {
         </div>
       );
     }
+
+    const dataPoints = zoomRange 
+      ? allDataPoints.slice(zoomRange.start, zoomRange.end + 1)
+      : allDataPoints;
 
     const svgWidth = 800;
     const svgHeight = 280;
@@ -582,7 +606,8 @@ export default function LatencyDashboard() {
       const val = transformValue(rawVal);
       const x = paddingLeft + (idx / Math.max(1, dataPoints.length - 1)) * chartWidth;
       const y = paddingTop + chartHeight - ((val - minValue) / valueRange) * chartHeight;
-      return { x, y, data: dp, val: rawVal };
+      const originalIndex = zoomRange ? zoomRange.start + idx : idx;
+      return { x, y, data: dp, val: rawVal, originalIndex };
     });
 
     // Construct path line
@@ -612,14 +637,78 @@ export default function LatencyDashboard() {
       return `${(val / 1000).toFixed(2)} ms`;
     };
 
+    const getSvgX = (clientX, svgElement) => {
+      if (!svgElement) return 0;
+      const rect = svgElement.getBoundingClientRect();
+      const x = clientX - rect.left;
+      return (x / rect.width) * svgWidth;
+    };
+
     return (
       <div className="space-y-4">
         <div className="relative w-full overflow-hidden rounded-xl border border-zinc-900 bg-zinc-950/20">
+          {zoomRange && (
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] bg-zinc-950/80 px-2 py-1 rounded border border-zinc-900">
+                Zoomed: displaying {zoomRange.start + 1} - {zoomRange.end + 1} of {allDataPoints.length}
+              </span>
+              <button
+                onClick={() => setZoomRange(null)}
+                className="text-[10px] font-mono font-bold px-2.5 py-1 rounded border transition-all"
+                style={{
+                  background: 'var(--primary-faint)',
+                  borderColor: 'var(--primary-border)',
+                  color: 'var(--primary)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--primary-border)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--primary-faint)';
+                }}
+              >
+                Reset Zoom
+              </button>
+            </div>
+          )}
           <div className="overflow-x-auto w-full p-2">
             <svg 
               viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
               style={{ width: "100%" }} 
-              className="h-auto select-none overflow-visible transition-all duration-200"
+              className="h-auto select-none overflow-visible transition-all duration-200 cursor-crosshair"
+              onMouseDown={(e) => {
+                const x = getSvgX(e.clientX, e.currentTarget);
+                if (x >= paddingLeft && x <= svgWidth - paddingRight) {
+                  setDragStart(x);
+                  setDragCurrent(x);
+                  setIsDragging(true);
+                }
+              }}
+              onMouseMove={(e) => {
+                if (!isDragging || dragStart === null) return;
+                const x = getSvgX(e.clientX, e.currentTarget);
+                setDragCurrent(Math.max(paddingLeft, Math.min(svgWidth - paddingRight, x)));
+              }}
+              onMouseUp={(e) => {
+                if (!isDragging || dragStart === null || dragCurrent === null) return;
+                const x1 = Math.min(dragStart, dragCurrent);
+                const x2 = Math.max(dragStart, dragCurrent);
+                if (x2 - x1 > 5) {
+                  const startIndex = Math.max(0, Math.floor(((x1 - paddingLeft) / chartWidth) * (allDataPoints.length - 1)));
+                  const endIndex = Math.min(allDataPoints.length - 1, Math.ceil(((x2 - paddingLeft) / chartWidth) * (allDataPoints.length - 1)));
+                  if (endIndex > startIndex) {
+                    setZoomRange({ start: startIndex, end: endIndex });
+                  }
+                }
+                setIsDragging(false);
+                setDragStart(null);
+                setDragCurrent(null);
+              }}
+              onMouseLeave={() => {
+                setIsDragging(false);
+                setDragStart(null);
+                setDragCurrent(null);
+              }}
             >
               {/* Background grid */}
               {gridLines.map((gl, i) => (
@@ -644,6 +733,21 @@ export default function LatencyDashboard() {
                 </g>
               ))}
 
+              {/* Selection overlay for dragging */}
+              {isDragging && dragStart !== null && dragCurrent !== null && (
+                <rect
+                  x={Math.min(dragStart, dragCurrent)}
+                  y={paddingTop}
+                  width={Math.abs(dragStart - dragCurrent)}
+                  height={chartHeight}
+                  fill="var(--primary)"
+                  fillOpacity="0.15"
+                  stroke="var(--primary)"
+                  strokeWidth="1.5"
+                  pointerEvents="none"
+                />
+              )}
+
               {/* Line Path */}
               <path
                 d={pathD}
@@ -657,7 +761,7 @@ export default function LatencyDashboard() {
 
               {/* Data Nodes */}
               {coordinates.map((pt, idx) => {
-                const isHovered = hoveredPoint && hoveredPoint.index === idx;
+                const isHovered = hoveredPoint && hoveredPoint.index === pt.originalIndex;
                 return (
                   <circle
                     key={idx}
@@ -670,7 +774,7 @@ export default function LatencyDashboard() {
                     className="cursor-pointer transition-all duration-100"
                     onMouseEnter={(e) => {
                       setHoveredPoint({
-                        index: idx,
+                        index: pt.originalIndex,
                         val: pt.val,
                         data: pt.data,
                         x: pt.x,
@@ -763,9 +867,13 @@ export default function LatencyDashboard() {
   };
 
   const renderDistributionCurve = () => {
-    const dataPoints = activeTab === "hop" 
+    const allDataPoints = activeTab === "hop" 
       ? parsedData.filter(d => d.hopLatency !== null)
       : rttPairs;
+
+    const dataPoints = zoomRange 
+      ? allDataPoints.slice(zoomRange.start, zoomRange.end + 1)
+      : allDataPoints;
 
     if (dataPoints.length === 0) {
       return (
@@ -891,6 +999,13 @@ export default function LatencyDashboard() {
       m.seqNum.includes(searchTerm) ||
       m.msgTypeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.clOrdId && m.clOrdId.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const totalItems = filteredLogs.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const paginatedLogs = filteredLogs.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
   return (
@@ -1220,7 +1335,7 @@ export default function LatencyDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ divideColor: "var(--border)" }}>
-                  {filteredLogs.map((m) => {
+                  {paginatedLogs.map((m) => {
                     const hasHop = m.hopLatency !== null;
                     const hasRtt = m.rttMicroseconds !== undefined;
                     return (
@@ -1253,7 +1368,7 @@ export default function LatencyDashboard() {
                       </tr>
                     );
                   })}
-                  {filteredLogs.length === 0 && (
+                  {paginatedLogs.length === 0 && (
                     <tr>
                       <td colSpan={7} className="text-center py-8 italic" style={{ color: "var(--text-muted)" }}>
                         No matching parsed latency data rows.
@@ -1263,6 +1378,80 @@ export default function LatencyDashboard() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalItems > 0 && (
+              <div 
+                className="px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 border-t"
+                style={{ borderColor: "var(--border)", background: "var(--background)" }}
+              >
+                <div className="text-xs font-mono text-[var(--text-muted)]">
+                  Showing {Math.min(totalItems, (currentPage - 1) * pageSize + 1)} to {Math.min(totalItems, currentPage * pageSize)} of {totalItems} entries
+                </div>
+                
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* Page Size Select */}
+                  <div className="flex items-center gap-1.5 text-xs font-mono">
+                    <span style={{ color: "var(--text-muted)" }}>Show:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 outline-none focus:border-[var(--primary)] text-xs font-mono cursor-pointer"
+                    >
+                      {[10, 25, 50, 100].map(sz => (
+                        <option key={sz} value={sz}>{sz}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Page Navigation buttons */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center animate-fade-in border"
+                      style={{ borderColor: 'var(--border)' }}
+                      title="First Page"
+                    >
+                      <ChevronsLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center animate-fade-in border"
+                      style={{ borderColor: 'var(--border)' }}
+                      title="Previous Page"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="text-xs font-mono text-zinc-400 px-1 select-none">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center animate-fade-in border"
+                      style={{ borderColor: 'var(--border)' }}
+                      title="Next Page"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center animate-fade-in border"
+                      style={{ borderColor: 'var(--border)' }}
+                      title="Last Page"
+                    >
+                      <ChevronsRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

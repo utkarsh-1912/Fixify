@@ -16,6 +16,12 @@ import {
   Search,
   Eye,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ZoomIn,
+  ZoomOut,
   Info,
   ClipboardList,
   RefreshCw
@@ -93,6 +99,15 @@ export default function LogsProcessorPage() {
   const [inspectorTab, setInspectorTab] = useState("details"); // "details" or "lifecycle"
   const [selectedOrderIdFilter, setSelectedOrderIdFilter] = useState("all");
   const [activeErrorType, setActiveErrorType] = useState(null); // 'checksum', 'length' or null
+  const [isClOrdChainModalOpen, setIsClOrdChainModalOpen] = useState(false);
+
+  const [flowZoom, setFlowZoom] = useState(1.0);
+  const [flowPage, setFlowPage] = useState(1);
+  const [flowPageSize, setFlowPageSize] = useState(10);
+
+  useEffect(() => {
+    setFlowPage(1);
+  }, [selectedLineInfo, selectedOrderIdFilter]);
 
   useEffect(() => {
     setInspectorTab("details");
@@ -496,6 +511,32 @@ export default function LogsProcessorPage() {
     return matches;
   }, [selectedLineInfo, files]);
 
+  const getClOrdChain = useCallback(() => {
+    const lifecycleMsgs = getOrderLifecycleMessages();
+    const chain = [];
+    lifecycleMsgs.forEach(m => {
+      const clOrd = m.clOrdID;
+      const origClOrd = m.validation?.tags?.['41'];
+      const msgType = m.msgType;
+      const msgTypeName = m.validation?.msgTypeName || "Message";
+      const timestamp = m.timestampObj;
+      const seq = m.validation?.msgSeqNum;
+      
+      if (clOrd || origClOrd) {
+        chain.push({
+          id: m.id,
+          clOrd,
+          origClOrd,
+          msgType,
+          msgTypeName,
+          timestamp,
+          seq
+        });
+      }
+    });
+    return chain;
+  }, [getOrderLifecycleMessages]);
+
   const renderLifecycleTimeline = () => {
     const lifecycleMsgs = getOrderLifecycleMessages();
     if (lifecycleMsgs.length === 0) {
@@ -552,6 +593,14 @@ export default function LogsProcessorPage() {
                    (mOrigClOrd && (mOrigClOrd === otherClOrd || mOrigClOrd === otherOrigClOrd));
           });
         });
+
+    const totalCount = displayedMsgs.length;
+    const pageSize = flowPageSize === "all" ? totalCount : Number(flowPageSize);
+    const totalPages = pageSize > 0 ? Math.ceil(totalCount / pageSize) : 1;
+    const currentPage = Math.max(1, Math.min(flowPage, totalPages));
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = flowPageSize === "all" ? totalCount : startIndex + pageSize;
+    const paginatedMsgs = displayedMsgs.slice(startIndex, endIndex);
     
     return (
       <div className="space-y-4">
@@ -562,10 +611,17 @@ export default function LogsProcessorPage() {
         >
           <div className="flex flex-wrap items-center gap-3">
             {clOrdIds.length > 0 && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <span style={{ color: 'var(--text-muted)' }}>ClOrdID:</span>
                 <span className="font-bold text-zinc-350">{clOrdIds[0]}</span>
-                {/* <span className="font-bold text-zinc-350">{clOrdIds.join(', ')}</span> */}
+                <button
+                  onClick={() => setIsClOrdChainModalOpen(true)}
+                  className="p-1 rounded transition-all flex items-center justify-center hover:bg-zinc-800/20"
+                  style={{ color: 'var(--primary)' }}
+                  title="View ClOrdID Chain"
+                >
+                  <Info className="h-3.5 w-3.5 inline cursor-pointer" />
+                </button>
               </div>
             )}
             {clOrdIds.length > 0 && (orderIds.length > 0 || allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
@@ -608,8 +664,72 @@ export default function LogsProcessorPage() {
           </div>
         </div>
 
+        {/* Pagination Controls */}
+        {totalCount > 5 && (
+          <div 
+            className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-xl border text-[11px] font-mono mb-2" 
+            style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span style={{ color: 'var(--text-muted)' }}>Show:</span>
+              <select
+                value={flowPageSize}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFlowPageSize(val === "all" ? "all" : Number(val));
+                  setFlowPage(1);
+                }}
+                className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-850 text-zinc-350 outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer"
+              >
+                {[5, 10, 20, 50, 100].map(sz => (
+                  <option key={sz} value={sz}>{sz}</option>
+                ))}
+                <option value="all">All</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setFlowPage(1)}
+                disabled={currentPage === 1}
+                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                title="First Page"
+              >
+                <ChevronsLeft className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => setFlowPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                title="Previous Page"
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </button>
+              <span className="text-[10px] text-zinc-400 px-1 select-none">
+                Page {currentPage} of {totalPages} ({totalCount} msgs)
+              </span>
+              <button
+                onClick={() => setFlowPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                title="Next Page"
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => setFlowPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                title="Last Page"
+              >
+                <ChevronsRight className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-6 relative pl-4 border-l border-zinc-800 dark:border-zinc-850 ml-2 py-2">
-          {displayedMsgs.map((msg, index) => {
+          {paginatedMsgs.map((msg, index) => {
             const isCurrent = msg.id === selectedLineInfo.id;
             const msgType = msg.validation?.msgTypeName || "Message";
             const ordStatus = msg.validation?.tags?.['39'];
@@ -631,9 +751,10 @@ export default function LogsProcessorPage() {
             }
           }
           
+          const globalIndex = startIndex + index;
           let latencyStr = "";
-          if (index > 0) {
-            const prevMsg = lifecycleMsgs[index - 1];
+          if (globalIndex > 0) {
+            const prevMsg = displayedMsgs[globalIndex - 1];
             const diffMs = msg.timestampObj.getTime() - prevMsg.timestampObj.getTime();
             latencyStr = `+${diffMs}ms`;
           }
@@ -798,9 +919,9 @@ export default function LogsProcessorPage() {
     const numActors = orderedActors.length;
 
     // Grid details for SVG
-    const width = 400;
-    const padding = 50;
-    const actorWidth = 80;
+    const actorWidth = 110;
+    const padding = 60;
+    const width = Math.max(450, numActors * 150) * flowZoom;
     
     // Calculate X coordinate for each actor
     const getActorX = (index) => {
@@ -809,9 +930,17 @@ export default function LogsProcessorPage() {
       return padding + index * step;
     };
 
-    const rowHeight = 60;
+    const totalCount = displayedMsgs.length;
+    const pageSize = flowPageSize === "all" ? totalCount : Number(flowPageSize);
+    const totalPages = pageSize > 0 ? Math.ceil(totalCount / pageSize) : 1;
+    const currentPage = Math.max(1, Math.min(flowPage, totalPages));
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = flowPageSize === "all" ? totalCount : startIndex + pageSize;
+    const paginatedMsgs = displayedMsgs.slice(startIndex, endIndex);
+
+    const rowHeight = 48;
     const headerHeight = 50;
-    const svgHeight = headerHeight + displayedMsgs.length * rowHeight + 45;
+    const svgHeight = headerHeight + paginatedMsgs.length * rowHeight + 25;
 
     return (
       <div className="space-y-4">
@@ -819,10 +948,17 @@ export default function LogsProcessorPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
               {clOrdIds.length > 0 && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <span style={{ color: 'var(--text-muted)' }}>ClOrdID:</span>
-                  {/* <span className="font-bold text-zinc-350">{clOrdIds.join(', ')}</span> */}
                   <span className="font-bold text-zinc-350">{clOrdIds[0]}</span>
+                  <button
+                    onClick={() => setIsClOrdChainModalOpen(true)}
+                    className="p-1 rounded transition-all flex items-center justify-center hover:bg-zinc-800/20"
+                    style={{ color: 'var(--primary)' }}
+                    title="View ClOrdID Chain"
+                  >
+                    <Info className="h-3.5 w-3.5 inline cursor-pointer" />
+                  </button>
                 </div>
               )}
               {clOrdIds.length > 0 && (orderIds.length > 0 || allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
@@ -872,7 +1008,106 @@ export default function LogsProcessorPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto p-1 bg-zinc-950/40 rounded-2xl border border-zinc-900/80 backdrop-blur-md">
+        {/* Pagination Controls */}
+        {totalCount > 5 && (
+          <div 
+            className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-xl border text-[11px] font-mono mb-2" 
+            style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span style={{ color: 'var(--text-muted)' }}>Show:</span>
+              <select
+                value={flowPageSize}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFlowPageSize(val === "all" ? "all" : Number(val));
+                  setFlowPage(1);
+                }}
+                className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-855 text-zinc-350 outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer"
+              >
+                {[5, 10, 20, 50, 100].map(sz => (
+                  <option key={sz} value={sz}>{sz}</option>
+                ))}
+                <option value="all">All</option>
+              </select>
+            </div>
+
+            {/* Page navigation buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setFlowPage(1)}
+                disabled={currentPage === 1}
+                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                title="First Page"
+              >
+                <ChevronsLeft className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => setFlowPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                title="Previous Page"
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </button>
+              <span className="text-[10px] text-zinc-400 px-1 select-none">
+                Page {currentPage} of {totalPages} ({totalCount} msgs)
+              </span>
+              <button
+                onClick={() => setFlowPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                title="Next Page"
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => setFlowPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                title="Last Page"
+              >
+                <ChevronsRight className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="overflow-x-auto relative p-0.5 bg-zinc-950/40 rounded-2xl border border-zinc-900/80 backdrop-blur-md group/flow-container">
+          {/* Floating Zoom overlay inside sequence flow */}
+          <div 
+            className={`absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-zinc-950/90 backdrop-blur border border-zinc-800 rounded-md p-0.5 z-20 shadow-lg transition-opacity duration-200 ${flowZoom !== 1.0 ? 'opacity-100' : 'opacity-0 group-hover/flow-container:opacity-100'}`}
+          >
+            <button
+              onClick={() => setFlowZoom(prev => Math.max(0.4, Number((prev - 0.1).toFixed(1))))}
+              disabled={flowZoom <= 0.4}
+              className="p-0.5 rounded text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors flex items-center justify-center"
+              title="Zoom Out (Reduce Width)"
+            >
+              <ZoomOut className="h-3 w-3" />
+            </button>
+            <span className="text-[8px] text-zinc-355 font-bold select-none min-w-[28px] text-center font-mono">
+              {Math.round(flowZoom * 100)}%
+            </span>
+            <button
+              onClick={() => setFlowZoom(prev => Math.min(2.0, Number((prev + 0.1).toFixed(1))))}
+              disabled={flowZoom >= 2.0}
+              className="p-0.5 rounded text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors flex items-center justify-center"
+              title="Zoom In (Increase Width)"
+            >
+              <ZoomIn className="h-3 w-3" />
+            </button>
+            {flowZoom !== 1.0 && (
+              <button
+                onClick={() => setFlowZoom(1.0)}
+                className="p-0.5 rounded text-[var(--primary)] hover:text-zinc-200 transition-colors flex items-center justify-center"
+                title="Reset Zoom"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
           <svg viewBox={`0 0 ${width} ${svgHeight}`} className="w-full h-auto font-mono">
             {/* Draw Actor Headers & Lifelines */}
             {orderedActors.map((actor, idx) => {
@@ -908,14 +1143,14 @@ export default function LogsProcessorPage() {
                     fontWeight="bold"
                     fill="var(--foreground)"
                   >
-                    {actor.length > 11 ? actor.slice(0, 9) + '..' : actor}
+                    {actor.length > 22 ? actor.slice(0, 19) + '..' : actor}
                   </text>
                 </g>
               );
             })}
 
             {/* Draw message flows */}
-            {displayedMsgs.map((msg, index) => {
+            {paginatedMsgs.map((msg, index) => {
               const fromActor = msg.validation?.tags?.['49'] || 'Client';
               const toActor = msg.validation?.tags?.['56'] || 'Server';
               
@@ -925,16 +1160,17 @@ export default function LogsProcessorPage() {
               const xFrom = getActorX(fromIdx !== -1 ? fromIdx : 0);
               const xTo = getActorX(toIdx !== -1 ? toIdx : 1);
               
-              const y = headerHeight + index * rowHeight + 30;
+              const y = headerHeight + index * rowHeight + 25;
               const isCurrent = msg.id === selectedLineInfo.id;
               
               const msgType = msg.validation?.msgTypeName || "Message";
               const typeCode = msg.msgType;
               const seq = msg.validation?.msgSeqNum || '';
               
+              const globalIndex = startIndex + index;
               let latencyStr = "";
-              if (index > 0) {
-                const prevMsg = displayedMsgs[index - 1];
+              if (globalIndex > 0) {
+                const prevMsg = displayedMsgs[globalIndex - 1];
                 const diffMs = msg.timestampObj.getTime() - prevMsg.timestampObj.getTime();
                 latencyStr = `+${diffMs}ms`;
               }
@@ -1004,9 +1240,9 @@ export default function LogsProcessorPage() {
                   {isCurrent && (
                     <rect
                       x={Math.min(xFrom, xTo) + Math.abs(xFrom - xTo)/2 - 65}
-                      y={y - 22}
+                      y={y - 18}
                       width={130}
-                      height={14}
+                      height={12}
                       rx={3}
                       fill="var(--primary-faint)"
                       stroke="var(--primary-border)"
@@ -1017,7 +1253,7 @@ export default function LogsProcessorPage() {
                   {/* Message Label */}
                   <text
                     x={xFrom + (xTo - xFrom) / 2}
-                    y={y - 12}
+                    y={y - 10}
                     textAnchor="middle"
                     fontSize="8px"
                     fontWeight={isCurrent ? "bold" : "normal"}
@@ -1030,7 +1266,7 @@ export default function LogsProcessorPage() {
                   {/* Latency and sequence subtext */}
                   <text
                     x={xFrom + (xTo - xFrom) / 2}
-                    y={y + 11}
+                    y={y + 9}
                     textAnchor="middle"
                     fontSize="7px"
                     fill="var(--text-muted)"
@@ -1607,28 +1843,48 @@ export default function LogsProcessorPage() {
                 </div>
 
                 {/* Meta grid */}
-                <div
-                  className="grid grid-cols-2 gap-4 p-4 rounded-xl text-xs font-mono"
-                  style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
-                >
-                  <div>
-                    <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>Parsed Timestamp</span>
-                    <span className="font-semibold" style={{ color: 'var(--foreground)' }}>
-                      {(() => {
-                        const ts = selectedLineInfo.timestampObj instanceof Date 
-                          ? selectedLineInfo.timestampObj 
-                          : new Date(selectedLineInfo.timestampObj);
-                        return isNaN(ts.getTime()) || ts.getTime() === 0 ? 'N/A' : ts.toISOString();
-                      })()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>ClOrdID (Tag 11)</span>
-                    <span className="font-semibold break-all" style={{ color: 'var(--foreground)' }}>
-                      {selectedLineInfo.clOrdID || 'N/A'}
-                    </span>
-                  </div>
-                </div>
+                {(() => {
+                  const fallbackIds = [];
+                  if (selectedLineInfo.clOrdID) {
+                    fallbackIds.push({ label: "ClOrdID (Tag 11)", value: selectedLineInfo.clOrdID });
+                  } else {
+                    const tags = selectedLineInfo.validation?.tags || {};
+                    if (tags['70']) fallbackIds.push({ label: "AllocID (Tag 70)", value: tags['70'] });
+                    if (tags['23']) fallbackIds.push({ label: "IOIid (Tag 23)", value: tags['23'] });
+                    if (tags['37']) fallbackIds.push({ label: "OrderID (Tag 37)", value: tags['37'] });
+                    if (tags['117']) fallbackIds.push({ label: "QuoteID (Tag 117)", value: tags['117'] });
+                    if (tags['17']) fallbackIds.push({ label: "ExecID (Tag 17)", value: tags['17'] });
+                    if (fallbackIds.length === 0) {
+                      fallbackIds.push({ label: "ClOrdID (Tag 11)", value: "N/A" });
+                    }
+                  }
+                  return (
+                    <div
+                      className="grid grid-cols-2 gap-4 p-4 rounded-xl text-xs font-mono"
+                      style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+                    >
+                      <div>
+                        <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>Parsed Timestamp</span>
+                        <span className="font-semibold" style={{ color: 'var(--foreground)' }}>
+                          {(() => {
+                            const ts = selectedLineInfo.timestampObj instanceof Date 
+                              ? selectedLineInfo.timestampObj 
+                              : new Date(selectedLineInfo.timestampObj);
+                            return isNaN(ts.getTime()) || ts.getTime() === 0 ? 'N/A' : ts.toISOString();
+                          })()}
+                        </span>
+                      </div>
+                      {fallbackIds.map((item, idx) => (
+                        <div key={idx}>
+                          <span className="block mb-0.5" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                          <span className="font-semibold break-all text-[var(--foreground)]">
+                            {item.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Tags table */}
                 <div>
@@ -1733,6 +1989,84 @@ export default function LogsProcessorPage() {
           }}
         />
       )}
+
+      {/* Client Order ID Chain Modal */}
+      {isClOrdChainModalOpen && (
+        <ClOrdIdChainModal
+          isOpen={isClOrdChainModalOpen}
+          onClose={() => setIsClOrdChainModalOpen(false)}
+          chain={getClOrdChain()}
+        />
+      )}
+    </div>
+  );
+}
+
+function ClOrdIdChainModal({ isOpen, onClose, chain }) {
+  if (!isOpen) return null;
+  return (
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div 
+        className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border flex flex-col max-h-[80vh]"
+        style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">Client Order ID Chain</h3>
+          <button 
+            onClick={onClose} 
+            className="text-[var(--text-muted)] hover:text-[var(--foreground)] p-1 rounded-lg hover:bg-zinc-800 transition-all font-mono"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {chain.length === 0 ? (
+            <p className="text-xs text-center italic text-[var(--text-muted)]">No ClOrdID transitions found.</p>
+          ) : (
+            <div className="relative pl-6 border-l space-y-6" style={{ borderColor: 'var(--border)' }}>
+              {chain.map((step, idx) => (
+                <div key={step.id} className="relative">
+                  {/* Bullet */}
+                  <div 
+                    className="absolute -left-[29px] top-1.5 w-2.5 h-2.5 rounded-full border-2" 
+                    style={{ background: 'var(--primary)', borderColor: 'var(--primary)' }}
+                  />
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="font-extrabold uppercase text-[var(--primary)]">{step.msgTypeName} ({step.msgType})</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Seq: {step.seq}</span>
+                    </div>
+                    <div className="text-xs font-mono p-2.5 rounded-lg border space-y-1" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+                      {step.origClOrd && (
+                        <div className="flex justify-between gap-2">
+                          <span style={{ color: 'var(--text-muted)' }}>OrigClOrdID (41):</span>
+                          <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)', opacity: 0.8 }}>{step.origClOrd}</span>
+                        </div>
+                      )}
+                      {step.clOrd && (
+                        <div className="flex justify-between gap-2">
+                          <span style={{ color: 'var(--text-muted)' }}>ClOrdID (11):</span>
+                          <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)' }}>{step.clOrd}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-[9px] text-right font-mono text-zinc-500">
+                      {(() => {
+                        const ts = step.timestamp instanceof Date ? step.timestamp : new Date(step.timestamp);
+                        return isNaN(ts.getTime()) ? 'N/A' : ts.toISOString().split('T')[1].replace('Z', '');
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

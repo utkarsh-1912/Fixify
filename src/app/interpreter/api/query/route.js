@@ -532,6 +532,16 @@ function generateLocalBreakdown(tagList) {
   return breakdown;
 }
 
+function sanitizeQueryForNumbers(text) {
+  if (!text) return "";
+  // Remove FIX version strings like FIX.4.2, FIX 4.2, FIX42, FIXT.1.1, FIX50SP2
+  let sanitized = text.replace(/(FIX|FIXT)\.?\s*\d+\.\d+(\s*SP\s*\d+)?/gi, "");
+  sanitized = sanitized.replace(/(FIX|FIXT)\.?\s*\d{2}/gi, "");
+  // Remove any remaining decimals (like 4.2 or 1.1) to avoid matching their components as tags
+  sanitized = sanitized.replace(/\d+\.\d+/g, "");
+  return sanitized;
+}
+
 // Local offline tag dictionary lookups
 function tryLocalLookup(query, customDialect) {
   const q = query.trim();
@@ -597,7 +607,8 @@ function tryLocalLookup(query, customDialect) {
   }
 
   // 2. Single Tag Number match: e.g. "tag 107", "what is 107", or exactly "107"
-  const allNums = q.match(/\b\d+\b/g) || [];
+  const sanitizedQ = sanitizeQueryForNumbers(q);
+  const allNums = sanitizedQ.match(/\b\d+\b/g) || [];
   if (allNums.length === 1) {
     const singleNum = allNums[0];
     const customField = getCustomField(singleNum);
@@ -672,7 +683,8 @@ function tryPartialLookup(query, customDialect) {
   const customMatches = [];
   
   // Extract number strings
-  const numbers = query.match(/\b\d+\b/g) || [];
+  const sanitizedQuery = sanitizeQueryForNumbers(query);
+  const numbers = sanitizedQuery.match(/\b\d+\b/g) || [];
   for (const num of numbers) {
     if (customDialect && Array.isArray(customDialect.fields)) {
       const found = customDialect.fields.find(f => String(f.tag) === String(num));
@@ -876,7 +888,8 @@ function tryStatusLookup(query) {
 }
 
 function tryBatchTagLookup(query, customDialect) {
-  const numbers = query.match(/\b\d+\b/g) || [];
+  const sanitizedQuery = sanitizeQueryForNumbers(query);
+  const numbers = sanitizedQuery.match(/\b\d+\b/g) || [];
   const uniqNumbers = Array.from(new Set(numbers)).filter(n => Number(n) > 0 && Number(n) < 20000);
   
   if (uniqNumbers.length <= 1) return null;
