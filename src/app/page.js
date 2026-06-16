@@ -2010,7 +2010,7 @@ function ClOrdIdChainModal({ isOpen, onClose, chain }) {
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border flex flex-col max-h-[80vh]"
+        className="w-full max-w-md rounded-xl overflow-hidden shadow-xl border flex flex-col max-h-[80vh]"
         style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
         onClick={(e) => e.stopPropagation()}
       >
