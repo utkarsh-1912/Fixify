@@ -967,13 +967,24 @@ export default function MissingFillsPage() {
         </div>
         
         {matchedResults.length > 0 && (
-          <button
-            onClick={handleClear}
-            className="px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors hover:bg-[var(--primary-faint)]"
-            style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
-          >
-            Reset
-          </button>
+          <div className="flex items-center gap-2">
+            {filteredResults.length > 0 && (
+              <button
+                onClick={handleExportCSV}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export {activeTab === 'all' ? 'All' : activeTab === 'missing' ? 'Missing' : activeTab === 'unmapped' ? 'Unmapped' : 'Matched'} CSV
+              </button>
+            )}
+            <button
+              onClick={handleClear}
+              className="px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors hover:bg-[var(--primary-faint)]"
+              style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            >
+              Reset
+            </button>
+          </div>
         )}
       </div>
 
@@ -1386,15 +1397,7 @@ export default function MissingFillsPage() {
                     />
                   </div>
 
-                  {filteredResults.length > 0 && (
-                    <button
-                      onClick={handleExportCSV}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Export {activeTab === 'all' ? 'All' : activeTab === 'missing' ? 'Missing' : activeTab === 'unmapped' ? 'Unmapped' : 'Matched'} CSV
-                    </button>
-                  )}
+
                 </div>
               </div>
 
