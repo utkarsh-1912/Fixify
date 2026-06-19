@@ -21,7 +21,13 @@ const GREETING_WORDS = new Set(["hi", "hello", "hey", "hola", "yo", "greetings",
 
 function isGreeting(query) {
   const normalized = query.trim().toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "");
-  return GREETING_WORDS.has(normalized);
+  if (GREETING_WORDS.has(normalized)) return true;
+  
+  const parts = normalized.split(/\s+/);
+  if (parts.length === 2 && GREETING_WORDS.has(parts[0]) && parts[1] === "aura") {
+    return true;
+  }
+  return false;
 }
 
 function getTagDescription(tagNum) {
@@ -240,6 +246,12 @@ function detectVersion(queryText) {
   if (q.includes("FIX 4.4") || q.includes("FIX.4.4") || q.includes("FIX44")) return "FIX.4.4";
   if (q.includes("FIX 5.0") || q.includes("FIX.5.0") || q.includes("FIX50")) return "FIX.5.0";
   if (q.includes("FIXT 1.1") || q.includes("FIXT.1.1") || q.includes("FIXT1.1") || q.includes("FIXT11")) return "FIXT.1.1";
+  
+  // Regex match for arbitrary versions like FIX 4.3 or FIX 5.2 or FIX4.3
+  const match = q.match(/FIX(?:T)?\.?\s*(\d)\.?\s*(\d)/i);
+  if (match) {
+    return `FIX.${match[1]}.${match[2]}`;
+  }
   return null;
 }
 
@@ -542,9 +554,74 @@ function sanitizeQueryForNumbers(text) {
   return sanitized;
 }
 
+function getClosestSpec(versionStr) {
+  if (FIX_SPECS[versionStr]) {
+    return { spec: FIX_SPECS[versionStr], actualVersion: versionStr, isExact: true };
+  }
+  // Fallbacks
+  if (versionStr.startsWith("FIX.4.")) {
+    return { spec: FIX_SPECS["FIX.4.4"], actualVersion: "FIX.4.4", fallbackFrom: versionStr };
+  }
+  if (versionStr.startsWith("FIX.5.")) {
+    return { spec: FIX_SPECS["FIX.5.0"], actualVersion: "FIX.5.0", fallbackFrom: versionStr };
+  }
+  return { spec: FIX_SPECS["FIX.4.4"], actualVersion: "FIX.4.4", fallbackFrom: versionStr };
+}
+
+function lookupTagInSpec(tagNum, spec) {
+  if (!spec || !Array.isArray(spec.fields)) return null;
+  return spec.fields.find(f => String(f.tag) === String(tagNum));
+}
+
+function lookupFieldNameInSpec(fieldName, spec) {
+  if (!spec || !Array.isArray(spec.fields)) return null;
+  const lowerName = fieldName.toLowerCase();
+  return spec.fields.find(f => f.name.toLowerCase() === lowerName);
+}
+
+function tryModelAwarenessLookup(queryText, hasApiKey) {
+  const q = queryText.toLowerCase();
+  
+  const aboutAura = q.includes("what is aura") || 
+                    q.includes("who is aura") || 
+                    q.includes("tell me about aura") ||
+                    q.includes("about the app") ||
+                    (q.includes("who are you") && !q.includes("gemini")) ||
+                    (q.includes("what are you") && !q.includes("gemini"));
+                    
+  const aboutModel = q.includes("what model") || 
+                     q.includes("which model") || 
+                     q.includes("what ai") || 
+                     q.includes("model are you using") || 
+                     q.includes("are you gemini") || 
+                     q.includes("active model");
+
+  if (aboutAura || aboutModel) {
+    const activeModelName = hasApiKey ? "Google Gemini 2.5 Flash" : "AURA Offline Intelligence Engine";
+    let text = `### Model Information\n` +
+               `I am **AURA** (AUgmented Response Agent), your intelligent companion for FIX protocol diagnostics.\n\n` +
+               `- **Current Active Engine**: **${activeModelName}**\n` +
+               `- **How I work**:\n` +
+               `  - **AURA (Offline)**: If no API key is provided, I run 100% locally in your browser using structured FIX schemas, validation rulebooks, and status translation tables. Your data never leaves your device.\n` +
+               `  - **Gemini (Online)**: If a Gemini API key is configured in your settings, I utilize Google Gemini 2.5 Flash to answer complex questions, summarize logs, and simulate counterparties.\n\n`;
+    
+    if (hasApiKey) {
+      text += `Since you have provided a Gemini API key, I am currently leveraging **Google Gemini 2.5 Flash** for richer explanations, but I still use AURA's local database for fast tag references.`;
+    } else {
+      text += `You are currently using **AURA** in offline mode. For more advanced AI explanations, you can configure a Gemini API key in the top-right Settings drawer.`;
+    }
+    
+    return text;
+  }
+  
+  return null;
+}
+
 // Local offline tag dictionary lookups
 function tryLocalLookup(query, customDialect) {
-  const q = query.trim();
+  let q = query.trim();
+  // Preprocess to split word-number transitions (e.g. tag44 -> tag 44, fix4.3 -> fix 4.3)
+  q = q.replace(/([a-zA-Z])(\d)/g, "$1 $2").replace(/(\d)([a-zA-Z])/g, "$1 $2");
   
   const getCustomField = (tagOrName) => {
     if (customDialect && Array.isArray(customDialect.fields)) {
@@ -555,6 +632,12 @@ function tryLocalLookup(query, customDialect) {
     }
     return null;
   };
+
+  const detectedVer = detectVersion(q);
+  let specInfo = null;
+  if (detectedVer) {
+    specInfo = getClosestSpec(detectedVer);
+  }
   
   // 1. Tag-Value pair: e.g. "35=D" or "Side=1" (supports substring matches like "what is 35=D")
   const tagValMatch = q.match(/(?:^|\b)([a-zA-Z0-9_]+)\s*=\s*([^=|?\s]+)/);
@@ -576,6 +659,36 @@ function tryLocalLookup(query, customDialect) {
       }
     }
     
+    // Check version-specific spec if detected
+    if (specInfo) {
+      const specField = specInfo.spec.fields.find(f => 
+        /^\d+$/.test(tagOrName) 
+          ? String(f.tag) === String(tagOrName) 
+          : f.name.toLowerCase() === tagOrName.toLowerCase()
+      );
+      if (specField) {
+        const enumVal = specField.values?.find(v => String(v.enum) === String(val));
+        const meaning = enumVal ? enumVal.description : null;
+        let verLabel = specInfo.fallbackFrom 
+          ? `${specInfo.fallbackFrom} (showing spec from ${specInfo.actualVersion})`
+          : specInfo.actualVersion;
+          
+        let response = "";
+        if (meaning) {
+          response = `Tag ${specField.tag} (${specField.name}) = ${val} (${meaning})\n\nThis definition is from the ${verLabel} specification.`;
+        } else {
+          response = `Tag ${specField.tag} (${specField.name}) = ${val}\n\nThis tag is defined in ${verLabel}, but no enum description was found for value "${val}".`;
+        }
+        
+        const descObj = getTagDescription(specField.tag);
+        if (descObj) {
+          response += `\n\n**Description**:\n${descObj.description}`;
+        }
+        return response;
+      }
+    }
+    
+    // Fallback: Global standard lookups
     let tag = /^\d+$/.test(tagOrName) ? tagOrName : null;
     if (!tag) {
       const entry = Object.entries(FIX_TAGS).find(([t, name]) => name.toLowerCase() === tagOrName.toLowerCase());
@@ -621,6 +734,34 @@ function tryLocalLookup(query, customDialect) {
       return response;
     }
     
+    // Check version-specific spec if detected
+    if (specInfo) {
+      const specField = lookupTagInSpec(singleNum, specInfo.spec);
+      if (specField) {
+        let verLabel = specInfo.fallbackFrom 
+          ? `${specInfo.fallbackFrom} (showing spec from ${specInfo.actualVersion})`
+          : specInfo.actualVersion;
+        let response = `### Tag ${singleNum} [${verLabel}]\n` +
+                       `- **Field Name**: **${specField.name}**\n` +
+                       `- **Data Type**: \`${specField.type || "N/A"}\``;
+        
+        const descObj = getTagDescription(singleNum);
+        if (descObj) {
+          response += `\n\n**Description**:\n${descObj.description}`;
+          if (descObj.note) {
+            response += `\n\n**Usage Note**:\n${descObj.note}`;
+          }
+        }
+        
+        if (Array.isArray(specField.values) && specField.values.length > 0) {
+          response += `\n\n**Allowed Enum Values (${verLabel})**:\n` +
+            specField.values.map(v => `- \`${v.enum}\`: ${v.description}`).join('\n');
+        }
+        return response;
+      }
+    }
+
+    // Fallback: Global standard lookup
     const tagName = FIX_TAGS[singleNum];
     if (tagName) {
       let response = `Tag ${singleNum} represents the field "${tagName}".`;
@@ -643,7 +784,8 @@ function tryLocalLookup(query, customDialect) {
   }
 
   // 3. Exact Field Name search: e.g. "Side"
-  const customField = getCustomField(q);
+  const cleanQ = sanitizedQ.replace(/tag\s*/gi, "").trim();
+  const customField = getCustomField(cleanQ);
   if (customField) {
     let response = `Field "${customField.name}" is Tag ${customField.tag} in your custom XML dialect.\n- Type: ${customField.type}`;
     if (customField.values && customField.values.length > 0) {
@@ -653,7 +795,32 @@ function tryLocalLookup(query, customDialect) {
     return response;
   }
   
-  const foundTag = Object.entries(FIX_TAGS).find(([tag, name]) => name.toLowerCase() === q.toLowerCase());
+  // Check version-specific spec if detected
+  if (specInfo) {
+    const specField = lookupFieldNameInSpec(cleanQ, specInfo.spec);
+    if (specField) {
+      let verLabel = specInfo.fallbackFrom 
+        ? `${specInfo.fallbackFrom} (showing spec from ${specInfo.actualVersion})`
+        : specInfo.actualVersion;
+      let response = `### Field "${specField.name}" [${verLabel}]\n` +
+                     `- **Tag Number**: **${specField.tag}**\n` +
+                     `- **Data Type**: \`${specField.type || "N/A"}\``;
+      
+      const descObj = getTagDescription(specField.tag);
+      if (descObj) {
+        response += `\n\n**Description**:\n${descObj.description}`;
+      }
+      
+      if (Array.isArray(specField.values) && specField.values.length > 0) {
+        response += `\n\n**Allowed Enum Values (${verLabel})**:\n` +
+          specField.values.map(v => `- \`${v.enum}\`: ${v.description}`).join('\n');
+      }
+      return response;
+    }
+  }
+
+  // Fallback: Global standard lookup
+  const foundTag = Object.entries(FIX_TAGS).find(([tag, name]) => name.toLowerCase() === cleanQ.toLowerCase());
   if (foundTag) {
     const [tag, name] = foundTag;
     let response = `Field "${name}" is represented by Tag ${tag}.`;
@@ -1085,9 +1252,14 @@ export async function POST(req) {
           answer = "[Warning] Failed to parse FIX message structure.";
         }
       } else {
-        const geminiRes = await queryGemini(query, apiKey, systemInstruction);
-        answer = geminiRes.answer;
-        hfConnected = geminiRes.connected;
+        const modelAwareness = tryModelAwarenessLookup(query, true);
+        if (modelAwareness) {
+          answer = modelAwareness + `\n\n*Response resolved by AURA.*`;
+        } else {
+          const geminiRes = await queryGemini(query, apiKey, systemInstruction);
+          answer = geminiRes.answer;
+          hfConnected = geminiRes.connected;
+        }
       }
     } else {
       // Offline fallback: Highly detailed local lookups
@@ -1165,10 +1337,14 @@ How can I help you today? You can:
 
 *Response resolved by AURA.*`;
         } else {
-          // Evaluate offline lookups in order of specificity
-          const statusLookup = tryStatusLookup(query);
-          const rejectLookup = tryRejectReasonLookup(query);
-          const localResult = tryLocalLookup(query, customDialect);
+          const modelAwareness = tryModelAwarenessLookup(query, false);
+          if (modelAwareness) {
+            answer = modelAwareness + `\n\n*Response resolved by AURA.*`;
+          } else {
+            // Evaluate offline lookups in order of specificity
+            const statusLookup = tryStatusLookup(query);
+            const rejectLookup = tryRejectReasonLookup(query);
+            const localResult = tryLocalLookup(query, customDialect);
           
           // Prioritize conditional rules if they ask for rules/validation/requirements
           const lowercaseQuery = query.toLowerCase();
@@ -1221,13 +1397,18 @@ How can I help you today? You can:
               answer = `${guideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
             } else {
               const partials = tryPartialLookup(query, customDialect);
-              answer = `*Response resolved by AURA.*\n\n${partials}\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
+              if (partials && partials.trim()) {
+                answer = `*Response resolved by AURA.*\n\n${partials}\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
+              } else {
+                answer = `*Response resolved by AURA.*\n\n*Try searching for general terms like logon, sequence, checksum, body, or resend for quick reference.*`;
+              }
             }
           }
         }
       }
-      hfConnected = false;
     }
+    hfConnected = false;
+  }
 
     return NextResponse.json({ answer, table, hfConnected });
   } catch (err) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -104,6 +104,70 @@ export default function LogsProcessorPage() {
   const [flowZoom, setFlowZoom] = useState(1.0);
   const [flowPage, setFlowPage] = useState(1);
   const [flowPageSize, setFlowPageSize] = useState(10);
+
+  const [openFiles, setOpenFiles] = useState({});
+  const [highlightedLineId, setHighlightedLineId] = useState(null);
+  const lastClickSourceRef = useRef(null);
+
+  // Initialize openFiles state when new files are added
+  useEffect(() => {
+    if (files.length > 0) {
+      setOpenFiles(prev => {
+        const next = { ...prev };
+        files.forEach((file, idx) => {
+          if (next[file.name] === undefined) {
+            next[file.name] = (idx === 0);
+          }
+        });
+        return next;
+      });
+    }
+  }, [files]);
+
+  // Handle smooth scroll and highlight transitions on selection from external views
+  useEffect(() => {
+    if (!selectedLineInfo) return;
+
+    // If the selection happened directly from clicking a row in the main log list, do not scroll
+    if (lastClickSourceRef.current === 'main') {
+      lastClickSourceRef.current = null;
+      return;
+    }
+
+    // Find the file containing this message ID
+    const targetFile = files.find(f => f.parsedLines.some(l => l.id === selectedLineInfo.id));
+    if (!targetFile) {
+      lastClickSourceRef.current = null;
+      return;
+    }
+
+    // Open target file accordion if it's not already open
+    setOpenFiles(prev => ({
+      ...prev,
+      [targetFile.name]: true
+    }));
+
+    // Wait a short duration for the accordion animation/render to complete
+    const timer = setTimeout(() => {
+      const element = document.getElementById(`main-msg-${selectedLineInfo.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Trigger temporary highlight pulse
+        setHighlightedLineId(selectedLineInfo.id);
+        const highlightTimer = setTimeout(() => {
+          setHighlightedLineId(null);
+        }, 1500);
+        
+        return () => clearTimeout(highlightTimer);
+      }
+    }, 120);
+
+    // Reset click source
+    lastClickSourceRef.current = null;
+
+    return () => clearTimeout(timer);
+  }, [selectedLineInfo, files]);
 
   useEffect(() => {
     setFlowPage(1);
@@ -513,28 +577,106 @@ export default function LogsProcessorPage() {
 
   const getClOrdChain = useCallback(() => {
     const lifecycleMsgs = getOrderLifecycleMessages();
-    const chain = [];
+    
+    // Group by session (49<>56 combo)
+    const sessionsMap = {};
     lifecycleMsgs.forEach(m => {
-      const clOrd = m.clOrdID;
-      const origClOrd = m.validation?.tags?.['41'];
-      const msgType = m.msgType;
-      const msgTypeName = m.validation?.msgTypeName || "Message";
-      const timestamp = m.timestampObj;
-      const seq = m.validation?.msgSeqNum;
+      const s = m.validation?.tags?.['49'] || 'Client';
+      const t = m.validation?.tags?.['56'] || 'Server';
+      const sessionKey = [s, t].sort().join('<>');
+      if (!sessionsMap[sessionKey]) {
+        sessionsMap[sessionKey] = [];
+      }
+      sessionsMap[sessionKey].push(m);
+    });
+
+    const getSessionChain = (msgs) => {
+      const chain = [];
+      let inBetweenMsgs = [];
       
-      if (clOrd || origClOrd) {
+      msgs.forEach((m) => {
+        const clOrd = m.clOrdID;
+        const origClOrd = m.validation?.tags?.['41'];
+        const msgType = m.msgType;
+        const msgTypeName = m.validation?.msgTypeName || "Message";
+        const timestamp = m.timestampObj;
+        const seq = m.validation?.msgSeqNum;
+        const execType = m.validation?.tags?.['150'];
+        const ordStatus = m.validation?.tags?.['39'];
+        
+        let isTransition = false;
+        if (msgType === 'D' || msgType === 'G' || msgType === 'F' || msgType === '9') {
+          isTransition = true;
+        } else if (msgType === '8') {
+          if (execType && ['0', '5', '4', '8', 'C'].includes(execType)) {
+            isTransition = true;
+          } else if (!execType && ordStatus && ['0', '4', '8'].includes(ordStatus)) {
+            isTransition = true;
+          }
+        }
+        
+        if (isTransition) {
+          if (inBetweenMsgs.length > 0) {
+            const totalCount = inBetweenMsgs.length;
+            const execCount = inBetweenMsgs.filter(x => x.msgType === '8').length;
+            chain.push({
+              type: 'summary',
+              totalCount,
+              execCount,
+              messages: inBetweenMsgs
+            });
+            inBetweenMsgs = [];
+          }
+          
+          chain.push({
+            type: 'transition',
+            id: m.id,
+            clOrd,
+            origClOrd,
+            msgType,
+            msgTypeName,
+            timestamp,
+            seq,
+            execType,
+            ordStatus
+          });
+        } else {
+          inBetweenMsgs.push(m);
+        }
+      });
+      
+      if (inBetweenMsgs.length > 0) {
+        const totalCount = inBetweenMsgs.length;
+        const execCount = inBetweenMsgs.filter(x => x.msgType === '8').length;
         chain.push({
-          id: m.id,
-          clOrd,
-          origClOrd,
-          msgType,
-          msgTypeName,
-          timestamp,
-          seq
+          type: 'summary',
+          totalCount,
+          execCount,
+          messages: inBetweenMsgs
         });
       }
+      
+      return chain;
+    };
+
+    const sessionsData = Object.entries(sessionsMap).map(([sessionKey, msgs]) => {
+      const chain = getSessionChain(msgs);
+      const transitionsCount = chain.filter(c => c.type === 'transition').length;
+      const summaries = chain.filter(c => c.type === 'summary');
+      const totalInBetween = summaries.reduce((acc, curr) => acc + curr.totalCount, 0);
+      const execInBetween = summaries.reduce((acc, curr) => acc + curr.execCount, 0);
+      
+      return {
+        sessionKey,
+        totalMessages: msgs.length,
+        transitionsCount,
+        totalInBetween,
+        execInBetween,
+        chain
+      };
     });
-    return chain;
+
+    return sessionsData;
   }, [getOrderLifecycleMessages]);
 
   const renderLifecycleTimeline = () => {
@@ -774,7 +916,10 @@ export default function LogsProcessorPage() {
               />
               
               <div 
-                onClick={() => setSelectedLineInfo(msg)}
+                onClick={() => {
+                  lastClickSourceRef.current = 'timeline';
+                  setSelectedLineInfo(msg);
+                }}
                 className={`p-3.5 rounded-xl cursor-pointer transition-all space-y-1.5 ${isCurrent ? 'bg-zinc-800/20' : 'hover:bg-zinc-800/10'}`}
                 style={{ 
                   border: isCurrent ? '1px solid var(--primary-border)' : '1px solid var(--border)',
@@ -1198,7 +1343,10 @@ export default function LogsProcessorPage() {
               return (
                 <g
                   key={msg.id}
-                  onClick={() => setSelectedLineInfo(msg)}
+                  onClick={() => {
+                    lastClickSourceRef.current = 'sequence';
+                    setSelectedLineInfo(msg);
+                  }}
                   className="cursor-pointer group/arrow"
                 >
                   {/* Invisible broad hover path for easy clicking */}
@@ -1638,7 +1786,14 @@ export default function LogsProcessorPage() {
                         return (
                           <details
                             key={fileObj.name}
-                            open={fIdx === 0}
+                            open={!!openFiles[fileObj.name]}
+                            onToggle={(e) => {
+                              const isOpen = e.currentTarget.open;
+                              setOpenFiles(prev => ({
+                                ...prev,
+                                [fileObj.name]: isOpen
+                              }));
+                            }}
                             className="group rounded-xl overflow-hidden"
                             style={{ border: '1px solid var(--border)' }}
                           >
@@ -1683,23 +1838,40 @@ export default function LogsProcessorPage() {
                                   {filteredLines.map((lineObj, lineIdx) => {
                                     const hasErr = lineObj.validation && !lineObj.validation.isValid;
                                     const isSelected = selectedLineInfo?.id === lineObj.id;
+                                    const isHighlighted = highlightedLineId === lineObj.id;
                                     return (
                                       <div
                                         key={lineObj.id}
-                                        onClick={() => setSelectedLineInfo(lineObj)}
-                                        className="group/line flex items-start gap-3 px-0.5 sm:px-1 md:px-2 py-1.5 rounded-lg cursor-pointer transition-all"
+                                        id={`main-msg-${lineObj.id}`}
+                                        onClick={() => {
+                                          lastClickSourceRef.current = 'main';
+                                          setSelectedLineInfo(lineObj);
+                                        }}
+                                        className="group/line flex items-start gap-3 px-0.5 sm:px-1 md:px-2 py-1.5 rounded-lg cursor-pointer transition-all duration-350"
                                         style={{
-                                          background: isSelected
+                                          background: isHighlighted
                                             ? 'var(--primary-faint)'
-                                            : hasErr
-                                              ? 'rgba(239,68,68,0.05)'
-                                              : 'transparent',
-                                          border: isSelected
-                                            ? '1px solid var(--primary-border)'
-                                            : hasErr
-                                              ? '1px solid rgba(239,68,68,0.15)'
-                                              : '1px solid transparent',
-                                          color: isSelected ? 'var(--primary)' : hasErr ? '#ef4444' : 'var(--text-muted)',
+                                            : isSelected
+                                              ? 'var(--primary-faint)'
+                                              : hasErr
+                                                ? 'rgba(239,68,68,0.05)'
+                                                : 'transparent',
+                                          border: isHighlighted
+                                            ? '1px solid var(--primary)'
+                                            : isSelected
+                                              ? '1px solid var(--primary-border)'
+                                              : hasErr
+                                                ? '1px solid rgba(239,68,68,0.15)'
+                                                : '1px solid transparent',
+                                          color: isHighlighted
+                                            ? 'var(--primary)'
+                                            : isSelected 
+                                              ? 'var(--primary)' 
+                                              : hasErr 
+                                                ? '#ef4444' 
+                                                : 'var(--text-muted)',
+                                          boxShadow: isHighlighted ? '0 0 12px var(--primary-border)' : 'none',
+                                          transform: isHighlighted ? 'scale(1.01)' : 'scale(1)',
                                         }}
                                       >
                                         <span className="text-[10px] min-w-[22px] text-right mt-0.5 select-none" style={{ color: 'var(--text-faint)' }}>
@@ -1983,6 +2155,7 @@ export default function LogsProcessorPage() {
           isOpen={!!activeErrorType}
           onClose={() => setActiveErrorType(null)}
           onInspect={(line) => {
+            lastClickSourceRef.current = 'diagnostics';
             setSelectedLineInfo(line);
             setActiveErrorType(null);
             setInspectorTab("details");
@@ -2002,7 +2175,7 @@ export default function LogsProcessorPage() {
   );
 }
 
-function ClOrdIdChainModal({ isOpen, onClose, chain }) {
+function ClOrdIdChainModal({ isOpen, onClose, chain: sessionsData }) {
   if (!isOpen) return null;
   return (
     <div 
@@ -2010,60 +2183,108 @@ function ClOrdIdChainModal({ isOpen, onClose, chain }) {
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-md rounded-xl overflow-hidden shadow-xl border flex flex-col max-h-[80vh]"
+        className="w-full max-w-lg rounded-xl overflow-hidden shadow-xl border flex flex-col max-h-[80vh]"
         style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">Client OrderID Chain</h3>
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">Order ID Transitions</h3>
+            <p className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5">Segregated by trading session</p>
+          </div>
           <button 
             onClick={onClose} 
-            className="text-[var(--text-muted)] hover:text-[var(--foreground)] px-1 rounded-lg hover:bg-zinc-800 transition-all font-mono"
+            className="text-[var(--text-muted)] hover:text-[var(--foreground)] px-2 py-1 rounded-lg hover:bg-zinc-800 transition-all font-mono text-xs"
           >
             ✕
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {chain.length === 0 ? (
-            <p className="text-xs text-center italic text-[var(--text-muted)]">No ClOrdID transitions found.</p>
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {sessionsData.length === 0 ? (
+            <p className="text-xs text-center italic text-[var(--text-muted)]">No trading sessions found.</p>
           ) : (
-            <div className="relative pl-6 border-l space-y-6" style={{ borderColor: 'var(--border)' }}>
-              {chain.map((step, idx) => (
-                <div key={step.id} className="relative">
-                  {/* Bullet */}
-                  <div 
-                    className="absolute -left-[29px] top-1.5 w-2.5 h-2.5 rounded-full border-2" 
-                    style={{ background: 'var(--primary)', borderColor: 'var(--primary)' }}
-                  />
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="font-extrabold uppercase text-[var(--primary)]">{step.msgTypeName} ({step.msgType})</span>
-                      <span style={{ color: 'var(--text-muted)' }}>Seq: {step.seq}</span>
-                    </div>
-                    <div className="text-xs font-mono p-2.5 rounded-lg border space-y-1" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
-                      {step.origClOrd && (
-                        <div className="flex justify-between gap-2">
-                          <span style={{ color: 'var(--text-muted)' }}>OrigClOrdID (41):</span>
-                          <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)', opacity: 0.8 }}>{step.origClOrd}</span>
-                        </div>
-                      )}
-                      {step.clOrd && (
-                        <div className="flex justify-between gap-2">
-                          <span style={{ color: 'var(--text-muted)' }}>ClOrdID (11):</span>
-                          <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)' }}>{step.clOrd}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-[9px] text-right font-mono text-zinc-500">
-                      {(() => {
-                        const ts = step.timestamp instanceof Date ? step.timestamp : new Date(step.timestamp);
-                        return isNaN(ts.getTime()) ? 'N/A' : ts.toISOString().split('T')[1].replace('Z', '');
-                      })()}
-                    </div>
+            sessionsData.map((session) => (
+              <div 
+                key={session.sessionKey}
+                className="space-y-4 p-4 rounded-xl border"
+                style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
+              >
+                {/* Session Header */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-dashed" style={{ borderColor: 'var(--border)' }}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[var(--primary)]" />
+                    <span className="text-xs font-bold font-mono text-[var(--foreground)] break-all max-w-[200px] sm:max-w-xs">
+                      {session.sessionKey}
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-mono text-[var(--text-muted)] bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800/80">
+                    Cycle: <strong className="text-[var(--primary)] font-bold">{session.transitionsCount}</strong> transitions · <strong className="text-zinc-350">{session.totalMessages}</strong> total msgs
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Session Timeline */}
+                <div className="relative pl-5 border-l space-y-4 ml-1.5" style={{ borderColor: 'var(--border)' }}>
+                  {session.chain.map((step, idx) => {
+                    if (step.type === 'transition') {
+                      return (
+                        <div key={step.id} className="relative">
+                          {/* Bullet */}
+                          <div 
+                            className="absolute -left-[25px] top-1.5 w-2 h-2 rounded-full border" 
+                            style={{ background: 'var(--primary)', borderColor: 'var(--primary-border)' }}
+                          />
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-[10px] font-mono">
+                              <span className="font-extrabold uppercase text-[var(--primary)]">{step.msgTypeName} ({step.msgType})</span>
+                              <span style={{ color: 'var(--text-muted)' }}>Seq: {step.seq}</span>
+                            </div>
+                            <div className="text-xs font-mono p-2.5 rounded-lg border space-y-1" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                              {step.origClOrd && (
+                                <div className="flex justify-between gap-2">
+                                  <span style={{ color: 'var(--text-muted)' }}>OrigClOrdID (41):</span>
+                                  <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)', opacity: 0.8 }}>{step.origClOrd}</span>
+                                </div>
+                              )}
+                              {step.clOrd && (
+                                <div className="flex justify-between gap-2">
+                                  <span style={{ color: 'var(--text-muted)' }}>ClOrdID (11):</span>
+                                  <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)' }}>{step.clOrd}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-[9px] text-right font-mono text-zinc-500">
+                              {(() => {
+                                const ts = step.timestamp instanceof Date ? step.timestamp : new Date(step.timestamp);
+                                return isNaN(ts.getTime()) ? 'N/A' : ts.toISOString().split('T')[1].replace('Z', '');
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    } else if (step.type === 'summary') {
+                      return (
+                        <div key={idx} className="relative py-1">
+                          {/* Connector Line overlaying the left border */}
+                          <div className="absolute -left-[21px] top-0 bottom-0 border-l border-dashed border-zinc-700 w-0" />
+                          <div 
+                            className="text-[10px] font-mono px-3 py-1.5 rounded-lg border flex items-center justify-between text-[var(--text-muted)] bg-zinc-950/40 border-dashed"
+                            style={{ borderColor: 'var(--border)' }}
+                          >
+                            <span>
+                              {step.totalCount} message{step.totalCount === 1 ? '' : 's'} in between
+                            </span>
+                            <span className="text-[9px] bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800 font-bold">
+                              {step.execCount} execution{step.execCount === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>

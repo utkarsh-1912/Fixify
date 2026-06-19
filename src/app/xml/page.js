@@ -390,10 +390,30 @@ export default function XMLFormatterPage() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [showSearch, formatted, totalMatches, handleDownload]);
 
-  const panelStyle = isDesktop ? {
+  const leftPanelStyle = isDesktop ? {
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    borderRight: 'none',
+    borderRadius: '1rem 0 0 1rem',
+    height: 'calc(100vh - 240px)',
+    minHeight: '500px',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden'
+  } : {
     background: 'var(--card)',
     border: '1px solid var(--border)',
     borderRadius: '1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    height: '380px'
+  };
+
+  const rightPanelStyle = isDesktop ? {
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    borderRadius: '0 1rem 1rem 0',
     height: 'calc(100vh - 240px)',
     minHeight: '500px',
     display: 'flex',
@@ -489,10 +509,10 @@ export default function XMLFormatterPage() {
       </div>
 
       {/* Grid Container */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 select-text">
+      <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-0 gap-6 select-text">
         
         {/* Raw XML Input Panel */}
-        <div style={panelStyle}>
+        <div style={leftPanelStyle}>
           <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-900 bg-zinc-955/20 shrink-0 select-none">
             <span className="flex items-center gap-1.5 text-xs font-semibold">
               <FileCode className="h-3.5 w-3.5 hidden md:inline" style={{ color: 'var(--primary)' }} />
@@ -581,7 +601,7 @@ export default function XMLFormatterPage() {
         </div>
 
         {/* Formatted Output Panel */}
-        <div style={panelStyle}>
+        <div style={rightPanelStyle}>
           <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-900 bg-zinc-955/20 shrink-0 select-none">
             <span className="flex items-center gap-1.5 text-xs font-semibold">
               <Braces className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
