@@ -923,84 +923,137 @@ export default function LogsProcessorPage() {
             const isCurrent = msg.id === selectedLineInfo.id;
             const msgType = msg.validation?.msgTypeName || "Message";
             const ordStatus = msg.validation?.tags?.['39'];
-          
-          let statusText = "";
-          let statusColor = "var(--text-muted)";
-          if (ordStatus !== undefined) {
-            const statusMap = {
-              "0": { label: "New", color: "var(--primary)" },
-              "1": { label: "Partially Filled", color: "#60a5fa" },
-              "2": { label: "Filled", color: "#34d399" },
-              "4": { label: "Canceled", color: "#f87171" },
-              "8": { label: "Rejected", color: "#f87171" },
-            };
-            const mapped = statusMap[ordStatus];
-            if (mapped) {
-              statusText = `[Status: ${mapped.label}]`;
-              statusColor = mapped.color;
+            const execType = msg.validation?.tags?.['150'];
+            const text = msg.validation?.tags?.['58'];
+            
+            let statusText = "";
+            let statusColor = "var(--text-muted)";
+            
+            // Get version from BeginString (Tag 8)
+            const beginString = msg.validation?.tags?.['8'] || 'FIX.4.4';
+            const isFix44OrNewer = !beginString.startsWith('FIX.4.0') && !beginString.startsWith('FIX.4.1') && !beginString.startsWith('FIX.4.2') && !beginString.startsWith('FIX.4.3');
+            
+            let resolvedStatus = "";
+            if (isFix44OrNewer && execType !== undefined) {
+              if (execType === 'F') {
+                resolvedStatus = ordStatus !== undefined ? getValueMeaning('39', ordStatus) : "Trade";
+              } else {
+                resolvedStatus = getValueMeaning('150', execType);
+              }
+            } else if (ordStatus !== undefined) {
+              resolvedStatus = getValueMeaning('39', ordStatus);
+            } else if (execType !== undefined) {
+              resolvedStatus = getValueMeaning('150', execType);
             }
-          }
-          
-          const globalIndex = startIndex + index;
-          let latencyStr = "";
-          if (globalIndex > 0) {
-            const prevMsg = displayedMsgs[globalIndex - 1];
-            const diffMs = msg.timestampObj.getTime() - prevMsg.timestampObj.getTime();
-            latencyStr = `+${diffMs}ms`;
-          }
-          
-          const qty = msg.validation?.tags?.['38'];
-          const px = msg.validation?.tags?.['44'];
-          const symbol = msg.validation?.tags?.['55'];
-          
-          return (
-            <div key={msg.id} className="relative group/timeline-item">
-              <div 
-                className="absolute -left-[22px] top-1.5 h-3.5 w-3.5 rounded-full border-2 transition-all flex items-center justify-center z-10"
-                style={{ 
-                  background: isCurrent ? 'var(--primary)' : 'var(--background)',
-                  borderColor: isCurrent ? 'var(--primary)' : 'var(--border)',
-                }}
-              />
-              
-              <div 
-                onClick={() => {
-                  lastClickSourceRef.current = 'timeline';
-                  setSelectedLineInfo(msg);
-                }}
-                className={`p-3.5 rounded-xl cursor-pointer transition-all space-y-1.5 ${isCurrent ? 'bg-zinc-800/20' : 'hover:bg-zinc-800/10'}`}
-                style={{ 
-                  border: isCurrent ? '1px solid var(--primary-border)' : '1px solid var(--border)',
-                  background: isCurrent ? 'var(--primary-faint)' : 'transparent'
-                }}
-              >
-                <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
-                  <span className="font-extrabold uppercase" style={{ color: isCurrent ? 'var(--primary)' : 'var(--foreground)' }}>
-                    {msgType} ({msg.msgType})
-                  </span>
-                  {latencyStr && (
-                    <span className="text-zinc-500 font-bold bg-zinc-950 px-1 py-0.5 rounded border border-zinc-900">
-                      {latencyStr}
+            
+            if (resolvedStatus) {
+              statusText = `[Status: ${resolvedStatus}]`;
+              const lowerStatus = resolvedStatus.toLowerCase();
+              if (lowerStatus.includes('new') || lowerStatus === '0' || lowerStatus === 'a') {
+                statusColor = "var(--primary)";
+              } else if (lowerStatus.includes('partial') || lowerStatus === '1' || lowerStatus === 'b') {
+                statusColor = "#60a5fa";
+              } else if (lowerStatus.includes('fill') || lowerStatus === '2') {
+                statusColor = "#34d399";
+              } else if (
+                lowerStatus.includes('cancel') || 
+                lowerStatus.includes('reject') || 
+                lowerStatus.includes('expire') || 
+                lowerStatus.includes('done for day') || 
+                lowerStatus.includes('dfd') || 
+                ordStatus === '3' || ordStatus === 'C' || ordStatus === '4' || ordStatus === '8' ||
+                execType === '3' || execType === 'C' || execType === '4' || execType === '8'
+              ) {
+                statusColor = "#f87171";
+              } else {
+                statusColor = "#fb923c";
+              }
+            }
+            
+            const isTerminalOrMuted = 
+              resolvedStatus && (
+                resolvedStatus.toLowerCase().includes('done for day') ||
+                resolvedStatus.toLowerCase().includes('expired') ||
+                resolvedStatus.toLowerCase().includes('cancel') ||
+                resolvedStatus.toLowerCase().includes('reject') ||
+                ordStatus === '3' || ordStatus === 'C' || ordStatus === '4' || ordStatus === '8' ||
+                execType === '3' || execType === 'C' || execType === '4' || execType === '8'
+              );
+
+            const showExecutionMessageOnly = isTerminalOrMuted && text;
+            
+            const globalIndex = startIndex + index;
+            let latencyStr = "";
+            if (globalIndex > 0) {
+              const prevMsg = displayedMsgs[globalIndex - 1];
+              const diffMs = msg.timestampObj.getTime() - prevMsg.timestampObj.getTime();
+              latencyStr = `+${diffMs}ms`;
+            }
+            
+            const qty = msg.validation?.tags?.['38'];
+            const px = msg.validation?.tags?.['44'];
+            const symbol = msg.validation?.tags?.['55'];
+            
+            return (
+              <div key={msg.id} className="relative group/timeline-item">
+                <div 
+                  className="absolute -left-[22px] top-1.5 h-3.5 w-3.5 rounded-full border-2 transition-all flex items-center justify-center z-10"
+                  style={{ 
+                    background: isCurrent ? 'var(--primary)' : 'var(--background)',
+                    borderColor: isCurrent ? 'var(--primary)' : 'var(--border)',
+                  }}
+                />
+                
+                <div 
+                  onClick={() => {
+                    lastClickSourceRef.current = 'timeline';
+                    setSelectedLineInfo(msg);
+                  }}
+                  className={`p-3.5 rounded-xl cursor-pointer transition-all space-y-1.5 ${isCurrent ? 'bg-zinc-800/20' : 'hover:bg-zinc-800/10'}`}
+                  style={{ 
+                    border: isCurrent ? '1px solid var(--primary-border)' : '1px solid var(--border)',
+                    background: isCurrent ? 'var(--primary-faint)' : 'transparent'
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+                    <span className="font-extrabold uppercase" style={{ color: isCurrent ? 'var(--primary)' : 'var(--foreground)' }}>
+                      {msgType} ({msg.msgType})
                     </span>
-                  )}
-                </div>
-                
-                <div className="text-[11px] font-mono space-y-1" style={{ color: 'var(--text-muted)' }}>
-                  <div className="flex justify-between">
-                    <span>Seq: {msg.validation?.msgSeqNum || 'N/A'}</span>
-                    <span style={{ color: statusColor }}>{statusText}</span>
+                    {latencyStr && (
+                      <span className="text-zinc-500 font-bold bg-zinc-950 px-1 py-0.5 rounded border border-zinc-900">
+                        {latencyStr}
+                      </span>
+                    )}
                   </div>
-                  {(symbol || qty || px) && (
-                    <div className="text-[10px] text-zinc-500">
-                      {[
-                        symbol ? `Sym: ${symbol}` : "",
-                        qty ? `Qty: ${qty}` : "",
-                        px ? `Px: ${px}` : ""
-                      ].filter(Boolean).join(" · ")}
+                  
+                  <div className="text-[11px] font-mono space-y-1.5" style={{ color: 'var(--text-muted)' }}>
+                    <div className="flex justify-between">
+                      <span>Seq: {msg.validation?.msgSeqNum || 'N/A'}</span>
+                      <span className="font-semibold" style={{ color: statusColor }}>{statusText}</span>
                     </div>
-                  )}
-                </div>
-                
+                    {showExecutionMessageOnly ? (
+                      <div className="text-[10px] font-sans px-2.5 py-1.5 rounded border italic" style={{ backgroundColor: 'var(--primary-faint)', borderColor: 'var(--border)', color: 'var(--foreground)' }}>
+                        Message: {text}
+                      </div>
+                    ) : (
+                      <>
+                        {(symbol || qty || px) && (
+                          <div className="text-[10px] text-zinc-500">
+                            {[
+                              symbol ? `Sym: ${symbol}` : "",
+                              qty ? `Qty: ${qty}` : "",
+                              px ? `Px: ${px}` : ""
+                            ].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                        {text && (
+                          <div className="text-[10px] text-zinc-500 italic">
+                            Text: {text}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 <div className="text-[9px] font-mono text-zinc-600 dark:text-zinc-500 flex justify-between items-center pt-1 border-t border-zinc-900">
                   <span className="truncate max-w-[150px]">
                     {(() => {
