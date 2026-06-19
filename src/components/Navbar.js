@@ -19,7 +19,8 @@ import {
   ChevronRight,
   Search,
   BookOpen,
-  Activity
+  Activity,
+  ArrowRightLeft
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 
@@ -37,6 +38,7 @@ export default function Navbar() {
     { href: '/interpreter', label: 'FIXi Interpreter', icon: Brain, short: 'FIXi AI' },
     { href: '/flowchart',   label: 'Flowchart',        icon: Network,      short: 'Flow' },
     { href: '/latency',     label: 'Latency Dashboard', icon: Activity,     short: 'Latency' },
+    { href: '/missing-fills', label: 'Missing Fills',   icon: ArrowRightLeft, short: 'Fills' },
     { href: '/tasks',       label: 'Tasks',            icon: LayoutGrid,   short: 'Tasks' },
     { href: '/coderunner',  label: 'Code Sandbox',     icon: Terminal,     short: 'Code' },
     { href: '/xml',         label: 'XML Formatter',    icon: Braces,       short: 'XML' },
