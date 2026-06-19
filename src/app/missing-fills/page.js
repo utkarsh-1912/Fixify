@@ -18,7 +18,7 @@ import {
   TrendingUp,
   HelpCircle
 } from "lucide-react";
-import { validateFIXMessage, getValueMeaning } from "@/lib/fixParser";
+import { validateFIXMessage, getValueMeaning, getTagName } from "@/lib/fixParser";
 
 // Standard CSV/TSV Parser with double-quote handling
 function parseCSV(text) {
@@ -351,7 +351,9 @@ export default function MissingFillsPage() {
         if (sender && target) break;
       }
       if (sender && target) {
-        sessionsMap.add(`${sender} → ${target}`);
+        // Group bidirectionally by sorting sender and target alphabetically
+        const sessionKey = [sender, target].sort().join(' ↔ ');
+        sessionsMap.add(sessionKey);
       }
     });
     const sessionsList = Array.from(sessionsMap);
@@ -489,8 +491,8 @@ export default function MissingFillsPage() {
       // Session Filter Check
       const sender = tags['49'] || '';
       const target = tags['56'] || '';
-      const sessionStr = `${sender} → ${target}`;
-      if (selectedSessions.length > 0 && !selectedSessions.includes(sessionStr)) {
+      const sessionKey = [sender, target].sort().join(' ↔ ');
+      if (selectedSessions.length > 0 && !selectedSessions.includes(sessionKey)) {
         return;
       }
 
