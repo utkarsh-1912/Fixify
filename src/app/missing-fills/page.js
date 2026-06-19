@@ -902,7 +902,7 @@ export default function MissingFillsPage() {
             className="px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors hover:bg-[var(--primary-faint)]"
             style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
           >
-            Clear Data
+            Reset
           </button>
         )}
       </div>
@@ -1232,10 +1232,10 @@ export default function MissingFillsPage() {
           </div>
 
           {/* Interactive Results Table & Controls */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="w-full space-y-4">
             
             {/* Table Column */}
-            <div className="lg:col-span-2 space-y-4">
+            <div className="w-full space-y-4">
               
               {/* Tab Filters and Actions */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--card)] p-2.5 rounded-xl border" style={{ borderColor: 'var(--border)' }}>
@@ -1377,149 +1377,162 @@ export default function MissingFillsPage() {
               </div>
             </div>
 
-            {/* side details panel */}
-            <div className="space-y-4">
-              {selectedResultItem ? (
-                <div className="rounded-xl border p-5 space-y-4 animate-in fade-in-25 duration-100" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
-                  
-                  {/* Header details */}
-                  <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
-                    <div>
-                      <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                        Execution Details
-                      </h3>
-                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                        {selectedResultItem.matchReason}
-                      </p>
-                    </div>
-                    
-                    <button 
-                      onClick={() => setSelectedResultItem(null)} 
-                      className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Comparisons */}
-                  <div className="space-y-4">
-                    
-                    {selectedResultItem.type === "matched" && (
-                      <div className="space-y-3.5">
-                        <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block">Comparison Matrix</span>
-                        
-                        <div className="space-y-2 text-[11px] font-mono">
-                          <div className="grid grid-cols-3 pb-1 text-zinc-500" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <span>Field</span>
-                            <span>FIX Log</span>
-                            <span>Blotter</span>
-                          </div>
-                          {[
-                            { label: "Exec ID", fix: selectedResultItem.fix.execId, blotter: selectedResultItem.blotter.execId },
-                            { label: "Symbol", fix: selectedResultItem.fix.symbol, blotter: selectedResultItem.blotter.symbol },
-                            { label: "Qty", fix: selectedResultItem.fix.qty, blotter: selectedResultItem.blotter.qty },
-                            { label: "Price", fix: selectedResultItem.fix.price, blotter: selectedResultItem.blotter.price },
-                            { label: "Market", fix: selectedResultItem.fix.lastMkt, blotter: selectedResultItem.blotter.lastMkt },
-                            { 
-                              label: "Time (UTC)", 
-                              fix: selectedResultItem.fix.timestamp ? formatUTC(selectedResultItem.fix.timestamp) : 'N/A', 
-                              blotter: selectedResultItem.blotter.timestampObj ? formatUTC(selectedResultItem.blotter.timestampObj) : 'N/A' 
-                            },
-                            { 
-                              label: "Time (Raw)", 
-                              fix: selectedResultItem.fix.timeStr, 
-                              blotter: selectedResultItem.blotter.timestamp 
-                            },
-                            { label: "LogicNode", fix: 'N/A', blotter: selectedResultItem.blotter.logicNode },
-                            { 
-                              label: "NodeTime (UTC)", 
-                              fix: 'N/A', 
-                              blotter: selectedResultItem.blotter.logicNodeTimeObj ? formatUTC(selectedResultItem.blotter.logicNodeTimeObj) : 'N/A' 
-                            },
-                            { 
-                              label: "NodeTime (Raw)", 
-                              fix: 'N/A', 
-                              blotter: selectedResultItem.blotter.logicNodeTime 
-                            }
-                          ].map((row, idx) => {
-                            const isDiscrepancy = row.fix !== 'N/A' && row.blotter !== 'N/A' && String(row.fix).toLowerCase() !== String(row.blotter).toLowerCase();
-                            return (
-                              <div key={idx} className="grid grid-cols-3 py-1 font-mono items-center">
-                                <span className="text-[var(--text-muted)]">{row.label}</span>
-                                <span className="text-[var(--foreground)] truncate pr-2">{row.fix}</span>
-                                <span className={`truncate ${isDiscrepancy ? 'text-amber-400 font-bold' : 'text-zinc-400'}`}>
-                                  {row.blotter || 'N/A'}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedResultItem.type === "missing" && (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-1.5 text-xs text-red-400 font-semibold bg-red-950/20 p-2.5 rounded border border-red-900/30">
-                          <AlertCircle className="h-4 w-4 shrink-0" />
-                          This fill is missing in your blotter database.
-                        </div>
-
-                        <div className="space-y-2 text-[11px] font-mono">
-                          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Extracted FIX Tags</span>
-                          <div className="p-3 rounded-lg text-[var(--foreground)] space-y-1 bg-[var(--background)]">
-                            <div className="flex justify-between"><span className="text-zinc-500">ExecID (17):</span> <span>{selectedResultItem.fix.execId}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">Symbol (55):</span> <span>{selectedResultItem.fix.symbol}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">LastQty (32):</span> <span>{selectedResultItem.fix.qty}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">LastPx (31):</span> <span>{selectedResultItem.fix.price}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">OrderID (37):</span> <span>{selectedResultItem.fix.orderId || 'N/A'}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">ClOrdID (11):</span> <span>{selectedResultItem.fix.clOrdID || 'N/A'}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">LastMkt (30):</span> <span>{selectedResultItem.fix.lastMkt || 'N/A'}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">Time (52):</span> <span className="truncate max-w-[150px]">{selectedResultItem.fix.timeStr}</span></div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2 text-[11px]">
-                          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw FIX Message (Line {selectedResultItem.fix.lineIndex})</span>
-                          <div className="p-3 rounded-lg text-[10px] font-mono break-all max-h-32 overflow-y-auto bg-[var(--background)] text-[var(--foreground)]">
-                            {selectedResultItem.fix.rawMessage}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedResultItem.type === "unmapped" && (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-1.5 text-xs text-amber-400 font-semibold bg-amber-950/20 p-2.5 rounded border border-amber-900/30">
-                          <HelpCircle className="h-4 w-4 shrink-0" />
-                          Blotter record has no matching FIX message.
-                        </div>
-
-                        <div className="space-y-2 text-[11px] font-mono">
-                          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Imported Blotter Values</span>
-                          <div className="p-3 rounded-lg text-[var(--foreground)] space-y-1.5 bg-[var(--background)]">
-                            {Object.entries(selectedResultItem.blotter.row).map(([key, val]) => (
-                              <div key={key} className="flex justify-between gap-4 font-mono">
-                                <span className="text-zinc-500 truncate max-w-[120px]">{key}:</span> 
-                                <span className="text-[var(--foreground)] break-all">{String(val)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed p-12 text-center text-xs text-[var(--text-muted)]" style={{ borderColor: 'var(--border)' }}>
-                  Select an execution row to inspect comparisons and raw fields.
-                </div>
-              )}
-            </div>
-
           </div>
 
         </div>
+      )}
+
+      {/* Floating Inspector Panel */}
+      {selectedResultItem && (
+        <>
+          <div 
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-200"
+            onClick={() => setSelectedResultItem(null)}
+          />
+          <div
+            className="fixed inset-y-0 right-0 w-full sm:w-[500px] shadow-2xl z-50 flex flex-col bg-[var(--card)] border-l"
+            style={{
+              borderColor: 'var(--border)',
+            }}
+          >
+            {/* Inspector header */}
+            <div
+              className="flex items-center justify-between px-6 py-4 border-b shrink-0"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <div>
+                <h3 className="text-base font-bold text-[var(--foreground)]">
+                  Execution Details
+                </h3>
+                <p className="text-[10px] text-[var(--text-muted)] mt-0.5 font-mono">
+                  {selectedResultItem.matchReason}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedResultItem(null)} 
+                className="h-8 w-8 rounded-lg flex items-center justify-center transition-all cursor-pointer hover:bg-zinc-800/50"
+                style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--foreground)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              
+              {/* Comparisons */}
+              <div className="space-y-4">
+                
+                {selectedResultItem.type === "matched" && (
+                  <div className="space-y-3.5">
+                    <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block">Comparison Matrix</span>
+                    
+                    <div className="space-y-2 text-[11px] font-mono">
+                      <div className="grid grid-cols-3 pb-1 text-zinc-500 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <span>Field</span>
+                        <span>FIX Log</span>
+                        <span>Blotter</span>
+                      </div>
+                      {[
+                        { label: "Exec ID", fix: selectedResultItem.fix.execId, blotter: selectedResultItem.blotter.execId },
+                        { label: "Symbol", fix: selectedResultItem.fix.symbol, blotter: selectedResultItem.blotter.symbol },
+                        { label: "Qty", fix: selectedResultItem.fix.qty, blotter: selectedResultItem.blotter.qty },
+                        { label: "Price", fix: selectedResultItem.fix.price, blotter: selectedResultItem.blotter.price },
+                        { label: "Market", fix: selectedResultItem.fix.lastMkt, blotter: selectedResultItem.blotter.lastMkt },
+                        { 
+                          label: "Time (UTC)", 
+                          fix: selectedResultItem.fix.timestamp ? formatUTC(selectedResultItem.fix.timestamp) : 'N/A', 
+                          blotter: selectedResultItem.blotter.timestampObj ? formatUTC(selectedResultItem.blotter.timestampObj) : 'N/A' 
+                        },
+                        { 
+                          label: "Time (Raw)", 
+                          fix: selectedResultItem.fix.timeStr, 
+                          blotter: selectedResultItem.blotter.timestamp 
+                        },
+                        { label: "LogicNode", fix: 'N/A', blotter: selectedResultItem.blotter.logicNode },
+                        { 
+                          label: "NodeTime (UTC)", 
+                          fix: 'N/A', 
+                          blotter: selectedResultItem.blotter.logicNodeTimeObj ? formatUTC(selectedResultItem.blotter.logicNodeTimeObj) : 'N/A' 
+                        },
+                        { 
+                          label: "NodeTime (Raw)", 
+                          fix: 'N/A', 
+                          blotter: selectedResultItem.blotter.logicNodeTime 
+                        }
+                      ].map((row, idx) => {
+                        const isDiscrepancy = row.fix !== 'N/A' && row.blotter !== 'N/A' && String(row.fix).toLowerCase() !== String(row.blotter).toLowerCase();
+                        return (
+                          <div key={idx} className="grid grid-cols-3 py-1 font-mono items-center">
+                            <span className="text-[var(--text-muted)]">{row.label}</span>
+                            <span className="text-[var(--foreground)] truncate pr-2">{row.fix}</span>
+                            <span className={`truncate ${isDiscrepancy ? 'text-amber-400 font-bold' : 'text-zinc-400'}`}>
+                              {row.blotter || 'N/A'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {selectedResultItem.type === "missing" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-1.5 text-xs text-red-400 font-semibold bg-red-950/20 p-2.5 rounded border border-red-900/30">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      This fill is missing in your blotter database.
+                    </div>
+
+                    <div className="space-y-2 text-[11px] font-mono">
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Extracted FIX Tags</span>
+                      <div className="p-3 rounded-lg text-[var(--foreground)] space-y-1 bg-[var(--background)]">
+                        <div className="flex justify-between"><span className="text-zinc-500">ExecID (17):</span> <span>{selectedResultItem.fix.execId}</span></div>
+                        <div className="flex justify-between"><span className="text-zinc-500">Symbol (55):</span> <span>{selectedResultItem.fix.symbol}</span></div>
+                        <div className="flex justify-between"><span className="text-zinc-500">LastQty (32):</span> <span>{selectedResultItem.fix.qty}</span></div>
+                        <div className="flex justify-between"><span className="text-zinc-500">LastPx (31):</span> <span>{selectedResultItem.fix.price}</span></div>
+                        <div className="flex justify-between"><span className="text-zinc-500">OrderID (37):</span> <span>{selectedResultItem.fix.orderId || 'N/A'}</span></div>
+                        <div className="flex justify-between"><span className="text-zinc-500">ClOrdID (11):</span> <span>{selectedResultItem.fix.clOrdID || 'N/A'}</span></div>
+                        <div className="flex justify-between"><span className="text-zinc-500">LastMkt (30):</span> <span>{selectedResultItem.fix.lastMkt || 'N/A'}</span></div>
+                        <div className="flex justify-between"><span className="text-zinc-500">Time (52):</span> <span className="truncate max-w-[180px]">{selectedResultItem.fix.timeStr}</span></div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-[11px]">
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw FIX Message (Line {selectedResultItem.fix.lineIndex})</span>
+                      <div className="p-3 rounded-lg text-[10px] font-mono break-all max-h-32 overflow-y-auto bg-[var(--background)] text-[var(--foreground)]">
+                        {selectedResultItem.fix.rawMessage}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedResultItem.type === "unmapped" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-1.5 text-xs text-amber-400 font-semibold bg-amber-950/20 p-2.5 rounded border border-amber-900/30">
+                      <HelpCircle className="h-4 w-4 shrink-0" />
+                      Blotter record has no matching FIX message.
+                    </div>
+
+                    <div className="space-y-2 text-[11px] font-mono">
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Imported Blotter Values</span>
+                      <div className="p-3 rounded-lg text-[var(--foreground)] space-y-1.5 bg-[var(--background)]">
+                        {Object.entries(selectedResultItem.blotter.row).map(([key, val]) => (
+                          <div key={key} className="flex justify-between gap-4 font-mono">
+                            <span className="text-zinc-500 truncate max-w-[120px]">{key}:</span> 
+                            <span className="text-[var(--foreground)] break-all">{String(val)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Criteria & Session Filters Modal */}
