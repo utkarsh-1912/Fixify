@@ -73,14 +73,45 @@ function parseCSV(text) {
   return { headers, rows, delimiter };
 }
 
+// Robust FIX Timestamp parser to correctly parse UTC SendingTime (Tag 52) or TransactTime (Tag 60)
+function parseFixTimestamp(timeStr) {
+  if (!timeStr) return null;
+  const cleanStr = timeStr.trim();
+
+  // Try to parse standard FIX format: YYYYMMDD-HH:MM:SS.sss or YYYYMMDD-HH:MM:SS
+  const fixPattern = /^(\d{4})(\d{2})(\d{2})-(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/;
+  const match = cleanStr.match(fixPattern);
+  if (match) {
+    const year = match[1];
+    const month = match[2];
+    const day = match[3];
+    const hh = match[4];
+    const mm = match[5];
+    const ss = match[6];
+    const ms = match[7] || '000';
+    // Construct ISO string explicitly in UTC (appending 'Z')
+    const iso = `${year}-${month}-${day}T${hh}:${mm}:${ss}.${ms.padEnd(3, '0').substring(0, 3)}Z`;
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // Fallback to native parsing, but treat as UTC if it looks like ISO without offset
+  const nativeParsed = new Date(cleanStr);
+  if (!isNaN(nativeParsed.getTime())) {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(cleanStr) && !cleanStr.endsWith('Z') && !/[+-]\d{2}/.test(cleanStr)) {
+      const utcParsed = new Date(cleanStr + 'Z');
+      if (!isNaN(utcParsed.getTime())) return utcParsed;
+    }
+    return nativeParsed;
+  }
+
+  return null;
+}
+
 // Robust Blotter Timestamp parser supporting various formats (e.g. "19:12:00 +0530 05/06/26" or "Mon May 25 10:23:03 EDT 2026")
-function parseBlotterTimestamp(str) {
+function parseBlotterTimestamp(str, referenceDate) {
   if (!str) return null;
   const cleanStr = str.trim();
-
-  // Try standard native parser first (in case it is an ISO or standard string)
-  const nativeParsed = new Date(cleanStr);
-  if (!isNaN(nativeParsed.getTime())) return nativeParsed;
 
   // 1. Check format: HH:MM:SS +offset MM/DD/YY (or DD/MM/YY) e.g., "19:12:00 +0530 05/06/26"
   // Regexp matches e.g. "19:12:00 +0530 05/06/26" or "19:12:00.000 -0400 2026/05/25"
@@ -102,15 +133,36 @@ function parseBlotterTimestamp(str) {
       year = valA;
       month = valB;
       day = valC;
-    } else if (valC.length === 4 || valC.length === 2) {
-      // MM/DD/YY or DD/MM/YY or MM/DD/YYYY
-      year = valC.length === 2 ? `20${valC}` : valC;
-      month = valA;
-      day = valB;
     } else {
-      year = new Date().getFullYear().toString();
-      month = valA;
-      day = valB;
+      // MM/DD/YY or DD/MM/YY
+      const yearVal = valC.length === 2 ? `20${valC}` : valC;
+      
+      const monthA = parseInt(valA, 10);
+      const dayA = parseInt(valB, 10);
+      const monthB = parseInt(valB, 10);
+      const dayB = parseInt(valA, 10);
+      
+      if (referenceDate) {
+        // Disambiguate using reference month from FIX logs
+        const refMonthLocal = referenceDate.getMonth() + 1;
+        const refMonthUTC = referenceDate.getUTCMonth() + 1;
+        const refYearLocal = referenceDate.getFullYear();
+        const refYearUTC = referenceDate.getUTCFullYear();
+
+        if ((monthB === refMonthLocal && String(refYearLocal) === yearVal) || (monthB === refMonthUTC && String(refYearUTC) === yearVal)) {
+          year = yearVal;
+          month = String(monthB);
+          day = String(dayB);
+        } else {
+          year = yearVal;
+          month = String(monthA);
+          day = String(dayA);
+        }
+      } else {
+        year = yearVal;
+        month = String(monthA);
+        day = String(dayA);
+      }
     }
     
     // Format offset as "+HH:MM"
@@ -165,7 +217,21 @@ function parseBlotterTimestamp(str) {
     }
   }
 
+  // Try standard native parser last (as fallback)
+  const nativeParsed = new Date(cleanStr);
+  if (!isNaN(nativeParsed.getTime())) return nativeParsed;
+
   return null;
+}
+
+
+// Helper to format Date object cleanly as UTC YYYY-MM-DD HH:mm:ss.SSS
+function formatUTC(date) {
+  if (!date || isNaN(date.getTime())) return 'N/A';
+  const iso = date.toISOString(); // e.g. "2026-05-25T14:23:03.000Z"
+  const datePart = iso.split('T')[0];
+  const timePart = iso.split('T')[1].replace('Z', '');
+  return `${datePart} ${timePart}`;
 }
 
 // Map standard missing fills data columns
@@ -212,6 +278,28 @@ export default function MissingFillsPage() {
   const [execIdMatchType, setExecIdMatchType] = useState("partial"); // 'exact' | 'partial' | 'disabled'
   const [allowFuzzyMatch, setAllowFuzzyMatch] = useState(true);
 
+  // Advanced filters and execution report criteria
+  const [execTypesToConsider, setExecTypesToConsider] = useState({
+    '1': true, // Partial Fill
+    '2': true, // Fill
+    'F': true, // Trade
+    '0': false, // New
+    '4': false, // Canceled
+    '5': false, // Replaced
+    '8': false, // Rejected
+  });
+  const [ordStatusesToConsider, setOrdStatusesToConsider] = useState({
+    '1': true, // Partial Fill
+    '2': true, // Fill
+    '0': false, // New
+    '4': false, // Canceled
+    '8': false, // Rejected
+  });
+  const [availableSessions, setAvailableSessions] = useState([]);
+  const [selectedSessions, setSelectedSessions] = useState([]);
+  const [filterOrderId, setFilterOrderId] = useState("");
+  const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
+
   // Auto-detect columns when headers load
   useEffect(() => {
     if (blotterHeaders.length === 0) return;
@@ -235,6 +323,41 @@ export default function MissingFillsPage() {
     });
     setColumnMappings(newMappings);
   }, [blotterHeaders]);
+
+  // Session auto-discovery from raw FIX text
+  useEffect(() => {
+    if (!fixRawText.trim()) {
+      setAvailableSessions([]);
+      setSelectedSessions([]);
+      return;
+    }
+    const lines = fixRawText.split(/\r?\n/).filter(l => l.includes("8=FIX"));
+    const sessionsMap = new Set();
+    lines.forEach(line => {
+      const startIdx = line.indexOf("8=FIX");
+      if (startIdx === -1) return;
+      const cleanMsg = line.substring(startIdx);
+      let delimiterChar = '\x01';
+      if (!cleanMsg.includes(delimiterChar) && cleanMsg.includes('|')) {
+        delimiterChar = '|';
+      }
+      
+      const parts = cleanMsg.split(delimiterChar);
+      let sender = '';
+      let target = '';
+      for (const part of parts) {
+        if (part.startsWith('49=')) sender = part.substring(3).trim();
+        if (part.startsWith('56=')) target = part.substring(3).trim();
+        if (sender && target) break;
+      }
+      if (sender && target) {
+        sessionsMap.add(`${sender} → ${target}`);
+      }
+    });
+    const sessionsList = Array.from(sessionsMap);
+    setAvailableSessions(sessionsList);
+    setSelectedSessions(sessionsList); // default select all
+  }, [fixRawText]);
 
   // Handle CSV/TSV File Upload
   const onBlotterDrop = useCallback((acceptedFiles) => {
@@ -300,6 +423,25 @@ export default function MissingFillsPage() {
     setMatchedResults([]);
     setFixFillsList([]);
     setSelectedResultItem(null);
+    setExecTypesToConsider({
+      '1': true,
+      '2': true,
+      'F': true,
+      '0': false,
+      '4': false,
+      '5': false,
+      '8': false,
+    });
+    setOrdStatusesToConsider({
+      '1': true,
+      '2': true,
+      '0': false,
+      '4': false,
+      '8': false,
+    });
+    setAvailableSessions([]);
+    setSelectedSessions([]);
+    setFilterOrderId("");
   };
 
   // Run matching logic
@@ -344,35 +486,49 @@ export default function MissingFillsPage() {
       const lastQty = tags['32'];
       const lastPx = tags['31'];
 
-      // Determine if ExecutionReport is a fill or partial fill
+      // Session Filter Check
+      const sender = tags['49'] || '';
+      const target = tags['56'] || '';
+      const sessionStr = `${sender} → ${target}`;
+      if (selectedSessions.length > 0 && !selectedSessions.includes(sessionStr)) {
+        return;
+      }
+
+      // Order ID Filter Check
+      const orderId = tags['37'] || '';
+      const clOrdId = tags['11'] || '';
+      if (filterOrderId.trim()) {
+        const filterIds = filterOrderId.split(',').map(id => id.trim().toLowerCase()).filter(Boolean);
+        if (filterIds.length > 0) {
+          const matchOrder = filterIds.some(id => 
+            orderId.toLowerCase().includes(id) || 
+            clOrdId.toLowerCase().includes(id)
+          );
+          if (!matchOrder) return;
+        }
+      }
+
+      // Determine if ExecutionReport is a fill based on configuration
       const isExecReport = msgType === '8';
-      const isFill = isExecReport && (
-        ['1', '2', 'F'].includes(execType) || 
-        ['1', '2'].includes(ordStatus) || 
-        (lastQty && parseFloat(lastQty) > 0)
-      );
+      if (!isExecReport) return;
+
+      const matchExecType = execType && execTypesToConsider[execType];
+      const matchOrdStatus = ordStatus && ordStatusesToConsider[ordStatus];
+      
+      // Fallback: if no criteria checks are enabled, default to LastQty > 0
+      const noCriteriaEnabled = Object.values(execTypesToConsider).every(v => !v) && Object.values(ordStatusesToConsider).every(v => !v);
+      const isFill = matchExecType || matchOrdStatus || (noCriteriaEnabled && lastQty && parseFloat(lastQty) > 0);
 
       if (isFill) {
         const execId = tags['17'] || '';
-        const orderId = tags['37'] || '';
-        const clOrdId = tags['11'] || '';
         const symbol = tags['55'] || '';
         const qty = lastQty ? parseFloat(lastQty) : 0;
         const price = lastPx ? parseFloat(lastPx) : 0;
         const lastMkt = tags['30'] || '';
         
-        // Parse FIX Timestamp (Tag 52 SendingTime or Tag 60 TransactTime)
+        // Parse FIX Timestamp using robust parseFixTimestamp
         const timeStr = tags['52'] || tags['60'] || '';
-        let timestamp = null;
-        if (timeStr) {
-          // Standard FIX format: YYYYMMDD-HH:MM:SS.sss or similar
-          try {
-            const formatted = timeStr.replace(/^(\d{4})(\d{2})(\d{2})-(\d{2}):(\d{2}):(\d{2})/, '$1-$2-$3T$4:$5:$6');
-            timestamp = new Date(formatted);
-          } catch (err) {
-            timestamp = new Date(timeStr);
-          }
-        }
+        const timestamp = parseFixTimestamp(timeStr);
 
         parsedFills.push({
           id: `fix-fill-${lineIdx}`,
@@ -405,6 +561,28 @@ export default function MissingFillsPage() {
       return header ? row[header] : undefined;
     };
 
+    // Find reference date from FIX fills
+    let fixReferenceDate = null;
+    for (const fixFill of parsedFills) {
+      if (fixFill.timestamp && !isNaN(fixFill.timestamp.getTime())) {
+        fixReferenceDate = fixFill.timestamp;
+        break;
+      }
+    }
+
+    // Pre-parse blotter row timestamps and logic node times using the FIX reference date
+    const blotterParsedRows = blotterRows.map(row => {
+      const timeStr = getBlotterValue(row, 'timestamp');
+      const nodeTimeStr = getBlotterValue(row, 'logicNodeTime');
+      const timestampObj = timeStr ? parseBlotterTimestamp(timeStr, fixReferenceDate) : null;
+      const logicNodeTimeObj = nodeTimeStr ? parseBlotterTimestamp(nodeTimeStr, fixReferenceDate) : null;
+      return {
+        row,
+        timestampObj,
+        logicNodeTimeObj
+      };
+    });
+
     parsedFills.forEach(fixFill => {
       let bestMatchIdx = -1;
       let matchReason = "";
@@ -412,9 +590,9 @@ export default function MissingFillsPage() {
       // A. Match by Exec ID
       const fixExecId = fixFill.execId.trim().toLowerCase();
       if (execIdMatchType !== "disabled" && fixExecId && columnMappings.execId) {
-        bestMatchIdx = blotterRows.findIndex((row, idx) => {
+        bestMatchIdx = blotterParsedRows.findIndex((pRow, idx) => {
           if (matchedBlotterIndices.has(idx)) return false;
-          const blotterExecId = String(getBlotterValue(row, 'execId') || '').trim().toLowerCase();
+          const blotterExecId = String(getBlotterValue(pRow.row, 'execId') || '').trim().toLowerCase();
           if (!blotterExecId) return false;
           
           if (execIdMatchType === 'exact') {
@@ -430,8 +608,9 @@ export default function MissingFillsPage() {
 
       // B. Fallback Fuzzy Match (Symbol + Price + Qty + Timestamp)
       if (allowFuzzyMatch && bestMatchIdx === -1) {
-        bestMatchIdx = blotterRows.findIndex((row, idx) => {
+        bestMatchIdx = blotterParsedRows.findIndex((pRow, idx) => {
           if (matchedBlotterIndices.has(idx)) return false;
+          const row = pRow.row;
           
           // Verify Ticker (if mapped)
           if (columnMappings.symbol) {
@@ -453,13 +632,12 @@ export default function MissingFillsPage() {
 
           // Verify Timestamp if mapped and tolerance is set
           if (columnMappings.timestamp && fixFill.timestamp instanceof Date && !isNaN(fixFill.timestamp.getTime())) {
-            const blotterTimeStr = getBlotterValue(row, 'timestamp');
-            if (blotterTimeStr) {
-              const blotterTime = new Date(blotterTimeStr);
-              if (!isNaN(blotterTime.getTime())) {
-                const diffSec = Math.abs(blotterTime.getTime() - fixFill.timestamp.getTime()) / 1000;
-                if (matchTolerance !== -1 && diffSec > matchTolerance) return false;
-              }
+            const blotterTime = pRow.timestampObj;
+            if (blotterTime && !isNaN(blotterTime.getTime())) {
+              const diffSec = Math.abs(blotterTime.getTime() - fixFill.timestamp.getTime()) / 1000;
+              if (matchTolerance !== -1 && diffSec > matchTolerance) return false;
+            } else {
+              return false; // If time is mapped but can't be parsed, fail the check
             }
           }
 
@@ -474,7 +652,8 @@ export default function MissingFillsPage() {
       // Save match result
       if (bestMatchIdx !== -1) {
         matchedBlotterIndices.add(bestMatchIdx);
-        const matchedRow = blotterRows[bestMatchIdx];
+        const pMatched = blotterParsedRows[bestMatchIdx];
+        const matchedRow = pMatched.row;
         results.push({
           type: "matched",
           fix: fixFill,
@@ -485,9 +664,11 @@ export default function MissingFillsPage() {
             price: parseFloat(getBlotterValue(matchedRow, 'price') || '0'),
             symbol: getBlotterValue(matchedRow, 'symbol') || '',
             timestamp: getBlotterValue(matchedRow, 'timestamp') || '',
+            timestampObj: pMatched.timestampObj,
             lastMkt: getBlotterValue(matchedRow, 'lastMkt') || '',
             logicNode: getBlotterValue(matchedRow, 'logicNode') || '',
             logicNodeTime: getBlotterValue(matchedRow, 'logicNodeTime') || '',
+            logicNodeTimeObj: pMatched.logicNodeTimeObj,
           },
           matchReason
         });
@@ -502,8 +683,9 @@ export default function MissingFillsPage() {
     });
 
     // 3. Add Unmapped Blotter Fills
-    blotterRows.forEach((row, idx) => {
+    blotterParsedRows.forEach((pRow, idx) => {
       if (!matchedBlotterIndices.has(idx)) {
+        const row = pRow.row;
         results.push({
           type: "unmapped",
           fix: null,
@@ -514,9 +696,11 @@ export default function MissingFillsPage() {
             price: parseFloat(getBlotterValue(row, 'price') || '0'),
             symbol: getBlotterValue(row, 'symbol') || '',
             timestamp: getBlotterValue(row, 'timestamp') || '',
+            timestampObj: pRow.timestampObj,
             lastMkt: getBlotterValue(row, 'lastMkt') || '',
             logicNode: getBlotterValue(row, 'logicNode') || '',
             logicNodeTime: getBlotterValue(row, 'logicNodeTime') || '',
+            logicNodeTimeObj: pRow.logicNodeTimeObj,
           },
           matchReason: "Blotter record has no matching FIX message"
         });
@@ -632,7 +816,6 @@ export default function MissingFillsPage() {
           <div className="flex flex-col rounded-xl border p-5 space-y-4" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
             <div>
               <h2 className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-400" />
                 1. Import Blotter Fills (Excel / CSV)
               </h2>
               <p className="text-[11px] text-[var(--text-muted)] mt-1">
@@ -642,7 +825,7 @@ export default function MissingFillsPage() {
 
             {blotterRows.length > 0 ? (
               <div className="space-y-4">
-                <div className="p-3 rounded-lg border flex items-center justify-between text-xs" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
+                <div className="p-3 rounded-lg flex items-center justify-between text-xs" style={{ backgroundColor: 'var(--background)' }}>
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-[var(--primary)]" />
                     <span className="font-medium text-[var(--foreground)] truncate max-w-[200px]">{blotterFileName}</span>
@@ -663,7 +846,7 @@ export default function MissingFillsPage() {
                 </div>
 
                 {/* Column Mappings */}
-                <div className="p-4 rounded-lg border space-y-3" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
+                <div className="p-4 rounded-lg space-y-3" style={{ backgroundColor: 'var(--background)' }}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-[var(--foreground)] flex items-center gap-1.5">
                       <Sliders className="h-3.5 w-3.5" />
@@ -747,7 +930,6 @@ export default function MissingFillsPage() {
           <div className="flex flex-col rounded-xl border p-5 space-y-4" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
             <div>
               <h2 className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 2. Import FIX Message Logs
               </h2>
               <p className="text-[11px] text-[var(--text-muted)] mt-1">
@@ -757,7 +939,7 @@ export default function MissingFillsPage() {
 
             {fixRawText.trim() ? (
               <div className="space-y-4 flex-1 flex flex-col justify-between">
-                <div className="p-3 rounded-lg border flex items-center justify-between text-xs" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
+                <div className="p-3 rounded-lg flex items-center justify-between text-xs" style={{ backgroundColor: 'var(--background)' }}>
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-[var(--primary)]" />
                     <span className="font-medium text-[var(--foreground)] truncate max-w-[220px]">
@@ -779,7 +961,7 @@ export default function MissingFillsPage() {
                 </div>
 
                 {/* Match Engine Settings */}
-                <div className="p-4 rounded-lg border space-y-3 bg-[var(--background)]" style={{ borderColor: 'var(--border)' }}>
+                <div className="p-4 rounded-lg space-y-3 bg-[var(--background)]">
                   <h3 className="text-xs font-semibold text-[var(--foreground)] flex items-center gap-1.5">
                     <Sliders className="h-3.5 w-3.5" />
                     Matching Parameters
@@ -807,7 +989,8 @@ export default function MissingFillsPage() {
                           id="allowFuzzyMatch"
                           checked={allowFuzzyMatch}
                           onChange={(e) => setAllowFuzzyMatch(e.target.checked)}
-                          className="h-3.5 w-3.5 rounded border-zinc-800 bg-zinc-950 text-[var(--primary)] focus:ring-[var(--primary)] cursor-pointer"
+                          className="h-3.5 w-3.5 rounded bg-[var(--background)] text-[var(--primary)] focus:ring-[var(--primary)] cursor-pointer"
+                          style={{ borderColor: 'var(--border)' }}
                         />
                         <label htmlFor="allowFuzzyMatch" className="text-[10px] font-bold text-zinc-400 cursor-pointer">
                           Enabled (Sym + Qty + Px)
@@ -832,6 +1015,17 @@ export default function MissingFillsPage() {
                         <option value={300}>Within 5 Minutes</option>
                         <option value={-1}>Disable Timestamp Check</option>
                       </select>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t pt-2 border-[var(--border-subtle)] mt-2">
+                      <span className="text-[var(--text-muted)] font-medium shrink-0">Pass-Through / Criteria:</span>
+                      <button
+                        onClick={() => setIsCriteriaModalOpen(true)}
+                        className="px-2 py-1.5 bg-[var(--primary-faint)] border rounded hover:opacity-90 font-bold cursor-pointer text-[10px]"
+                        style={{ borderColor: 'var(--primary)', color: 'var(--foreground)' }}
+                      >
+                        Filters ({selectedSessions.length === availableSessions.length ? 'All' : `${selectedSessions.length}/${availableSessions.length}`} Sessions)
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -948,10 +1142,10 @@ export default function MissingFillsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--card)] p-2.5 rounded-xl border" style={{ borderColor: 'var(--border)' }}>
                 <div className="flex flex-wrap items-center gap-1">
                   {[
-                    { id: 'missing', label: 'Missing in Blotter', count: summary.missing, colorClass: 'text-red-400 border-red-500/20 bg-red-950/10' },
-                    { id: 'unmapped', label: 'Unmapped Blotter', count: summary.unmapped, colorClass: 'text-amber-400 border-amber-500/20 bg-amber-950/10' },
-                    { id: 'matched', label: 'Matched Fills', count: summary.matched, colorClass: 'text-emerald-400 border-emerald-500/20 bg-emerald-950/10' },
-                    { id: 'all', label: 'All Results', count: matchedResults.length, colorClass: 'text-zinc-400 border-zinc-800' }
+                    { id: 'missing', label: 'Missing in Blotter', count: summary.missing, activeStyle: { color: 'var(--foreground)', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' } },
+                    { id: 'unmapped', label: 'Unmapped Blotter', count: summary.unmapped, activeStyle: { color: 'var(--foreground)', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)' } },
+                    { id: 'matched', label: 'Matched Fills', count: summary.matched, activeStyle: { color: 'var(--foreground)', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' } },
+                    { id: 'all', label: 'All Results', count: matchedResults.length, activeStyle: { color: 'var(--foreground)', backgroundColor: 'var(--primary-faint)', borderColor: 'var(--border)' } }
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -961,12 +1155,13 @@ export default function MissingFillsPage() {
                       }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border flex items-center gap-2 transition-all ${
                         activeTab === tab.id 
-                          ? tab.colorClass + ' opacity-100 font-bold scale-[1.02]' 
+                          ? 'opacity-100 font-bold scale-[1.02]' 
                           : 'border-transparent text-zinc-500 hover:text-zinc-300 opacity-70'
                       }`}
+                      style={activeTab === tab.id ? tab.activeStyle : {}}
                     >
                       {tab.label}
-                      <span className="text-[10px] font-mono bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
+                      <span className="text-[10px] font-mono bg-zinc-900 px-1.5 py-0.5 rounded text-[var(--foreground)] opacity-80">
                         {tab.count}
                       </span>
                     </button>
@@ -1025,11 +1220,11 @@ export default function MissingFillsPage() {
                           <tr
                             key={idx}
                             onClick={() => setSelectedResultItem(item)}
-                            className={`border-b border-zinc-900 hover:bg-zinc-800/10 cursor-pointer transition-colors ${
+                            className={`hover:bg-zinc-800/10 cursor-pointer transition-colors ${
                               isSelected ? 'bg-zinc-800/20' : 'bg-transparent'
                             }`}
                             style={{ 
-                              borderBottomColor: 'var(--border-subtle)',
+                              borderBottom: '1px solid var(--border-subtle)',
                               boxShadow: isSelected ? 'inset 2px 0 0 var(--primary)' : 'none'
                             }}
                           >
@@ -1063,9 +1258,9 @@ export default function MissingFillsPage() {
                             <td className="py-2.5 px-4 text-zinc-500">
                               {item.fix?.timestamp 
                                 ? item.fix.timestamp.toISOString().split('T')[1].replace('Z', '') 
-                                : item.blotter?.timestamp 
-                                  ? String(item.blotter.timestamp).split(' ')[1] || item.blotter.timestamp
-                                  : 'N/A'
+                                : item.blotter?.timestampObj 
+                                  ? item.blotter.timestampObj.toISOString().split('T')[1].replace('Z', '')
+                                  : item.blotter?.timestamp || 'N/A'
                               }
                             </td>
                           </tr>
@@ -1115,7 +1310,7 @@ export default function MissingFillsPage() {
                         <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block">Comparison Matrix</span>
                         
                         <div className="space-y-2 text-[11px] font-mono">
-                          <div className="grid grid-cols-3 pb-1 border-b border-zinc-900 text-zinc-500">
+                          <div className="grid grid-cols-3 pb-1 text-zinc-500" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                             <span>Field</span>
                             <span>FIX Log</span>
                             <span>Blotter</span>
@@ -1126,9 +1321,27 @@ export default function MissingFillsPage() {
                             { label: "Qty", fix: selectedResultItem.fix.qty, blotter: selectedResultItem.blotter.qty },
                             { label: "Price", fix: selectedResultItem.fix.price, blotter: selectedResultItem.blotter.price },
                             { label: "Market", fix: selectedResultItem.fix.lastMkt, blotter: selectedResultItem.blotter.lastMkt },
-                            { label: "Time", fix: selectedResultItem.fix.timeStr, blotter: selectedResultItem.blotter.timestamp },
+                            { 
+                              label: "Time (UTC)", 
+                              fix: selectedResultItem.fix.timestamp ? formatUTC(selectedResultItem.fix.timestamp) : 'N/A', 
+                              blotter: selectedResultItem.blotter.timestampObj ? formatUTC(selectedResultItem.blotter.timestampObj) : 'N/A' 
+                            },
+                            { 
+                              label: "Time (Raw)", 
+                              fix: selectedResultItem.fix.timeStr, 
+                              blotter: selectedResultItem.blotter.timestamp 
+                            },
                             { label: "LogicNode", fix: 'N/A', blotter: selectedResultItem.blotter.logicNode },
-                            { label: "NodeTime", fix: 'N/A', blotter: selectedResultItem.blotter.logicNodeTime }
+                            { 
+                              label: "NodeTime (UTC)", 
+                              fix: 'N/A', 
+                              blotter: selectedResultItem.blotter.logicNodeTimeObj ? formatUTC(selectedResultItem.blotter.logicNodeTimeObj) : 'N/A' 
+                            },
+                            { 
+                              label: "NodeTime (Raw)", 
+                              fix: 'N/A', 
+                              blotter: selectedResultItem.blotter.logicNodeTime 
+                            }
                           ].map((row, idx) => {
                             const isDiscrepancy = row.fix !== 'N/A' && row.blotter !== 'N/A' && String(row.fix).toLowerCase() !== String(row.blotter).toLowerCase();
                             return (
@@ -1154,7 +1367,7 @@ export default function MissingFillsPage() {
 
                         <div className="space-y-2 text-[11px] font-mono">
                           <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Extracted FIX Tags</span>
-                          <div className="p-3 rounded-lg border text-zinc-300 space-y-1 bg-zinc-950" style={{ borderColor: 'var(--border)' }}>
+                          <div className="p-3 rounded-lg text-[var(--foreground)] space-y-1 bg-[var(--background)]">
                             <div className="flex justify-between"><span className="text-zinc-500">ExecID (17):</span> <span>{selectedResultItem.fix.execId}</span></div>
                             <div className="flex justify-between"><span className="text-zinc-500">Symbol (55):</span> <span>{selectedResultItem.fix.symbol}</span></div>
                             <div className="flex justify-between"><span className="text-zinc-500">LastQty (32):</span> <span>{selectedResultItem.fix.qty}</span></div>
@@ -1168,7 +1381,7 @@ export default function MissingFillsPage() {
 
                         <div className="space-y-2 text-[11px]">
                           <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw FIX Message (Line {selectedResultItem.fix.lineIndex})</span>
-                          <div className="p-3 rounded-lg border text-[10px] font-mono break-all max-h-32 overflow-y-auto bg-zinc-950 text-zinc-400" style={{ borderColor: 'var(--border)' }}>
+                          <div className="p-3 rounded-lg text-[10px] font-mono break-all max-h-32 overflow-y-auto bg-[var(--background)] text-[var(--foreground)]">
                             {selectedResultItem.fix.rawMessage}
                           </div>
                         </div>
@@ -1184,11 +1397,11 @@ export default function MissingFillsPage() {
 
                         <div className="space-y-2 text-[11px] font-mono">
                           <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Imported Blotter Values</span>
-                          <div className="p-3 rounded-lg border text-zinc-300 space-y-1.5 bg-zinc-950" style={{ borderColor: 'var(--border)' }}>
+                          <div className="p-3 rounded-lg text-[var(--foreground)] space-y-1.5 bg-[var(--background)]">
                             {Object.entries(selectedResultItem.blotter.row).map(([key, val]) => (
                               <div key={key} className="flex justify-between gap-4 font-mono">
                                 <span className="text-zinc-500 truncate max-w-[120px]">{key}:</span> 
-                                <span className="text-zinc-300 break-all">{String(val)}</span>
+                                <span className="text-[var(--foreground)] break-all">{String(val)}</span>
                               </div>
                             ))}
                           </div>
@@ -1207,6 +1420,172 @@ export default function MissingFillsPage() {
 
           </div>
 
+        </div>
+      )}
+
+      {/* Criteria & Session Filters Modal */}
+      {isCriteriaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-100">
+          <div 
+            className="w-full max-w-lg rounded-xl border p-5 space-y-4 shadow-xl flex flex-col max-h-[90vh]" 
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+              <div>
+                <h3 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                  <Sliders className="h-4 w-4 text-[var(--primary)]" />
+                  Advanced Execution Filters
+                </h3>
+                <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                  Configure sessions and message criteria for the log analysis.
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsCriteriaModalOpen(false)} 
+                className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Content - Scrollable */}
+            <div className="space-y-4 overflow-y-auto pr-1 text-xs text-[var(--foreground)] flex-1">
+              
+              {/* Session Filter */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block">Session Filter (Tag 49 → 56)</span>
+                {availableSessions.length === 0 ? (
+                  <div className="p-3 rounded bg-[var(--background)] text-center text-[10px] text-[var(--text-muted)] italic">
+                    No sessions detected. Please load a FIX log first.
+                  </div>
+                ) : (
+                  <div className="p-3 rounded bg-[var(--background)] space-y-2 max-h-36 overflow-y-auto border" style={{ borderColor: 'var(--border)' }}>
+                    <div className="flex items-center justify-between border-b pb-1.5 mb-1.5 border-[var(--border-subtle)] text-[10px]">
+                      <button 
+                        onClick={() => setSelectedSessions(availableSessions)} 
+                        className="text-[var(--primary)] hover:underline cursor-pointer"
+                      >
+                        Select All
+                      </button>
+                      <button 
+                        onClick={() => setSelectedSessions([])} 
+                        className="text-[var(--primary)] hover:underline cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    {availableSessions.map(session => {
+                      const isChecked = selectedSessions.includes(session);
+                      return (
+                        <label key={session} className="flex items-center gap-2 font-mono text-[10px] cursor-pointer hover:opacity-80">
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedSessions(prev => [...prev, session]);
+                              } else {
+                                setSelectedSessions(prev => prev.filter(s => s !== session));
+                              }
+                            }}
+                            className="h-3.5 w-3.5 rounded bg-[var(--card)] text-[var(--primary)] focus:ring-[var(--primary)] cursor-pointer"
+                            style={{ borderColor: 'var(--border)' }}
+                          />
+                          <span>{session}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Order ID / ClOrdID Filter */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block">Filter by Order ID / ClOrdID</label>
+                <input 
+                  type="text"
+                  placeholder="Enter specific Order IDs (comma-separated)..."
+                  value={filterOrderId}
+                  onChange={(e) => setFilterOrderId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border bg-[var(--background)] outline-none text-xs text-[var(--foreground)] placeholder-[var(--text-muted)] focus:border-[var(--primary)] transition-all font-mono"
+                  style={{ borderColor: 'var(--border)' }}
+                />
+                <span className="text-[9px] text-[var(--text-muted)] block">Leave blank to process all execution reports. Matches tags 37 or 11.</span>
+              </div>
+
+              {/* Execution Types to Match */}
+              <div className="grid grid-cols-2 gap-4">
+                
+                {/* ExecType Checkboxes */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block">ExecType (Tag 150)</span>
+                  <div className="p-3 rounded bg-[var(--background)] space-y-2 border font-mono text-[10px]" style={{ borderColor: 'var(--border)' }}>
+                    {[
+                      { key: '1', label: '1 - Partial Fill' },
+                      { key: '2', label: '2 - Fill' },
+                      { key: 'F', label: 'F - Trade' },
+                      { key: '0', label: '0 - New' },
+                      { key: '4', label: '4 - Canceled' },
+                      { key: '5', label: '5 - Replaced' },
+                      { key: '8', label: '8 - Rejected' },
+                    ].map(item => (
+                      <label key={item.key} className="flex items-center gap-2 cursor-pointer hover:opacity-80">
+                        <input 
+                          type="checkbox"
+                          checked={execTypesToConsider[item.key]}
+                          onChange={(e) => setExecTypesToConsider(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                          className="h-3.5 w-3.5 rounded bg-[var(--card)] text-[var(--primary)] focus:ring-[var(--primary)] cursor-pointer"
+                          style={{ borderColor: 'var(--border)' }}
+                        />
+                        <span>{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* OrdStatus Checkboxes */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block">OrdStatus (Tag 39)</span>
+                  <div className="p-3 rounded bg-[var(--background)] space-y-2 border font-mono text-[10px]" style={{ borderColor: 'var(--border)' }}>
+                    {[
+                      { key: '1', label: '1 - Partial Fill' },
+                      { key: '2', label: '2 - Fill' },
+                      { key: '0', label: '0 - New' },
+                      { key: '4', label: '4 - Canceled' },
+                      { key: '8', label: '8 - Rejected' },
+                    ].map(item => (
+                      <label key={item.key} className="flex items-center gap-2 cursor-pointer hover:opacity-80">
+                        <input 
+                          type="checkbox"
+                          checked={ordStatusesToConsider[item.key]}
+                          onChange={(e) => setOrdStatusesToConsider(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                          className="h-3.5 w-3.5 rounded bg-[var(--card)] text-[var(--primary)] focus:ring-[var(--primary)] cursor-pointer"
+                          style={{ borderColor: 'var(--border)' }}
+                        />
+                        <span>{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
+              <button
+                onClick={() => {
+                  setIsCriteriaModalOpen(false);
+                  handleAnalyze(); // Re-run analysis with the new criteria
+                }}
+                className="px-4 py-2 bg-[var(--primary)] text-[var(--background)] font-bold rounded-lg text-xs hover:opacity-90 transition-opacity cursor-pointer shadow"
+              >
+                Apply & Analyze
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
