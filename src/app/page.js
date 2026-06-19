@@ -1979,7 +1979,7 @@ export default function LogsProcessorPage() {
                                           transform: isHighlighted ? 'scale(1.01)' : 'scale(1)',
                                         }}
                                       >
-                                        <span className="text-[10px] min-w-[22px] text-right mt-0.5 select-none" style={{ color: 'var(--text-faint)' }}>
+                                        <span className="text-[10px] min-w-[15px] text-right mt-0.5 select-none" style={{ color: 'var(--text-faint)' }}>
                                           {lineIdx + 1}
                                         </span>
                                         <span className="mt-1.5 select-none">
