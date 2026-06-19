@@ -189,6 +189,24 @@ export default function LogsProcessorPage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTag, setActiveTag] = useState(null);
 
+  // If no files are present in file mode, automatically clear/reset stats to return to default UI
+  useEffect(() => {
+    if (inputMode === 'file' && files.length === 0 && stats.totalMessages > 0) {
+      setStats({
+        totalMessages: 0,
+        validMessages: 0,
+        checksumErrors: 0,
+        bodyLengthErrors: 0,
+        msgTypeCount: {},
+        checksumFailedSeqs: [],
+        bodyLengthFailedSeqs: []
+      });
+      setSelectedLineInfo(null);
+      setActiveErrorType(null);
+      setHighlightedLineId(null);
+    }
+  }, [files, inputMode, stats.totalMessages]);
+
   // Load state on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1229,9 +1247,9 @@ export default function LogsProcessorPage() {
               className="p-0.5 rounded text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors flex items-center justify-center"
               title="Zoom In (Increase Width)"
             >
-              <ZoomOut className="h-3 w-3" />
+              <ZoomIn className="h-3 w-3" />
             </button>
-                <span className="text-[8px] text-zinc-355 font-bold select-none min-w-[28px] text-center font-mono">
+            <span className="text-[8px] text-zinc-355 font-bold select-none min-w-[28px] text-center font-mono">
               {Math.round(flowZoom * 100)}%
             </span>
             <button
@@ -1240,7 +1258,7 @@ export default function LogsProcessorPage() {
               className="p-0.5 rounded text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors flex items-center justify-center"
               title="Zoom Out (Reduce Width)"
             >
-              <ZoomIn className="h-3 w-3" />
+              <ZoomOut className="h-3 w-3" />
             </button>
             {flowZoom !== 1.0 && (
               <button
@@ -1253,7 +1271,11 @@ export default function LogsProcessorPage() {
             )}
           </div>
 
-          <svg viewBox={`0 0 ${width} ${svgHeight}`} className="w-full h-auto font-mono">
+          <svg 
+            viewBox={`0 0 ${width} ${svgHeight}`} 
+            className="h-auto font-mono block mx-auto transition-all"
+            style={{ width: `${width}px`, minWidth: '100%' }}
+          >
             {/* Draw Actor Headers & Lifelines */}
             {orderedActors.map((actor, idx) => {
               const x = getActorX(idx);
