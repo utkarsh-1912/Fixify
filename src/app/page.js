@@ -24,7 +24,8 @@ import {
   ZoomOut,
   Info,
   ClipboardList,
-  RefreshCw
+  RefreshCw,
+  X
 } from "lucide-react";
 import {
   extractTimestamp,
@@ -188,6 +189,35 @@ export default function LogsProcessorPage() {
   });
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTag, setActiveTag] = useState(null);
+
+  // Tag Breakdown Table Search States
+  const [tagSearchQuery, setTagSearchQuery] = useState("");
+  const [showTagSearch, setShowTagSearch] = useState(false);
+
+  // Derived state: filtered tags based on search query
+  const displayedTags = (() => {
+    const allTags = selectedLineInfo?.validation?.tagList || [];
+    if (!tagSearchQuery.trim()) return allTags;
+    const query = tagSearchQuery.toLowerCase().trim();
+    return allTags.filter((t) => {
+      const tagStr = String(t.tag).toLowerCase();
+      const nameStr = String(t.name || "").toLowerCase();
+      const valStr = String(t.val || "").toLowerCase();
+      const meaningStr = String(t.meaning || "").toLowerCase();
+      return (
+        tagStr.includes(query) ||
+        nameStr.includes(query) ||
+        valStr.includes(query) ||
+        meaningStr.includes(query)
+      );
+    });
+  })();
+
+  // Reset tag search when the selected message changes
+  useEffect(() => {
+    setTagSearchQuery("");
+    setShowTagSearch(false);
+  }, [selectedLineInfo?.id]);
 
   // If no files are present in file mode, automatically clear/reset stats to return to default UI
   useEffect(() => {
@@ -2082,9 +2112,84 @@ export default function LogsProcessorPage() {
 
                 {/* Tags table */}
                 <div>
-                  <p className="fx-section-label mb-2">
-                    Tag Breakdown ({selectedLineInfo.validation?.tagList?.length || 0} fields)
-                  </p>
+                  <div className="flex items-center justify-between gap-4 mb-2 select-none">
+                    <p className="fx-section-label">
+                      Tag Breakdown ({selectedLineInfo.validation?.tagList?.length || 0} fields)
+                    </p>
+                    
+                    {/* Search Trigger / Bar */}
+                    <div className="flex items-center gap-1">
+                      {showTagSearch ? (
+                        <div 
+                          className="flex items-center p-0.5 rounded-lg border animate-in slide-in-from-right-2 duration-150"
+                          style={{
+                            backgroundColor: 'var(--background)',
+                            borderColor: 'var(--border)'
+                          }}
+                        >
+                          <Search className="h-3 w-3 ml-1.5 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                          <input
+                            type="text"
+                            value={tagSearchQuery}
+                            onChange={(e) => {
+                              setTagSearchQuery(e.target.value);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') {
+                                e.preventDefault();
+                                setTagSearchQuery("");
+                                setShowTagSearch(false);
+                              }
+                            }}
+                            placeholder="Find tag / name..."
+                            className="bg-transparent border-none text-[10px] font-sans outline-none px-1 w-28 py-0.5"
+                            style={{
+                              color: 'var(--foreground)'
+                            }}
+                            autoFocus
+                          />
+                          
+                          {tagSearchQuery.trim() && (
+                            <span 
+                              className="text-[9px] font-mono shrink-0 px-1.5 border-l"
+                              style={{ 
+                                color: displayedTags.length > 0 ? 'var(--text-muted)' : '#f87171',
+                                borderColor: 'var(--border)'
+                              }}
+                            >
+                              {displayedTags.length} {displayedTags.length === 1 ? 'match' : 'matches'}
+                            </span>
+                          )}
+
+                          <button 
+                            onClick={() => {
+                              setTagSearchQuery("");
+                              setShowTagSearch(false);
+                            }} 
+                            className="p-1 rounded shrink-0 cursor-pointer hover:bg-[var(--primary-faint)] transition-colors"
+                            style={{
+                              color: 'var(--text-muted)'
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowTagSearch(true)}
+                          title="Search Fields"
+                          className="p-1 rounded transition-all border cursor-pointer hover:bg-[var(--primary-faint)]"
+                          style={{
+                            borderColor: 'var(--border)',
+                            backgroundColor: 'transparent',
+                            color: 'var(--text-muted)'
+                          }}
+                        >
+                          <Search className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--border)' }}>
                     <table className="w-full text-xs font-mono min-w-[320px]">
                       <thead>
@@ -2095,42 +2200,53 @@ export default function LogsProcessorPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedLineInfo.validation?.tagList?.map((t, idx) => {
-                          const isCrucial = ['8', '9', '35', '11', '10', '52', '90052'].includes(t.tag);
-                          return (
-                            <tr
-                              key={idx}
-                              onClick={() => setActiveTag(t.tag)}
-                              style={{
-                                borderBottom: '1px solid var(--border-subtle)',
-                                background: isCrucial ? 'var(--primary-faint)' : 'transparent',
-                                cursor: 'pointer'
-                              }}
-                              className="hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
-                            >
-                              <td
-                                className="py-2 px-3 font-bold"
-                                style={{ color: isCrucial ? 'var(--primary)' : 'var(--foreground)' }}
+                        {displayedTags.length > 0 ? (
+                          displayedTags.map((t, idx) => {
+                            const isCrucial = ['8', '9', '35', '11', '10', '52', '90052'].includes(t.tag);
+                            return (
+                              <tr
+                                key={idx}
+                                onClick={() => setActiveTag(t.tag)}
+                                style={{
+                                  borderBottom: '1px solid var(--border-subtle)',
+                                  background: isCrucial
+                                    ? 'var(--primary-faint)'
+                                    : 'transparent',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease'
+                                }}
+                                className="hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
                               >
-                                {t.tag}
-                              </td>
-                              <td className="py-2 px-3" style={{ color: 'var(--text-muted)' }}>
-                                {t.name}
-                              </td>
-                              <td className="py-2 px-3 truncate max-w-[130px]" style={{ color: 'var(--foreground)' }} title={t.val}>
-                                {t.meaning !== t.val ? (
-                                  <span
-                                    className="underline decoration-dotted"
-                                    style={{ color: 'var(--primary)' }}
-                                    title={`Mapped: ${t.meaning}`}
-                                  >
-                                    {t.val}
-                                  </span>
-                                ) : t.val}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                <td
+                                  className="py-2 px-3 font-bold"
+                                  style={{ color: isCrucial ? 'var(--primary)' : 'var(--foreground)' }}
+                                >
+                                  {t.tag}
+                                </td>
+                                <td className="py-2 px-3" style={{ color: 'var(--text-muted)' }}>
+                                  {t.name}
+                                </td>
+                                <td className="py-2 px-3 truncate max-w-[130px]" style={{ color: 'var(--foreground)' }} title={t.val}>
+                                  {t.meaning !== t.val ? (
+                                    <span
+                                      className="underline decoration-dotted"
+                                      style={{ color: 'var(--primary)' }}
+                                      title={`Mapped: ${t.meaning}`}
+                                    >
+                                      {t.val}
+                                    </span>
+                                  ) : t.val}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={3} className="py-6 text-center text-[var(--text-muted)]" style={{ color: 'var(--text-muted)' }}>
+                              No matching fields found.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
