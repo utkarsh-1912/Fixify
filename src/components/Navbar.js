@@ -35,14 +35,14 @@ export default function Navbar() {
   const navItems = [
     { href: '/',            label: 'Logs Processor',  icon: FileCog,      short: 'Logs' },
     { href: '/compare',     label: 'Comparator',       icon: GitCompare,   short: 'Compare' },
+    { href: '/xml',         label: 'XML Formatter',    icon: Braces,       short: 'XML' },
+    { href: '/chat',        label: 'Team Chat',        icon: MessageSquare, short: 'Chat' },
     { href: '/interpreter', label: 'FIXi Interpreter', icon: Brain, short: 'FIXi AI' },
     { href: '/flowchart',   label: 'Flowchart',        icon: Network,      short: 'Flow' },
     { href: '/latency',     label: 'Latency Dashboard', icon: Activity,     short: 'Latency' },
     { href: '/missing-fills', label: 'Missing Fills',   icon: ArrowRightLeft, short: 'Fills' },
     { href: '/tasks',       label: 'Tasks',            icon: LayoutGrid,   short: 'Tasks' },
     { href: '/coderunner',  label: 'Code Sandbox',     icon: Terminal,     short: 'Code' },
-    { href: '/xml',         label: 'XML Formatter',    icon: Braces,       short: 'XML' },
-    { href: '/chat',        label: 'Team Chat',        icon: MessageSquare, short: 'Chat' },
     { href: '/fixtags',     label: 'FIX Dictionary',  icon: BookOpen,      short: 'Dict', inMenu: false },
   ];
 

@@ -840,30 +840,100 @@ export default function MissingFillsPage() {
     unmapped: matchedResults.filter(r => r.type === "unmapped").length,
   };
 
-  // Export Missing Fills CSV
+  // Export active results CSV
   const handleExportCSV = () => {
-    const missingItems = matchedResults.filter(r => r.type === "missing");
-    if (missingItems.length === 0) return;
+    let itemsToExport = [];
+    let filename = "";
+    let headers = [];
+    let rows = [];
 
-    const headers = ["FIX Line", "ExecID", "OrderID", "ClOrdID", "Symbol", "Qty", "Price", "LastMkt", "Timestamp"];
-    const rows = missingItems.map(item => [
-      item.fix.lineIndex,
-      `"${item.fix.execId}"`,
-      `"${item.fix.orderId}"`,
-      `"${item.fix.clOrdId}"`,
-      `"${item.fix.symbol}"`,
-      item.fix.qty,
-      item.fix.price,
-      `"${item.fix.lastMkt}"`,
-      item.fix.timestamp ? item.fix.timestamp.toISOString() : item.fix.timeStr
-    ]);
+    if (activeTab === "missing") {
+      itemsToExport = matchedResults.filter(r => r.type === "missing");
+      filename = `missing_fills_${Date.now()}.csv`;
+      headers = ["FIX Line", "ExecID", "OrderID", "ClOrdID", "Symbol", "Qty", "Price", "LastMkt", "Timestamp"];
+      rows = itemsToExport.map(item => [
+        item.fix.lineIndex,
+        `"${item.fix.execId}"`,
+        `"${item.fix.orderId || ''}"`,
+        `"${item.fix.clOrdId || ''}"`,
+        `"${item.fix.symbol}"`,
+        item.fix.qty,
+        item.fix.price,
+        `"${item.fix.lastMkt || ''}"`,
+        item.fix.timestamp ? item.fix.timestamp.toISOString() : item.fix.timeStr
+      ]);
+    } else if (activeTab === "unmapped") {
+      itemsToExport = matchedResults.filter(r => r.type === "unmapped");
+      filename = `unmapped_blotter_${Date.now()}.csv`;
+      headers = ["ExecID", "Symbol", "Qty", "Price", "Timestamp", "LogicNode", "LogicNodeTime"];
+      rows = itemsToExport.map(item => [
+        `"${item.blotter.execId || ''}"`,
+        `"${item.blotter.symbol || ''}"`,
+        item.blotter.qty,
+        item.blotter.price,
+        item.blotter.timestamp || '',
+        `"${item.blotter.logicNode || ''}"`,
+        item.blotter.logicNodeTime || ''
+      ]);
+    } else if (activeTab === "matched") {
+      itemsToExport = matchedResults.filter(r => r.type === "matched");
+      filename = `matched_fills_${Date.now()}.csv`;
+      headers = [
+        "ExecID", "Symbol", 
+        "Qty (FIX)", "Qty (Blotter)", 
+        "Price (FIX)", "Price (Blotter)", 
+        "Timestamp (FIX)", "Timestamp (Blotter)", 
+        "LogicNode", "Match Reason"
+      ];
+      rows = itemsToExport.map(item => [
+        `"${item.fix.execId}"`,
+        `"${item.fix.symbol}"`,
+        item.fix.qty,
+        item.blotter.qty,
+        item.fix.price,
+        item.blotter.price,
+        item.fix.timestamp ? item.fix.timestamp.toISOString() : item.fix.timeStr,
+        item.blotter.timestamp || '',
+        `"${item.blotter.logicNode || ''}"`,
+        `"${item.matchReason}"`
+      ]);
+    } else {
+      // "all"
+      itemsToExport = filteredResults;
+      filename = `all_comparison_results_${Date.now()}.csv`;
+      headers = ["Type", "ExecID", "Symbol", "Qty", "Price", "Timestamp", "Match Details"];
+      rows = itemsToExport.map(item => {
+        const type = item.type;
+        const execId = item.fix?.execId || item.blotter?.execId || '';
+        const symbol = item.fix?.symbol || item.blotter?.symbol || '';
+        const qty = item.fix?.qty || item.blotter?.qty || '';
+        const price = item.fix?.price || item.blotter?.price || '';
+        const timestamp = item.fix?.timestamp 
+          ? item.fix.timestamp.toISOString() 
+          : item.blotter?.timestampObj
+            ? item.blotter.timestampObj.toISOString()
+            : item.blotter?.timestamp || item.fix?.timeStr || '';
+        const details = item.matchReason || '';
+        return [
+          `"${type}"`,
+          `"${execId}"`,
+          `"${symbol}"`,
+          qty,
+          price,
+          `"${timestamp}"`,
+          `"${details}"`
+        ];
+      });
+    }
+
+    if (rows.length === 0) return;
 
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `missing_fills_report_${Date.now()}.csv`);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -882,7 +952,7 @@ export default function MissingFillsPage() {
   });
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 md:px-6 py-6 space-y-6">
+    <div className="max-w-screen-2xl mx-auto px-4 py-6 space-y-6">
       
       {/* Title */}
       <div className="flex items-center justify-between">
@@ -1202,22 +1272,50 @@ export default function MissingFillsPage() {
           
           {/* Analysis Dashboard Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="p-4 rounded-xl border font-mono space-y-1" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
+            <div 
+              onClick={() => { setActiveTab('all'); setSelectedResultItem(null); }}
+              className="p-4 rounded-xl border font-mono space-y-1 cursor-pointer transition-all hover:scale-[1.02] hover:bg-zinc-800/10" 
+              style={{ 
+                backgroundColor: 'var(--card)', 
+                borderColor: activeTab === 'all' ? 'var(--primary)' : 'var(--border)'
+              }}
+            >
               <span className="text-[10px] text-[var(--text-muted)] block uppercase">FIX Fills Logged</span>
               <span className="text-xl font-bold text-[var(--foreground)]">{summary.fixFills}</span>
             </div>
             
-            <div className="p-4 rounded-xl border font-mono space-y-1" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
+            <div 
+              onClick={() => { setActiveTab('all'); setSelectedResultItem(null); }}
+              className="p-4 rounded-xl border font-mono space-y-1 cursor-pointer transition-all hover:scale-[1.02] hover:bg-zinc-800/10" 
+              style={{ 
+                backgroundColor: 'var(--card)', 
+                borderColor: activeTab === 'all' ? 'var(--primary)' : 'var(--border)'
+              }}
+            >
               <span className="text-[10px] text-[var(--text-muted)] block uppercase">Blotter Entries</span>
               <span className="text-xl font-bold text-[var(--foreground)]">{summary.blotterFills}</span>
             </div>
 
-            <div className="p-4 rounded-xl border font-mono space-y-1" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
+            <div 
+              onClick={() => { setActiveTab('matched'); setSelectedResultItem(null); }}
+              className="p-4 rounded-xl border font-mono space-y-1 cursor-pointer transition-all hover:scale-[1.02] hover:bg-emerald-950/10" 
+              style={{ 
+                backgroundColor: 'var(--card)', 
+                borderColor: activeTab === 'matched' ? '#10b981' : 'var(--border)'
+              }}
+            >
               <span className="text-[10px] text-[var(--text-muted)] block uppercase">Matched Execs</span>
               <span className="text-xl font-bold text-emerald-400">{summary.matched}</span>
             </div>
 
-            <div className="p-4 rounded-xl border font-mono space-y-1 relative overflow-hidden" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
+            <div 
+              onClick={() => { setActiveTab('missing'); setSelectedResultItem(null); }}
+              className="p-4 rounded-xl border font-mono space-y-1 relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:bg-red-950/10" 
+              style={{ 
+                backgroundColor: 'var(--card)', 
+                borderColor: activeTab === 'missing' ? '#ef4444' : 'var(--border)'
+              }}
+            >
               <span className="text-[10px] text-[var(--text-muted)] block uppercase">Missing in Blotter</span>
               <span className="text-xl font-bold text-red-400 flex items-center gap-1.5">
                 {summary.missing}
@@ -1225,7 +1323,14 @@ export default function MissingFillsPage() {
               </span>
             </div>
 
-            <div className="p-4 rounded-xl border font-mono space-y-1" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
+            <div 
+              onClick={() => { setActiveTab('unmapped'); setSelectedResultItem(null); }}
+              className="p-4 rounded-xl border font-mono space-y-1 cursor-pointer transition-all hover:scale-[1.02] hover:bg-amber-950/10" 
+              style={{ 
+                backgroundColor: 'var(--card)', 
+                borderColor: activeTab === 'unmapped' ? '#f59e0b' : 'var(--border)'
+              }}
+            >
               <span className="text-[10px] text-[var(--text-muted)] block uppercase">Unmapped Blotter</span>
               <span className="text-xl font-bold text-amber-400">{summary.unmapped}</span>
             </div>
@@ -1281,13 +1386,13 @@ export default function MissingFillsPage() {
                     />
                   </div>
 
-                  {activeTab === 'missing' && summary.missing > 0 && (
+                  {filteredResults.length > 0 && (
                     <button
                       onClick={handleExportCSV}
                       className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
                     >
                       <Download className="h-3.5 w-3.5" />
-                      Export CSV
+                      Export {activeTab === 'all' ? 'All' : activeTab === 'missing' ? 'Missing' : activeTab === 'unmapped' ? 'Unmapped' : 'Matched'} CSV
                     </button>
                   )}
                 </div>
@@ -1493,7 +1598,7 @@ export default function MissingFillsPage() {
                         <div className="flex justify-between"><span className="text-zinc-500">LastQty (32):</span> <span>{selectedResultItem.fix.qty}</span></div>
                         <div className="flex justify-between"><span className="text-zinc-500">LastPx (31):</span> <span>{selectedResultItem.fix.price}</span></div>
                         <div className="flex justify-between"><span className="text-zinc-500">OrderID (37):</span> <span>{selectedResultItem.fix.orderId || 'N/A'}</span></div>
-                        <div className="flex justify-between"><span className="text-zinc-500">ClOrdID (11):</span> <span>{selectedResultItem.fix.clOrdID || 'N/A'}</span></div>
+                        <div className="flex justify-between"><span className="text-zinc-500">ClOrdID (11):</span> <span>{selectedResultItem.fix.clOrdId || 'N/A'}</span></div>
                         <div className="flex justify-between"><span className="text-zinc-500">LastMkt (30):</span> <span>{selectedResultItem.fix.lastMkt || 'N/A'}</span></div>
                         <div className="flex justify-between"><span className="text-zinc-500">Time (52):</span> <span className="truncate max-w-[180px]">{selectedResultItem.fix.timeStr}</span></div>
                       </div>
