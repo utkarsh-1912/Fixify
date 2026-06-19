@@ -361,6 +361,85 @@ export default function MissingFillsPage() {
     setSelectedSessions(sessionsList); // default select all
   }, [fixRawText]);
 
+  // Load cached settings and raw data on initial mount
+  useEffect(() => {
+    try {
+      const cachedBlotterRaw = localStorage.getItem("fixify_blotter_raw");
+      const cachedBlotterName = localStorage.getItem("fixify_blotter_name");
+      const cachedMappings = localStorage.getItem("fixify_column_mappings");
+      
+      const cachedFixRaw = localStorage.getItem("fixify_fix_raw");
+      const cachedFixName = localStorage.getItem("fixify_fix_name");
+      
+      const cachedTolerance = localStorage.getItem("fixify_match_tolerance");
+      const cachedMatchType = localStorage.getItem("fixify_match_type");
+      const cachedFuzzy = localStorage.getItem("fixify_allow_fuzzy");
+      const cachedOrderId = localStorage.getItem("fixify_filter_order_id");
+      const cachedSelectedSessions = localStorage.getItem("fixify_selected_sessions");
+      
+      const cachedExecTypes = localStorage.getItem("fixify_exec_types_to_consider");
+      const cachedOrdStatuses = localStorage.getItem("fixify_ord_statuses_to_consider");
+
+      if (cachedBlotterRaw) {
+        setBlotterRawText(cachedBlotterRaw);
+        const parsed = parseCSV(cachedBlotterRaw);
+        setBlotterRows(parsed.rows);
+        setBlotterHeaders(parsed.headers);
+        setBlotterDelimiter(parsed.delimiter);
+      }
+      if (cachedBlotterName) setBlotterFileName(cachedBlotterName);
+      if (cachedMappings) setColumnMappings(JSON.parse(cachedMappings));
+      
+      if (cachedFixRaw) setFixRawText(cachedFixRaw);
+      if (cachedFixName) setFixFileName(cachedFixName);
+      
+      if (cachedTolerance) setMatchTolerance(Number(cachedTolerance));
+      if (cachedMatchType) setExecIdMatchType(cachedMatchType);
+      if (cachedFuzzy) setAllowFuzzyMatch(cachedFuzzy === "true");
+      if (cachedOrderId) setFilterOrderId(cachedOrderId);
+      
+      if (cachedExecTypes) setExecTypesToConsider(JSON.parse(cachedExecTypes));
+      if (cachedOrdStatuses) setOrdStatusesToConsider(JSON.parse(cachedOrdStatuses));
+
+      if (cachedSelectedSessions) setSelectedSessions(JSON.parse(cachedSelectedSessions));
+    } catch (err) {
+      console.warn("Failed to load cached Missing Fills settings:", err);
+    }
+  }, []);
+
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    try {
+      localStorage.setItem("fixify_blotter_raw", blotterRawText || "");
+      localStorage.setItem("fixify_blotter_name", blotterFileName || "");
+      localStorage.setItem("fixify_column_mappings", JSON.stringify(columnMappings));
+      localStorage.setItem("fixify_fix_raw", fixRawText || "");
+      localStorage.setItem("fixify_fix_name", fixFileName || "");
+      localStorage.setItem("fixify_match_tolerance", String(matchTolerance));
+      localStorage.setItem("fixify_match_type", execIdMatchType);
+      localStorage.setItem("fixify_allow_fuzzy", String(allowFuzzyMatch));
+      localStorage.setItem("fixify_filter_order_id", filterOrderId || "");
+      localStorage.setItem("fixify_selected_sessions", JSON.stringify(selectedSessions));
+      localStorage.setItem("fixify_exec_types_to_consider", JSON.stringify(execTypesToConsider));
+      localStorage.setItem("fixify_ord_statuses_to_consider", JSON.stringify(ordStatusesToConsider));
+    } catch (err) {
+      console.warn("Failed to cache Missing Fills settings:", err);
+    }
+  }, [
+    blotterRawText,
+    blotterFileName,
+    columnMappings,
+    fixRawText,
+    fixFileName,
+    matchTolerance,
+    execIdMatchType,
+    allowFuzzyMatch,
+    filterOrderId,
+    selectedSessions,
+    execTypesToConsider,
+    ordStatusesToConsider
+  ]);
+
   // Handle CSV/TSV File Upload
   const onBlotterDrop = useCallback((acceptedFiles) => {
     const file = acceptedFiles[0];
@@ -444,6 +523,24 @@ export default function MissingFillsPage() {
     setAvailableSessions([]);
     setSelectedSessions([]);
     setFilterOrderId("");
+
+    // Clear localStorage cache
+    try {
+      localStorage.removeItem("fixify_blotter_raw");
+      localStorage.removeItem("fixify_blotter_name");
+      localStorage.removeItem("fixify_column_mappings");
+      localStorage.removeItem("fixify_fix_raw");
+      localStorage.removeItem("fixify_fix_name");
+      localStorage.removeItem("fixify_match_tolerance");
+      localStorage.removeItem("fixify_match_type");
+      localStorage.removeItem("fixify_allow_fuzzy");
+      localStorage.removeItem("fixify_filter_order_id");
+      localStorage.removeItem("fixify_selected_sessions");
+      localStorage.removeItem("fixify_exec_types_to_consider");
+      localStorage.removeItem("fixify_ord_statuses_to_consider");
+    } catch (err) {
+      console.warn("Failed to clear cached Missing Fills settings:", err);
+    }
   };
 
   // Run matching logic
