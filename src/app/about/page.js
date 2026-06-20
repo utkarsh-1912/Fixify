@@ -1,6 +1,6 @@
 'use client';
 
-import { Info, Shield, Zap, Package, ChevronRight, Activity, Terminal, Code } from "lucide-react";
+import { Info, Shield, Zap, Package, ChevronRight, Activity, Terminal, Code, ArrowRightLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function AboutPage() {
@@ -8,7 +8,12 @@ export default function AboutPage() {
     {
       icon: Zap,
       title: 'Real-time Latency Diagnostics',
-      desc: 'Correlate, inspect, and analyze session logs using an inline background Web Worker thread (preventing UI lockups) and export reports instantly to CSV. Logarithmic scaling compresses extreme outlier spikes.',
+      desc: 'Correlate, inspect, and analyze session logs using an inline background Web Worker thread (preventing UI lockups) and export reports instantly to CSV. Features percentile outlier filters (99th/95th/90th bounds control) and logarithmic scaling to compress extreme spikes.',
+    },
+    {
+      icon: ArrowRightLeft,
+      title: 'Missing Fills Analyzer',
+      desc: 'Compare raw FIX execution reports against blotter databases (CSV/TSV/Excel) to instantly isolate missing executions. Supports session filtering, customizable fill criteria, and dynamic CSV downloads.',
     },
     {
       icon: Shield,
