@@ -952,7 +952,7 @@ export default function MissingFillsPage() {
   });
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-screen-2xl mx-auto px-4 space-y-6">
       
       {/* Title */}
       <div className="flex items-center justify-between">
