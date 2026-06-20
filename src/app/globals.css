@@ -390,3 +390,8 @@ button, a, input, textarea, select {
   transition: background-color 0.15s ease, border-color 0.15s ease,
               color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
+
+/* Monochrome overrides for theme matrix */
+body.theme-matrix .matrix-mono-text {
+  color: var(--foreground) !important;
+}

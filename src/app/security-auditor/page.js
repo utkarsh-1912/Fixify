@@ -25,7 +25,8 @@ import {
   X,
   Zap,
   ClipboardList,
-  Settings
+  Settings,
+  Info
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
 
@@ -725,6 +726,7 @@ export default function SecurityAuditorPage() {
   const [hasAuditRun, setHasAuditRun] = useState(false);
 
   const [activeTab, setActiveTab] = useState('findings'); // 'findings' | 'inspector' | 'remediation'
+  const [findingsFilter, setFindingsFilter] = useState('all'); // 'all' | 'critical' | 'high_med'
   const [selectedMsgIndex, setSelectedMsgIndex] = useState(null);
   const [copiedSetting, setCopiedSetting] = useState(null);
   const [findingsSearch, setFindingsSearch] = useState('');
@@ -792,11 +794,17 @@ export default function SecurityAuditorPage() {
     setSelectedMsgIndex(null);
     setFindingsSearch('');
     setInspectorSearch('');
+    setFindingsFilter('all');
     if (typeof window !== 'undefined') {
       localStorage.removeItem('fixify-security-raw');
       localStorage.removeItem('fixify-security-enforce-exchange');
       localStorage.removeItem('fixify-security-exchange-venue');
     }
+  };
+
+  const handleCardClick = (filterType) => {
+    setActiveTab('findings');
+    setFindingsFilter(prev => prev === filterType ? 'all' : filterType);
   };
 
   const toggleRule = (id) => {
@@ -833,6 +841,9 @@ export default function SecurityAuditorPage() {
   const circumference = 2 * Math.PI * 40; // r=40
 
   const filteredFindings = vulnerabilities.filter(v => {
+    if (findingsFilter === 'critical' && v.severity !== 'Critical') return false;
+    if (findingsFilter === 'high_med' && v.severity !== 'High' && v.severity !== 'Medium') return false;
+
     if (!findingsSearch.trim()) return true;
     const q = findingsSearch.toLowerCase();
     return (
@@ -1006,12 +1017,16 @@ export default function SecurityAuditorPage() {
           {/* Right Panel: Audit Dashboard & Results */}
           <div className="lg:col-span-8 space-y-4 flex flex-col min-w-0">
             {/* Executive Overview Banner */}
-            <div className="grid grid-cols-3 gap-4 shrink-0">
+            <div className="grid grid-cols-3 gap-4 shrink-0 relative z-30">
 
               {/* Compliance Gauge */}
               <div
-                className="col-span-1 p-4 rounded-2xl flex items-center gap-4"
-                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                onClick={() => setFindingsFilter('all')}
+                className="col-span-1 p-4 rounded-2xl flex items-center gap-4 cursor-pointer transition-all hover:scale-[1.01]"
+                style={{ 
+                  background: 'var(--card)', 
+                  border: `2px solid ${findingsFilter === 'all' ? 'var(--primary)' : 'var(--border)'}` 
+                }}
               >
                 <div className="relative h-[76px] w-[76px] shrink-0 flex items-center justify-center">
                   <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 96 96">
@@ -1032,9 +1047,34 @@ export default function SecurityAuditorPage() {
                     <span className="text-[9px] font-mono block" style={{ color: 'var(--text-muted)' }}>{complianceScore}%</span>
                   </div>
                 </div>
-                <div className="min-w-0">
-                  <div className="text-[9px] font-bold uppercase tracking-wider font-mono mb-1" style={{ color: 'var(--text-muted)' }}>
-                    Compliance Grade
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[9px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>
+                      Compliance Grade
+                    </span>
+                    <div className="relative group/info shrink-0">
+                      <Info className="h-3 w-3 cursor-help text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors" />
+                      
+                      {/* Tooltip Content */}
+                      <div className="absolute top-full mt-1.5 -left-20 w-56 p-3 rounded-lg shadow-xl text-[10px] leading-relaxed transition-all duration-200 opacity-0 pointer-events-none group-hover/info:opacity-100 group-hover/info:pointer-events-auto z-50"
+                           style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }}>
+                        <div className="font-bold border-b pb-1 mb-1.5" style={{ borderColor: 'var(--border-subtle)' }}>Grading System</div>
+                        <div className="space-y-1 font-mono text-[9px]">
+                          <div className="flex justify-between"><span className="matrix-mono-text" style={{ color: '#22c55e' }}>A: Secure</span><span>&ge; 90%</span></div>
+                          <div className="flex justify-between"><span className="matrix-mono-text" style={{ color: '#a855f7' }}>B: Mod Risk</span><span>&ge; 80%</span></div>
+                          <div className="flex justify-between"><span className="matrix-mono-text" style={{ color: '#eab308' }}>C: Sig Vuln</span><span>&ge; 70%</span></div>
+                          <div className="flex justify-between"><span className="matrix-mono-text" style={{ color: '#f97316' }}>D: High Risk</span><span>&ge; 60%</span></div>
+                          <div className="flex justify-between"><span className="matrix-mono-text" style={{ color: '#ef4444' }}>F: Danger</span><span>&lt; 60%</span></div>
+                        </div>
+                        <div className="font-bold border-b pb-1 mt-2 mb-1.5" style={{ borderColor: 'var(--border-subtle)' }}>Deductions</div>
+                        <div className="space-y-1 font-mono text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                          <div className="flex justify-between"><span>Critical</span><span>-25%</span></div>
+                          <div className="flex justify-between"><span>High</span><span>-15%</span></div>
+                          <div className="flex justify-between"><span>Medium</span><span>-8%</span></div>
+                          <div className="flex justify-between"><span>Low</span><span>-3%</span></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="text-xs font-bold truncate" style={{ color: gradeInfo.color }}>{gradeInfo.text}</div>
                   <div className="text-[9px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>
@@ -1045,8 +1085,12 @@ export default function SecurityAuditorPage() {
 
               {/* Critical count */}
               <div
-                className="p-4 rounded-2xl flex flex-col justify-between"
-                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                onClick={() => handleCardClick('critical')}
+                className="p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.01]"
+                style={{ 
+                  background: 'var(--card)', 
+                  border: `2px solid ${findingsFilter === 'critical' ? '#ef4444' : 'var(--border)'}` 
+                }}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>Critical Findings</span>
@@ -1062,8 +1106,12 @@ export default function SecurityAuditorPage() {
 
               {/* High + Medium count */}
               <div
-                className="p-4 rounded-2xl flex flex-col justify-between"
-                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                onClick={() => handleCardClick('high_med')}
+                className="p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.01]"
+                style={{ 
+                  background: 'var(--card)', 
+                  border: `2px solid ${findingsFilter === 'high_med' ? '#eab308' : 'var(--border)'}` 
+                }}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>High &amp; Med Threats</span>
