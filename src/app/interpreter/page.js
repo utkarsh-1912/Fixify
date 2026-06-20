@@ -23,14 +23,6 @@ import {
 import { validateFIXMessage } from "@/lib/fixParser";
 import TagDetailsModal from "@/components/TagDetailsModal";
 
-// Interactive suggestion chips to guide users
-const SUGGESTIONS = [
-  { label: "Explain Logon Flow", query: "logon flow" },
-  { label: "How is Checksum calculated?", query: "checksum calculation" },
-  { label: "Decode Tag 39 (OrdStatus)", query: "39" },
-  { label: "Analyze New Order Single", query: "8=FIX.4.2|9=68|35=D|49=CLIENT|56=BROKER|34=1|11=ORD1|55=AAPL|54=1|38=100|44=175.00|10=251|" }
-];
-
 export default function InterpreterPage() {
   const [messages, setMessages] = useState([
     {
@@ -46,6 +38,97 @@ export default function InterpreterPage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTag, setActiveTag] = useState(null);
   const [activeVersion, setActiveVersion] = useState("FIX.4.4");
+  const [suggestionAlgo, setSuggestionAlgo] = useState("history");
+
+  const getDynamicSuggestions = () => {
+    let customDialectTags = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('fixify-custom-dialect');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          customDialectTags = Object.keys(parsed).slice(0, 5);
+        }
+      } catch (e) {}
+    }
+
+    if (suggestionAlgo === "dialect") {
+      if (customDialectTags.length > 0) {
+        return customDialectTags.map(tag => ({
+          label: `Explain Custom Tag ${tag}`,
+          query: `what is tag ${tag} in my custom dialect?`
+        })).concat([
+          { label: "List all dialect tags", query: "list all custom dialect tags" },
+          { label: "Show custom enum values", query: "how do I view custom enum meanings?" }
+        ]);
+      } else {
+        return [
+          { label: "Explain custom fields", query: "how do custom fields work in FIX?" },
+          { label: "Load custom dialect guide", query: "how do I upload a QuickFIX XML data dictionary?" },
+          { label: "Verify custom tags", query: "where are custom tags defined?" },
+          { label: "Standard vs Dialect enums", query: "difference between standard and custom dialect enums" }
+        ];
+      }
+    }
+
+    if (suggestionAlgo === "flow") {
+      return [
+        { label: "Explain Logon Gap Recovery", query: "explain logon gap recovery flow" },
+        { label: "Sequence Reset (35=4) Rules", query: "when should sequence reset (35=4) be sent?" },
+        { label: "Order Cancel/Replace Cycle", query: "explain cancel and replace message flow 35=G" },
+        { label: "PossDupFlag (43) Usage", query: "explain duplicate message delivery rules for Tag 43" },
+        { label: "Heartbeat timer sync", query: "explain heartbeat timing rules (tag 108)" }
+      ];
+    }
+
+    // Default 'history' based recommendation algorithm
+    const recentQueries = messages
+      .filter(m => m.role === "user")
+      .map(m => m.text)
+      .slice(-3)
+      .join(" ");
+
+    const tagMatches = recentQueries.match(/\b\d+\b/g) || [];
+    const uniqueTags = Array.from(new Set(tagMatches)).slice(0, 3);
+    const hasLogon = /logon|session|heartbeat/i.test(recentQueries);
+    const hasOrder = /order|buy|sell|qty|price/i.test(recentQueries);
+    const hasReject = /reject|error|fail|invalid/i.test(recentQueries);
+
+    const historySuggestions = [];
+    uniqueTags.forEach(tag => {
+      historySuggestions.push({
+        label: `Allowed values for Tag ${tag}`,
+        query: `what are the allowed enum values for tag ${tag}?`
+      });
+      historySuggestions.push({
+        label: `Is Tag ${tag} required?`,
+        query: `when is tag ${tag} required in a message?`
+      });
+    });
+
+    if (hasLogon) {
+      historySuggestions.push({ label: "Explain Session Reset", query: "session sequence reset logon rules" });
+      historySuggestions.push({ label: "Heartbeat (35=0) intervals", query: "heartbeat intervals and test requests" });
+    }
+    if (hasOrder) {
+      historySuggestions.push({ label: "Required tags for New Order", query: "what tags are mandatory in a New Order Single 35=D?" });
+      historySuggestions.push({ label: "Explain ExecType (150) vs OrdStatus (39)", query: "exectype 150 vs ordstatus 39 difference" });
+    }
+    if (hasReject) {
+      historySuggestions.push({ label: "Decode Session Reject (373)", query: "session reject reason codes mapping" });
+      historySuggestions.push({ label: "Decode Exec Reject (103)", query: "execution reject reason codes 103 lookup" });
+    }
+
+    if (historySuggestions.length < 3) {
+      return [
+        { label: "Explain Logon Flow", query: "logon flow" },
+        { label: "How is Checksum calculated?", query: "checksum calculation" },
+        { label: "Decode Tag 39 (OrdStatus)", query: "39" },
+        { label: "Analyze New Order Single", query: "8=FIX.4.2|9=68|35=D|49=CLIENT|56=BROKER|34=1|11=ORD1|55=AAPL|54=1|38=100|44=175.00|10=251|" }
+      ];
+    }
+    return historySuggestions.slice(0, 4);
+  };
   const [showSidebar, setShowSidebar] = useState(false);
   const [modelDetails, setModelDetails] = useState(null);
 
@@ -618,12 +701,33 @@ export default function InterpreterPage() {
                 </button>
               </div>
 
-              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                Click any chip below to quickly populate and execute diagnostic lookups in the chat stream:
+              {/* Recommendation Engine Algorithm Selector */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Engine Algorithm:</span>
+                <div className="flex items-center gap-1 bg-zinc-950/40 p-1 rounded-lg border border-zinc-800" style={{ borderColor: 'var(--border)' }}>
+                  {['history', 'dialect', 'flow'].map((algo) => (
+                    <button
+                      key={algo}
+                      type="button"
+                      onClick={() => setSuggestionAlgo(algo)}
+                      className={`flex-1 py-1 text-[9px] font-mono font-bold uppercase rounded transition-all ${
+                        suggestionAlgo === algo 
+                          ? 'bg-[var(--primary)] text-zinc-950 font-extrabold shadow-sm' 
+                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/20'
+                      }`}
+                    >
+                      {algo}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Recommended diagnostic lookups computed dynamically based on the active engine selection:
               </p>
 
               <div className="flex flex-col gap-2.5 pt-1">
-                {SUGGESTIONS.map((s, idx) => (
+                {getDynamicSuggestions().map((s, idx) => (
                   <button
                     key={idx}
                     onClick={() => {

@@ -20,7 +20,10 @@ import {
   Search,
   BookOpen,
   Activity,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ShieldCheck,
+  Radio,
+  ShieldAlert
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 
@@ -33,27 +36,104 @@ export default function Navbar() {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/',            label: 'Logs Processor',  icon: FileCog,      short: 'Logs' },
-    { href: '/compare',     label: 'Comparator',       icon: GitCompare,   short: 'Compare' },
-    { href: '/xml',         label: 'XML Formatter',    icon: Braces,       short: 'XML' },
-    { href: '/chat',        label: 'Team Chat',        icon: MessageSquare, short: 'Chat' },
-    { href: '/interpreter', label: 'FIXi Interpreter', icon: Brain, short: 'FIXi AI' },
-    { href: '/flowchart',   label: 'Flowchart',        icon: Network,      short: 'Flow' },
-    { href: '/latency',     label: 'Latency Dashboard', icon: Activity,     short: 'Latency' },
-    { href: '/missing-fills', label: 'Missing Fills',   icon: ArrowRightLeft, short: 'Fills' },
-    { href: '/tasks',       label: 'Tasks',            icon: LayoutGrid,   short: 'Tasks' },
-    { href: '/coderunner',  label: 'Code Sandbox',     icon: Terminal,     short: 'Code' },
-    { href: '/fixtags',     label: 'FIX Dictionary',  icon: BookOpen,      short: 'Dict', inMenu: false },
+    { href: '/',            label: 'Logs Processor',  icon: FileCog,      short: 'Logs', desc: 'Paste multi-message FIX session logs to find gaps, Logon order, and duplicates.' },
+    { href: '/compare',     label: 'Comparator',       icon: GitCompare,   short: 'Compare', desc: 'Compare FIX messages side-by-side to highlight field-level differences.' },
+    { href: '/xml',         label: 'XML Formatter',    icon: Braces,       short: 'XML', desc: 'Format, minify, and search XML schemas with developer shortcuts.' },
+    { href: '/chat',        label: 'Team Chat',        icon: MessageSquare, short: 'Chat', desc: 'Isolated local team room chat relay fallback with WebRTC peers.' },
+    { href: '/interpreter', label: 'FIXi Interpreter', icon: Brain, short: 'FIXi AI', desc: 'Protocol AI assistant with custom tag lookup and checksum audits.' },
+    { href: '/flowchart',   label: 'Flowchart',        icon: Network,      short: 'Flow', desc: 'Auto-generate sequence flow diagrams and export to Mermaid.js.' },
+    { href: '/latency',     label: 'Latency Dashboard', icon: Activity,     short: 'Latency', desc: 'Audit hop latency offset timings and RTT trends.' },
+    { href: '/missing-fills', label: 'Missing Fills',   icon: ArrowRightLeft, short: 'Fills', desc: 'Compare raw FIX execution reports against blotter database sheets.' },
+    { href: '/tasks',       label: 'Tasks',            icon: LayoutGrid,   short: 'Tasks', desc: 'Kanban tasks board with dependencies, checklists, and slide drawer.' },
+    { href: '/coderunner',  label: 'Code Sandbox',     icon: Terminal,     short: 'Code', desc: 'Compile and run FIX parser templates in C++, Python, and Java.' },
+    { href: '/fixtags',     label: 'FIX Dictionary',  icon: BookOpen,      short: 'Dict', desc: 'Interactive FIX tag and enums specs dictionary explorer.', inMenu: false },
+    { href: '/security-auditor', label: 'FIX Security Auditor', icon: ShieldAlert, short: 'Security', desc: 'Scan logs for replay windows, plaintext credentials, SOH injection, and hijack vulnerabilities.', inMenu: false },
+    { href: '/conformance', label: 'Exchange Conformance Manager', icon: ShieldCheck, short: 'Conformance', desc: 'Validate logs against rules for CME, NASDAQ, ICE, and other venues.', inMenu: false },
+    { href: '/live-streaming', label: 'Live Stream Simulator', icon: Radio, short: 'Live Stream', desc: 'Simulate live FIX session socket streaming with dynamic timelines.', inMenu: false },
   ];
 
-  // Apply saved settings on mount
+  // Apply saved settings and track page visits on mount/pathchange
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const theme      = localStorage.getItem('fixify-theme')       || 'dark';
     const fontScale  = parseFloat(localStorage.getItem('fixify-font-scale') || '1.0');
     const fontFamily = localStorage.getItem('fixify-font-family') || 'sans';
     applyGlobalSettings({ theme, fontScale, fontFamily });
-  }, []);
+
+    try {
+      const visits = JSON.parse(localStorage.getItem('fixify-page-visits') || '{}');
+      visits[pathname] = {
+        count: (visits[pathname]?.count || 0) + 1,
+        lastVisited: Date.now()
+      };
+      localStorage.setItem('fixify-page-visits', JSON.stringify(visits));
+    } catch (e) {
+      console.warn("Failed to update page visit history", e);
+    }
+  }, [pathname]);
+
+  // Scoring functions for Search Recommendation Engine
+  const getRecommendationScore = (item) => {
+    let score = 0;
+    if (typeof window !== 'undefined') {
+      try {
+        const visits = JSON.parse(localStorage.getItem('fixify-page-visits') || '{}');
+        const itemVisit = visits[item.href];
+        if (itemVisit) {
+          score += itemVisit.count * 10;
+          const diffMs = Date.now() - itemVisit.lastVisited;
+          const diffMinutes = diffMs / 60000;
+          if (diffMinutes < 5) score += 50;
+          else if (diffMinutes < 60) score += 25;
+          else if (diffMinutes < 1440) score += 10;
+        }
+      } catch (e) {}
+    }
+    const logsRoutes = ['/', '/compare', '/missing-fills', '/security-auditor', '/conformance'];
+    const aiRoutes = ['/interpreter', '/fixtags'];
+    const sysRoutes = ['/latency', '/live-streaming', '/xml', '/coderunner', '/tasks', '/chat'];
+    if (logsRoutes.includes(pathname) && logsRoutes.includes(item.href)) score += 35;
+    else if (aiRoutes.includes(pathname) && aiRoutes.includes(item.href)) score += 35;
+    else if (sysRoutes.includes(pathname) && sysRoutes.includes(item.href)) score += 35;
+    if (item.href === '/' || item.href === '/compare' || item.href === '/interpreter') score += 5;
+    return score;
+  };
+
+  const getLexicalRelevance = (item, query) => {
+    if (!query) return 0;
+    const q = query.toLowerCase().trim();
+    const label = item.label.toLowerCase();
+    const short = item.short.toLowerCase();
+    const desc = (item.desc || '').toLowerCase();
+    if (label === q || short === q) return 1000;
+    if (label.startsWith(q) || short.startsWith(q)) return 800;
+    if (label.includes(q) || short.includes(q)) return 500;
+    if (desc.includes(q)) return 250;
+    let matchCount = 0;
+    const uniqueChars = new Set(q.split(''));
+    uniqueChars.forEach(char => {
+      if (label.includes(char) || short.includes(char)) matchCount++;
+    });
+    const overlapRatio = matchCount / uniqueChars.size;
+    if (overlapRatio > 0.5) return Math.round(overlapRatio * 100);
+    return 0;
+  };
+
+  const getRecommendedItems = (query) => {
+    return navItems
+      .map(item => {
+        const lexicalScore = getLexicalRelevance(item, query);
+        const recScore = getRecommendationScore(item);
+        const totalScore = query ? (lexicalScore + recScore * 0.1) : recScore;
+        return { item, score: totalScore, lexicalScore };
+      })
+      .filter(entry => {
+        if (query) return entry.lexicalScore > 0;
+        return true;
+      })
+      .sort((a, b) => b.score - a.score)
+      .map(entry => entry.item);
+  };
 
   // Global key listener for Ctrl+K
   useEffect(() => {
@@ -280,10 +360,7 @@ export default function Navbar() {
                   setSearchIndex(0);
                 }}
                 onKeyDown={(e) => {
-                  const filtered = navItems.filter(item =>
-                    item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    item.short.toLowerCase().includes(searchQuery.toLowerCase())
-                  );
+                  const filtered = getRecommendedItems(searchQuery);
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
                     setSearchIndex(prev => (filtered.length > 0 ? (prev + 1) % filtered.length : 0));
@@ -317,10 +394,7 @@ export default function Navbar() {
             {/* Results list */}
             <div className="overflow-y-auto p-2 space-y-1">
               {(() => {
-                const filtered = navItems.filter(item =>
-                  item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  item.short.toLowerCase().includes(searchQuery.toLowerCase())
-                );
+                const filtered = getRecommendedItems(searchQuery);
                 if (filtered.length === 0) {
                   return (
                     <div className="p-8 text-center text-xs italic" style={{ color: 'var(--text-muted)' }}>
@@ -339,7 +413,7 @@ export default function Navbar() {
                         setSearchOpen(false);
                         setSearchQuery("");
                       }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-xs font-semibold"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-xs font-semibold animate-in fade-in duration-100"
                       style={{
                         background: active ? 'var(--primary-faint)' : 'transparent',
                         color: active ? 'var(--primary)' : 'var(--text-muted)',
@@ -348,7 +422,7 @@ export default function Navbar() {
                       onMouseEnter={() => setSearchIndex(idx)}
                     >
                       <div
-                        className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
+                        className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm"
                         style={{
                           background: active ? 'var(--primary)' : 'var(--background)',
                           border: '1px solid var(--border)',
@@ -362,13 +436,18 @@ export default function Navbar() {
                             {item.label}
                           </span>
                           {isCurrent && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded-full border" style={{ borderColor: 'var(--primary-border)', color: 'var(--primary)', background: 'var(--primary-faint)' }}>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full border font-mono" style={{ borderColor: 'var(--primary-border)', color: 'var(--primary)', background: 'var(--primary-faint)' }}>
                               current
+                            </span>
+                          )}
+                          {!searchQuery && idx < 3 && (
+                            <span className="text-[8px] px-1 py-0.1 rounded font-bold uppercase tracking-wider bg-indigo-950 text-indigo-400 border border-indigo-900/40">
+                              Recommended
                             </span>
                           )}
                         </div>
                         <p className="text-[10px] font-sans font-normal" style={{ color: 'var(--text-muted)' }}>
-                          Navigate to {item.short} message sandbox
+                          {item.desc || `Navigate to ${item.short} workspace`}
                         </p>
                       </div>
                       {active && <ChevronRight className="h-4 w-4" />}
