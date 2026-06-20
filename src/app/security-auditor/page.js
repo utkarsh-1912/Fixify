@@ -951,7 +951,7 @@ export default function SecurityAuditorPage() {
             onClick={handleLoadDemo}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10"
           >
-            <Zap className="h-3.5 w-3.5 animate-pulse" /> Load Insecure Demo Logs
+            <Zap className="h-3.5 w-3.5 animate-pulse" /> Load Demo Logs
           </button>
         </div>
       </div>
