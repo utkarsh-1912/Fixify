@@ -513,9 +513,118 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
 }
 
 const FIX_GUIDES = {
-  "fix protocol": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
-  
-  "fix": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
+  "tag 43": `**Tag 43 (PossDupFlag) Rules & Requirements**
+
+Tag 43 (PossDupFlag) is a standard header field used to flag potential duplicate transmissions.
+
+- **When it is required/used**:
+  - Must be set to \`Y\` when resending a message with a sequence number that has already been sent (e.g., in response to a **Resend Request (35=2)** or when re-transmitting due to suspected connection issues).
+  - Failing to set Tag 43 to \`Y\` on a repeated sequence number will cause the receiver to reject the session due to a duplicate sequence error (Out of Sequence).
+- **Conditional Requirement**:
+  - When Tag 43 is set to \`Y\`, **Tag 122 (OrigSendingTime)** becomes **strictly required** by the FIX protocol standard to indicate the timestamp of the original transmission.
+  - Tag 52 (SendingTime) should contain the timestamp of the current retransmission.`,
+
+  "possdupflag": `**Tag 43 (PossDupFlag) Rules & Requirements**
+
+Tag 43 (PossDupFlag) is a standard header field used to flag potential duplicate transmissions.
+
+- **When it is required/used**:
+  - Must be set to \`Y\` when resending a message with a sequence number that has already been sent (e.g., in response to a **Resend Request (35=2)** or when re-transmitting due to suspected connection issues).
+  - Failing to set Tag 43 to \`Y\` on a repeated sequence number will cause the receiver to reject the session due to a duplicate sequence error (Out of Sequence).
+- **Conditional Requirement**:
+  - When Tag 43 is set to \`Y\`, **Tag 122 (OrigSendingTime)** becomes **strictly required** by the FIX protocol standard to indicate the timestamp of the original transmission.
+  - Tag 52 (SendingTime) should contain the timestamp of the current retransmission.`,
+
+  "possdup": `**Tag 43 (PossDupFlag) Rules & Requirements**
+
+Tag 43 (PossDupFlag) is a standard header field used to flag potential duplicate transmissions.
+
+- **When it is required/used**:
+  - Must be set to \`Y\` when resending a message with a sequence number that has already been sent (e.g., in response to a **Resend Request (35=2)** or when re-transmitting due to suspected connection issues).
+  - Failing to set Tag 43 to \`Y\` on a repeated sequence number will cause the receiver to reject the session due to a duplicate sequence error (Out of Sequence).
+- **Conditional Requirement**:
+  - When Tag 43 is set to \`Y\`, **Tag 122 (OrigSendingTime)** becomes **strictly required** by the FIX protocol standard to indicate the timestamp of the original transmission.
+  - Tag 52 (SendingTime) should contain the timestamp of the current retransmission.`,
+
+  "custom fields": `**Custom Fields in the FIX Protocol**
+
+Under the FIX protocol, custom tags (also known as User-Defined Fields or UDFs) are used to transmit proprietary business data that is not part of the standard FIX specification.
+
+- **Reserved Tag Range**: Tags **5000 to 9999** are officially reserved for user-defined custom fields. (Some platforms or engines also support ranges like 10000+).
+- **Structure**: Custom fields follow the standard key-value format (e.g., \`5001=Value\`).
+- **Data Dictionary**: Since they are custom, standard FIX parsers will not recognize them out of the box. You must define them in your engine's XML Data Dictionary (e.g., QuickFIX XML schema) so that the engine knows their data type, valid values, and validation rules.`,
+
+  "custom tags": `**Custom Tags in the FIX Protocol**
+
+Under the FIX protocol, custom tags (also known as User-Defined Fields or UDFs) are used to transmit proprietary business data that is not part of the standard FIX specification.
+
+- **Reserved Tag Range**: Tags **5000 to 9999** are officially reserved for user-defined custom fields. (Some platforms or engines also support ranges like 10000+).
+- **Structure**: Custom fields follow the standard key-value format (e.g., \`5001=Value\`).
+- **Data Dictionary**: Since they are custom, standard FIX parsers will not recognize them out of the box. You must define them in your engine's XML Data Dictionary (e.g., QuickFIX XML schema) so that the engine knows their data type, valid values, and validation rules.`,
+
+  "upload a quickfix xml": `**Uploading a QuickFIX XML Data Dictionary**
+
+In FIXify, you can upload a custom QuickFIX XML Data Dictionary to define proprietary custom tags, messages, and enum values.
+
+1. **Navigate to the Tags Reference Page** (click on **Tags** or **Tags Reference** in the top navigation bar, or go to \`/fixtags\`).
+2. **Select your XML Data Dictionary file** (typically has a \`.xml\` extension, such as \`FIX44.xml\` or custom specifications).
+3. **Upload or drag-and-drop** the file into the upload zone on the Tags Reference page.
+4. **Parsing**: The platform will parse the message types, custom fields, components, and enum values automatically.
+5. **Usage**: Once loaded, all other pages (such as the Logs Processor, Interactive Payload Mutator, and Chat Interpreter) will automatically resolve your custom tags and display their names and enum meanings instead of just showing raw numbers.`,
+
+  "xml data dictionary": `**QuickFIX XML Data Dictionaries in FIXify**
+
+In FIXify, you can upload a custom QuickFIX XML Data Dictionary to define proprietary custom tags, messages, and enum values.
+
+1. **Navigate to the Tags Reference Page** (click on **Tags** or **Tags Reference** in the top navigation bar, or go to \`/fixtags\`).
+2. **Select your XML Data Dictionary file** (typically has a \`.xml\` extension, such as \`FIX44.xml\` or custom specifications).
+3. **Upload or drag-and-drop** the file into the upload zone on the Tags Reference page.
+4. **Parsing**: The platform will parse the message types, custom fields, components, and enum values automatically.
+5. **Usage**: Once loaded, all other pages (such as the Logs Processor, Interactive Payload Mutator, and Chat Interpreter) will automatically resolve your custom tags and display their names and enum meanings instead of just showing raw numbers.`,
+
+  "where are custom tags defined": `**Where Custom Tags are Defined**
+
+1. **Protocol Level**: User-defined custom tags are specified in the range **5000 to 9999** by the FIX Protocol standard.
+2. **Data Dictionary**: In practice, custom tags are defined in a **QuickFIX XML Data Dictionary** (or equivalent XML schema file) used by the FIX engine.
+3. **In FIXify**: You can define and upload custom tags by going to the **Tags Reference** page (\`/fixtags\`) and uploading your custom XML data dictionary. Once uploaded, the custom tags will be stored in your browser's local storage and resolved across all tools in FIXify.`,
+
+  "when should sequence reset": `**When Sequence Reset (35=4) should be sent**
+
+A Sequence Reset (35=4) message is used to recover from sequence gaps or to reset sequence numbers. There are two modes:
+
+1. **Gap Fill Mode (GapFillFlag 123=Y)**:
+   - **When to send**: In response to a **Resend Request (35=2)**, when the sender wants to skip transmitting administrative messages (like Heartbeats, Test Requests, or Logons) or stale application messages (like old market data).
+   - **SeqNum**: Sent with the next expected sequence number in the session sequence.
+   - **NewSeqNo (Tag 36)**: Tells the receiver the next sequence number to expect after skipping the gap.
+
+2. **Reset Mode (GapFillFlag 123=N or absent)**:
+   - **When to send**: Used to recover from unrecoverable sequence discrepancies or to establish a new baseline (e.g., start of day, or after manual database intervention).
+   - **NewSeqNo (Tag 36)**: Tells the receiver to immediately set their expected sequence number to the new value.`,
+
+  "35=4": `**Sequence Reset Message (MsgType 35=4)**
+
+A Sequence Reset (35=4) message is used to recover from sequence gaps or to reset sequence numbers. There are two modes:
+
+1. **Gap Fill Mode (GapFillFlag 123=Y)**:
+   - **When to send**: In response to a **Resend Request (35=2)**, when the sender wants to skip transmitting administrative messages (like Heartbeats, Test Requests, or Logons) or stale application messages (like old market data).
+   - **SeqNum**: Sent with the next expected sequence number in the session sequence.
+   - **NewSeqNo (Tag 36)**: Tells the receiver the next sequence number to expect after skipping the gap.
+
+2. **Reset Mode (GapFillFlag 123=N or absent)**:
+   - **When to send**: Used to recover from unrecoverable sequence discrepancies or to establish a new baseline (e.g., start of day, or after manual database intervention).
+   - **NewSeqNo (Tag 36)**: Tells the receiver to immediately set their expected sequence number to the new value.`,
+
+  "dialect enums": `**Standard vs. Custom Dialect Enums in FIX**
+
+- **Standard Enums**: Pre-defined by the official FIX specification (e.g., Tag 40 \`2=Limit\`, \`1=Market\`; Tag 54 \`1=Buy\`, \`2=Sell\`).
+- **Custom Dialect Enums**: Proprietary values defined by a specific broker or exchange (e.g., Tag 9900 \`A=OptionSpecial\`, \`B=ComboSpecial\`).
+- **Resolving Custom Enums in FIXify**: Upload your custom XML data dictionary under the **Tags Reference** page (\`/fixtags\`). The parser will read the custom fields and their corresponding enums, automatically resolving them in the message inspector panels instead of displaying raw codes.`,
+
+  "standard vs custom": `**Standard vs. Custom Dialect Enums in FIX**
+
+- **Standard Enums**: Pre-defined by the official FIX specification (e.g., Tag 40 \`2=Limit\`, \`1=Market\`; Tag 54 \`1=Buy\`, \`2=Sell\`).
+- **Custom Dialect Enums**: Proprietary values defined by a specific broker or exchange (e.g., Tag 9900 \`A=OptionSpecial\`, \`B=ComboSpecial\`).
+- **Resolving Custom Enums in FIXify**: Upload your custom XML data dictionary under the **Tags Reference** page (\`/fixtags\`). The parser will read the custom fields and their corresponding enums, automatically resolving them in the message inspector panels instead of displaying raw codes.`,
 
   "trading": `**Electronic Trading & FIX Routing**\n\nElectronic trading relies on FIX (Financial Information eXchange) messages to route orders and confirm executions in real-time.\n- **Order Entry**: A client sends a **New Order Single (35=D)** specifying the price (44), size (38), symbol (55), side (54), and order type (40).\n- **Execution Reports**: The exchange or broker responds with **Execution Reports (35=8)** representing order status changes (39) like New, Partially Filled, Filled, Canceled, or Rejected.\n- **Order Modification**: Clients can cancel or replace active orders via **Order Cancel Request (35=F)** and **Order Cancel/Replace Request (35=G)**.`,
 
@@ -529,7 +638,11 @@ const FIX_GUIDES = {
   
   "body": `**FIX BodyLength Calculation (Tag 9)**\n\nTag 9 represents the total length of the message body in bytes.\n- It is calculated by counting the number of characters starting immediately *after* the SOH delimiter of Tag 9 and ending immediately *before* the start of Tag 10 (Checksum).`,
   
-  "resend": `**FIX Resend Request (MsgType 35=2)**\n\nSent when a sequence number gap is detected (e.g., incoming MsgSeqNum is higher than expected).\n- **Tag 7 (BeginSeqNo)**: The first sequence number requested.\n- **Tag 16 (EndSeqNo)**: The last sequence number requested (use 0 for infinity / all subsequent).`
+  "resend": `**FIX Resend Request (MsgType 35=2)**\n\nSent when a sequence number gap is detected (e.g., incoming MsgSeqNum is higher than expected).\n- **Tag 7 (BeginSeqNo)**: The first sequence number requested.\n- **Tag 16 (EndSeqNo)**: The last sequence number requested (use 0 for infinity / all subsequent).`,
+
+  "fix protocol": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
+  
+  "fix": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`
 };
 
 function generateLocalBreakdown(tagList) {
@@ -643,7 +756,9 @@ function tryLocalLookup(query, customDialect) {
   const tagValMatch = q.match(/(?:^|\b)([a-zA-Z0-9_]+)\s*=\s*([^=|?\s]+)/);
   if (tagValMatch) {
     let tagOrName = tagValMatch[1].trim();
-    const val = tagValMatch[2].trim();
+    let val = tagValMatch[2].trim();
+    // Strip trailing parentheses and punctuation (like ), ., ?, !, etc.)
+    val = val.replace(/[).,?!;\s]+$/, '');
     
     // Check custom dialect first
     const customField = getCustomField(tagOrName);
@@ -1352,7 +1467,13 @@ How can I help you today? You can:
                                lowercaseQuery.includes("conditional") || 
                                lowercaseQuery.includes("validat") || 
                                lowercaseQuery.includes("when is") || 
-                               lowercaseQuery.includes("require");
+                               lowercaseQuery.includes("require") ||
+                               lowercaseQuery.includes("optional");
+
+          const asksForSchema = lowercaseQuery.includes("schema") || 
+                                lowercaseQuery.includes("fields") || 
+                                lowercaseQuery.includes("structure") ||
+                                lowercaseQuery.includes("format");
                                
           let condRulesLookup = null;
           let schemaLookup = null;
@@ -1371,7 +1492,23 @@ How can I help you today? You can:
           
           const batchLookup = tryBatchTagLookup(query, customDialect);
 
-          if (statusLookup) {
+          // Check specific guide topics (prioritized before tag-value mapping)
+          let specificGuideMatch = null;
+          for (const [topic, text] of Object.entries(FIX_GUIDES)) {
+            if (topic === "fix" || topic === "fix protocol") continue; // skip general/broad guides
+            if (lowercaseQuery.includes(topic)) {
+              specificGuideMatch = text;
+              break;
+            }
+          }
+
+          if (specificGuideMatch) {
+            answer = `${specificGuideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
+          } else if (asksForRules && condRulesLookup) {
+            answer = `${condRulesLookup}\n\n*Response resolved by AURA (Displaying local validation rulebook).*`;
+          } else if (asksForSchema && schemaLookup) {
+            answer = `${schemaLookup}\n\n*Response resolved by AURA (Displaying local message schema).*`;
+          } else if (statusLookup) {
             answer = `${statusLookup}\n\n*Response resolved by AURA (Displaying status/terminology guides).*`;
           } else if (rejectLookup) {
             answer = `${rejectLookup}\n\n*Response resolved by AURA (Displaying local reject guides).*`;
@@ -1384,17 +1521,19 @@ How can I help you today? You can:
           } else if (batchLookup) {
             answer = `${batchLookup}\n\n*Response resolved by AURA (Running offline batch lookups).*`;
           } else {
-            // Check standard quick-guides next
-            let guideMatch = null;
+            // Check general/broad quick-guides as fallback
+            let generalGuideMatch = null;
             for (const [topic, text] of Object.entries(FIX_GUIDES)) {
-              if (lowercaseQuery.includes(topic)) {
-                guideMatch = text;
-                break;
+              if (topic === "fix" || topic === "fix protocol") {
+                if (lowercaseQuery.includes(topic)) {
+                  generalGuideMatch = text;
+                  break;
+                }
               }
             }
 
-            if (guideMatch) {
-              answer = `${guideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
+            if (generalGuideMatch) {
+              answer = `${generalGuideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
             } else {
               const partials = tryPartialLookup(query, customDialect);
               if (partials && partials.trim()) {

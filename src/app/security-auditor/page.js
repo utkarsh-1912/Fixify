@@ -23,7 +23,9 @@ import {
   Wrench,
   Eye,
   X,
-  Zap
+  Zap,
+  ClipboardList,
+  Settings
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
 
@@ -84,7 +86,7 @@ const REMEDIATION_SETTINGS = [
 ];
 
 // ─── Core Audit Engine ────────────────────────────────────────────────────────
-function runAuditEngine(logText, activeRules) {
+function runAuditEngine(logText, activeRules, enfEx = false, exVenue = 'cme') {
   if (!logText || !logText.trim()) return { messages: [], findings: [], score: 100 };
 
   const lines = logText.split('\n');
@@ -273,6 +275,193 @@ function runAuditEngine(logText, activeRules) {
       }
     }
 
+    // ── RULE: Exchange Conformance Audit ──────────────────────────────────
+    if (enfEx) {
+      // 1. Standard rules (from old conformance page)
+      if (msgType === '8' && tagMap['39'] === '8') {
+        const hasTag103 = !!tagMap['103'];
+        if (!hasTag103) {
+          const f = {
+            id: `CONF-STD-103-${lineIndex}`,
+            line: lineIndex + 1,
+            seqNum: seqNumStr || 'N/A',
+            severity: 'Medium',
+            category: 'Conformance (Standard)',
+            title: 'Missing OrdRejReason (Tag 103)',
+            desc: 'Execution Report (35=8) with OrdStatus (39=8, Rejected) must populate Tag 103.',
+            remediation: 'Add Tag 103 (OrdRejReason) explaining the business rejection reason.',
+            tag: '103',
+          };
+          findings.push(f);
+          currentMsgFindings.push(f);
+        }
+      }
+
+      // 2. CME iLink Rules
+      if (exVenue === 'cme') {
+        if (msgType === 'A') {
+          const tag1028 = tagMap['1028'];
+          if (tag1028 !== 'Y' && tag1028 !== 'N') {
+            const f = {
+              id: `CONF-CME-A1-${lineIndex}`,
+              line: lineIndex + 1,
+              seqNum: seqNumStr || 'N/A',
+              severity: 'Medium',
+              category: 'Conformance (CME)',
+              title: 'CME ManualOrderIndicator (1028) missing/invalid',
+              desc: 'CME requires Tag 1028 (ManualOrderIndicator) on Logons to indicate if order routing is automated or manual (Y/N).',
+              remediation: 'Add Tag 1028=Y or 1028=N to your Logon message.',
+              tag: '1028',
+            };
+            findings.push(f);
+            currentMsgFindings.push(f);
+          }
+          if (tagMap['98'] !== '0') {
+            const f = {
+              id: `CONF-CME-A2-${lineIndex}`,
+              line: lineIndex + 1,
+              seqNum: seqNumStr || 'N/A',
+              severity: 'Medium',
+              category: 'Conformance (CME)',
+              title: 'CME EncryptMethod (98) Check',
+              desc: 'CME requires Tag 98 (EncryptMethod) to always be set to 0 (None).',
+              remediation: 'Modify Tag 98 to be equal to 0 (98=0).',
+              tag: '98',
+            };
+            findings.push(f);
+            currentMsgFindings.push(f);
+          }
+        }
+        if (msgType === 'D') {
+          if (!tagMap['581']) {
+            const f = {
+              id: `CONF-CME-D1-${lineIndex}`,
+              line: lineIndex + 1,
+              seqNum: seqNumStr || 'N/A',
+              severity: 'Medium',
+              category: 'Conformance (CME)',
+              title: 'CME Account Type Check (Tag 581)',
+              desc: 'CME requires Tag 581 (AccountType) on New Order Singles to flag retail vs proprietary accounts.',
+              remediation: 'Add Tag 581 (e.g. 581=1 for Client, 581=3 for House).',
+              tag: '581',
+            };
+            findings.push(f);
+            currentMsgFindings.push(f);
+          }
+          if (tagMap['21'] !== '1') {
+            const f = {
+              id: `CONF-CME-D2-${lineIndex}`,
+              line: lineIndex + 1,
+              seqNum: seqNumStr || 'N/A',
+              severity: 'Medium',
+              category: 'Conformance (CME)',
+              title: 'CME Execution Instruction (Tag 21)',
+              desc: 'CME requires Tag 21 (HandlInst) to be set to 1 (Automated execution, private, no Broker intervention).',
+              remediation: 'Add Tag 21=1 on all New Order Singles.',
+              tag: '21',
+            };
+            findings.push(f);
+            currentMsgFindings.push(f);
+          }
+        }
+      }
+
+      // 3. NASDAQ Rules
+      if (exVenue === 'nasdaq') {
+        if (msgType === 'A') {
+          if (tagMap['108'] !== '30') {
+            const f = {
+              id: `CONF-NSD-A1-${lineIndex}`,
+              line: lineIndex + 1,
+              seqNum: seqNumStr || 'N/A',
+              severity: 'Medium',
+              category: 'Conformance (NASDAQ)',
+              title: 'NASDAQ HeartBtInt Check (Tag 108)',
+              desc: 'NASDAQ rules mandate a HeartBtInt (Tag 108) of exactly 30 seconds.',
+              remediation: 'Adjust HeartBtInt (Tag 108) to 30 seconds (108=30).',
+              tag: '108',
+            };
+            findings.push(f);
+            currentMsgFindings.push(f);
+          }
+        }
+        if (msgType === 'D') {
+          const ordType = tagMap['40'];
+          const price = tagMap['44'];
+          if (ordType === '2') { // Limit
+            const hasValidPrice = price && parseFloat(price) > 0;
+            if (!hasValidPrice) {
+              const f = {
+                id: `CONF-NSD-D1-${lineIndex}`,
+                line: lineIndex + 1,
+                seqNum: seqNumStr || 'N/A',
+                severity: 'Medium',
+                category: 'Conformance (NASDAQ)',
+                title: 'NASDAQ Limit Order Price Check (Tag 44)',
+                desc: 'NASDAQ Limit Orders (40=2) must specify a price (Tag 44).',
+                remediation: 'Add Tag 44 (Price) with a valid value greater than 0.',
+                tag: '44',
+              };
+              findings.push(f);
+              currentMsgFindings.push(f);
+            }
+          } else if (ordType === '1') { // Market
+            if (tagMap['44']) {
+              const f = {
+                id: `CONF-NSD-D2-${lineIndex}`,
+                line: lineIndex + 1,
+                seqNum: seqNumStr || 'N/A',
+                severity: 'Medium',
+                category: 'Conformance (NASDAQ)',
+                title: 'NASDAQ Market Order Price Check',
+                desc: 'NASDAQ Market Orders (40=1) must not contain a Price tag (Tag 44).',
+                remediation: 'Remove Tag 44 from the Market Order payload.',
+                tag: '44',
+              };
+              findings.push(f);
+              currentMsgFindings.push(f);
+            }
+          }
+        }
+      }
+
+      // 4. ICE Rules
+      if (exVenue === 'ice') {
+        if (msgType === 'D' || msgType === 'F' || msgType === 'G') {
+          if (tagMap['22'] !== '4' && tagMap['22'] !== '100') {
+            const f = {
+              id: `CONF-ICE-E1-${lineIndex}`,
+              line: lineIndex + 1,
+              seqNum: seqNumStr || 'N/A',
+              severity: 'Medium',
+              category: 'Conformance (ICE)',
+              title: 'ICE SecurityID Source (Tag 22)',
+              desc: 'ICE requires Tag 22 (SecurityIDSource) to be set to 4 (ISIN) or 100 (ICE Private).',
+              remediation: 'Define SecurityIDSource (Tag 22) as 4 or 100.',
+              tag: '22',
+            };
+            findings.push(f);
+            currentMsgFindings.push(f);
+          }
+          if (!tagMap['48'] || !tagMap['55']) {
+            const f = {
+              id: `CONF-ICE-E2-${lineIndex}`,
+              line: lineIndex + 1,
+              seqNum: seqNumStr || 'N/A',
+              severity: 'Medium',
+              category: 'Conformance (ICE)',
+              title: 'ICE Symbol & SecurityID Check',
+              desc: 'ICE mandates providing both SecurityID (48) and Symbol (55).',
+              remediation: 'Ensure both Tag 48 and Tag 55 are populated.',
+              tag: !tagMap['48'] ? '48' : '55',
+            };
+            findings.push(f);
+            currentMsgFindings.push(f);
+          }
+        }
+      }
+    }
+
     parsedMessages.push({
       index: lineIndex,
       sender,
@@ -372,14 +561,163 @@ function RuleToggle({ rule, active, onChange }) {
   );
 }
 
+// ─── Rules Configuration Modal ────────────────────────────────────────────────
+function AuditRulesModal({ 
+  isOpen, 
+  onClose, 
+  activeRules, 
+  toggleRule,
+  enforceExchange,
+  setEnforceExchange,
+  exchangeVenue,
+  setExchangeVenue
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      {/* Dialog */}
+      <div
+        className="relative z-10 w-full max-w-lg flex flex-col overflow-hidden rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          maxHeight: '90vh'
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div
+              className="h-8 w-8 rounded-lg flex items-center justify-center"
+              style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
+            >
+              <Wrench className="h-4 w-4" style={{ color: 'var(--primary)' }} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
+                Configure Audit Rules
+              </h2>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Enable or disable security checks
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-lg flex items-center justify-center transition-all"
+            style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--foreground)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="flex flex-col gap-3">
+            {AUDIT_RULES.map(rule => (
+              <RuleToggle
+                key={rule.id}
+                rule={rule}
+                active={activeRules[rule.id]}
+                onChange={toggleRule}
+              />
+            ))}
+          </div>
+
+          <div className="border-t pt-4 mt-2" style={{ borderColor: 'var(--border)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wider mb-2 font-mono" style={{ color: 'var(--text-muted)' }}>
+              Exchange Conformance
+            </div>
+            
+            <div
+              className="flex flex-col gap-2.5 p-2.5 rounded-xl transition-all"
+              style={{
+                background: enforceExchange ? 'var(--primary-faint)' : 'transparent',
+                border: `1px solid ${enforceExchange ? 'var(--primary-border)' : 'var(--border-subtle)'}`,
+              }}
+            >
+              <div 
+                className="flex items-start gap-3 cursor-pointer"
+                onClick={() => setEnforceExchange(!enforceExchange)}
+              >
+                <div className="relative mt-0.5 shrink-0">
+                  <div
+                    className="w-8 h-4 rounded-full transition-all"
+                    style={{ background: enforceExchange ? 'var(--primary)' : 'var(--border)' }}
+                  />
+                  <div
+                    className="absolute top-0.5 h-3 w-3 rounded-full shadow transition-all duration-200"
+                    style={{
+                      background: enforceExchange ? 'white' : 'var(--text-muted)',
+                      left: enforceExchange ? '17px' : '2px',
+                    }}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-semibold leading-tight" style={{ color: enforceExchange ? 'var(--foreground)' : 'var(--text-muted)' }}>
+                    Exchange Conformance Audit
+                  </div>
+                  <div className="text-[9px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>
+                    Validate messages against specific exchange specifications (CME, NASDAQ, ICE).
+                  </div>
+                </div>
+              </div>
+
+              {enforceExchange && (
+                <div className="pl-11 pr-2 pb-1 flex flex-col gap-1.5 animate-in slide-in-from-top-1 duration-150">
+                  <label className="text-[9px] font-mono font-bold uppercase" style={{ color: 'var(--text-muted)' }}>
+                    Exchange Venue
+                  </label>
+                  <select
+                    value={exchangeVenue}
+                    onChange={(e) => setExchangeVenue(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 text-[11px] font-mono rounded-lg p-2 outline-none text-[var(--foreground)] focus:border-[var(--primary)] transition-colors cursor-pointer"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <option value="cme">CME iLink (FIX 4.2/4.4)</option>
+                    <option value="nasdaq">NASDAQ FIX Gateway (FIX 4.4)</option>
+                    <option value="ice">ICE FIX Trading (FIX 4.4)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center justify-end px-6 py-4"
+          style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}
+        >
+          <button onClick={onClose} className="fx-btn-primary">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SecurityAuditorPage() {
   const [rawLogs, setRawLogs] = useState('');
-  const [inputMode, setInputMode] = useState('paste'); // 'paste' | 'upload'
+  const [inputMode, setInputMode] = useState('file'); // 'file' | 'paste'
   const [fileName, setFileName] = useState('');
   const [activeRules, setActiveRules] = useState(() =>
     Object.fromEntries(AUDIT_RULES.map(r => [r.id, r.defaultOn]))
   );
+  const [enforceExchange, setEnforceExchange] = useState(false);
+  const [exchangeVenue, setExchangeVenue] = useState('cme');
 
   const [auditedMessages, setAuditedMessages] = useState([]);
   const [vulnerabilities, setVulnerabilities] = useState([]);
@@ -391,26 +729,37 @@ export default function SecurityAuditorPage() {
   const [copiedSetting, setCopiedSetting] = useState(null);
   const [findingsSearch, setFindingsSearch] = useState('');
   const [inspectorSearch, setInspectorSearch] = useState('');
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
   // Restore cache on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const cached = localStorage.getItem('fixify-security-raw');
+    const cachedEnforce = localStorage.getItem('fixify-security-enforce-exchange') === 'true';
+    const cachedVenue = localStorage.getItem('fixify-security-exchange-venue') || 'cme';
+    
+    setEnforceExchange(cachedEnforce);
+    setExchangeVenue(cachedVenue);
+
     if (cached) {
       setRawLogs(cached);
-      triggerAudit(cached, activeRules);
+      triggerAudit(cached, activeRules, cachedEnforce, cachedVenue);
     }
   }, []);
 
-  // Re-run audit when rules change (if logs are present)
+  // Re-run audit when rules or exchange settings change (if logs are present)
   useEffect(() => {
     if (rawLogs.trim() && hasAuditRun) {
-      triggerAudit(rawLogs, activeRules);
+      triggerAudit(rawLogs, activeRules, enforceExchange, exchangeVenue);
     }
-  }, [activeRules]);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fixify-security-enforce-exchange', String(enforceExchange));
+      localStorage.setItem('fixify-security-exchange-venue', exchangeVenue);
+    }
+  }, [activeRules, enforceExchange, exchangeVenue]);
 
-  const triggerAudit = (logText, rules) => {
-    const { messages, findings, score } = runAuditEngine(logText, rules);
+  const triggerAudit = (logText, rules, enfEx = enforceExchange, exVenue = exchangeVenue) => {
+    const { messages, findings, score } = runAuditEngine(logText, rules, enfEx, exVenue);
     setAuditedMessages(messages);
     setVulnerabilities(findings);
     setComplianceScore(score);
@@ -423,14 +772,14 @@ export default function SecurityAuditorPage() {
 
   const handleRunAudit = () => {
     if (!rawLogs.trim()) return;
-    triggerAudit(rawLogs, activeRules);
+    triggerAudit(rawLogs, activeRules, enforceExchange, exchangeVenue);
   };
 
   const handleLoadDemo = () => {
     setRawLogs(DEMO_LOGS);
     setFileName('');
     setInputMode('paste');
-    triggerAudit(DEMO_LOGS, activeRules);
+    triggerAudit(DEMO_LOGS, activeRules, enforceExchange, exchangeVenue);
   };
 
   const handleClear = () => {
@@ -443,7 +792,11 @@ export default function SecurityAuditorPage() {
     setSelectedMsgIndex(null);
     setFindingsSearch('');
     setInspectorSearch('');
-    if (typeof window !== 'undefined') localStorage.removeItem('fixify-security-raw');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('fixify-security-raw');
+      localStorage.removeItem('fixify-security-enforce-exchange');
+      localStorage.removeItem('fixify-security-exchange-venue');
+    }
   };
 
   const toggleRule = (id) => {
@@ -465,10 +818,10 @@ export default function SecurityAuditorPage() {
     reader.onload = (evt) => {
       const text = evt.target.result;
       setRawLogs(text);
-      triggerAudit(text, activeRules);
+      triggerAudit(text, activeRules, enforceExchange, exchangeVenue);
     };
     reader.readAsText(file);
-  }, [activeRules]);
+  }, [activeRules, enforceExchange, exchangeVenue]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -505,629 +858,549 @@ export default function SecurityAuditorPage() {
     { id: 'remediation', label: 'Remediation', icon: Wrench, count: null },
   ];
 
-  return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 72px)', overflow: 'hidden' }}>
-
-      {/* ── PAGE HEADER ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-1 pb-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div
-            className="h-9 w-9 rounded-xl flex items-center justify-center shadow-sm shrink-0"
-            style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
+  const renderControlsCard = () => (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
+    >
+      {/* Toolbar */}
+      <div
+        className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3"
+        style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
+      >
+        {/* Input mode toggle */}
+        <div className="fx-tab-group">
+          <button
+            className={`fx-tab${inputMode === 'file' ? ' active' : ''}`}
+            onClick={() => setInputMode('file')}
           >
-            <ShieldAlert className="h-4.5 w-4.5" style={{ color: 'var(--primary)' }} />
+            <Upload className="h-3.5 w-3.5" /> <span className="inline">File</span>
+          </button>
+          <button
+            className={`fx-tab${inputMode === 'paste' ? ' active' : ''}`}
+            onClick={() => setInputMode('paste')}
+          >
+            <ClipboardList className="h-3.5 w-3.5" /> <span className="inline">Paste</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+
+          {/* Audit button */}
+          <button
+            onClick={handleRunAudit}
+            disabled={!rawLogs.trim()}
+            className="fx-btn-primary py-1.5 px-3"
+            title="Run Security Audit"
+          >
+            <Play className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Audit</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Input area */}
+      <div className="p-5 space-y-4">
+        {inputMode === "file" ? (
+          <div
+            {...getRootProps()}
+            className="border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2"
+            style={{
+              borderColor: isDragActive ? 'var(--primary)' : 'var(--border)',
+              background: isDragActive ? 'var(--primary-faint)' : 'var(--background)',
+              minHeight: 140,
+            }}
+          >
+            <input {...getInputProps()} />
+            <Upload className="h-10 w-10 mx-auto mb-3" style={{ color: isDragActive ? 'var(--primary)' : 'var(--text-muted)' }} />
+            {fileName ? (
+              <div className="text-center">
+                <p className="text-[11px] font-semibold" style={{ color: 'var(--primary)' }}>{fileName}</p>
+                <p className="text-[9px] mt-0.5" style={{ color: 'var(--text-muted)' }}>File loaded — click Audit</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                  {isDragActive ? 'Drop file here' : 'Drag & drop session logs'}
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Accepts .txt · .fix · .log
+                </p>
+              </div>
+            )}
           </div>
-          <div>
-            <h1 className="text-base font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
-              FIX Security &amp; Compliance Auditor
-            </h1>
-            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              Scan session logs for replay attacks, plaintext credentials, SOH injection &amp; hijacking risks.
-            </p>
-          </div>
+        ) : (
+          <textarea
+            value={rawLogs}
+            onChange={e => setRawLogs(e.target.value)}
+            placeholder={"Paste SOH-delimited FIX logs here…\ne.g. 8=FIX.4.4|9=128|35=A|34=1|…"}
+            rows={10}
+            className="w-full rounded-xl p-3 text-[10px] font-mono resize-none outline-none transition-all"
+            style={{
+              background: 'var(--background)',
+              border: '1px solid var(--border)',
+              color: 'var(--foreground)',
+            }}
+            onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+          />
+        )}
+
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={handleLoadDemo}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10"
+          >
+            <Zap className="h-3.5 w-3.5 animate-pulse" /> Load Insecure Demo Logs
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-8 max-w-screen-2xl mx-auto">
+
+      {/* Page Header */}
+      <div className={`fx-page-header flex flex-col md:flex-row md:items-start justify-between gap-4 ${!hasAuditRun ? 'max-w-2xl mx-auto' : ''}`}>
+        <div className={`space-y-1.5 ${!hasAuditRun ? 'text-center md:text-left w-full' : ''}`}>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
+            FIX Security Auditor
+          </h1>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Scan session logs for replay attacks, plaintext credentials, SOH injection &amp; hijacking risks.
+          </p>
         </div>
         {hasAuditRun && (
-          <button
-            onClick={handleClear}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-            style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.background = 'var(--primary-faint)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Reset
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setIsConfigModalOpen(true)}
+              className="fx-btn-secondary"
+            >
+              <Wrench className="h-3.5 w-3.5" /> <span>Configure Rules</span>
+            </button>
+            <button
+              onClick={handleClear}
+              className="fx-btn-secondary"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> <span>Reset</span>
+            </button>
+          </div>
         )}
       </div>
 
-      {/* ── MAIN SPLIT LAYOUT ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
-
-        {/* ════════════════════ LEFT SIDEBAR ════════════════════ */}
-        <div
-          className="lg:w-[320px] shrink-0 flex flex-col rounded-2xl overflow-hidden"
-          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-        >
-          {/* Sidebar scroll wrapper */}
-          <div className="flex flex-col flex-1 overflow-y-auto p-4 gap-4 scrollbar-thin">
-
-            {/* ── Input Mode Toggle ── */}
-            <div>
-              <div className="flex p-0.5 rounded-lg mb-3" style={{ background: 'var(--background)', border: '1px solid var(--border)' }}>
-                {['paste', 'upload'].map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setInputMode(mode)}
-                    className="flex-1 py-1.5 rounded-md text-[10px] font-semibold transition-all capitalize"
-                    style={{
-                      background: inputMode === mode ? 'var(--primary)' : 'transparent',
-                      color: inputMode === mode ? 'white' : 'var(--text-muted)',
-                    }}
-                  >
-                    {mode === 'paste' ? 'Paste Logs' : 'Upload File'}
-                  </button>
-                ))}
-              </div>
-
-              {inputMode === 'paste' ? (
-                <textarea
-                  value={rawLogs}
-                  onChange={e => setRawLogs(e.target.value)}
-                  placeholder={"Paste SOH-delimited FIX logs here…\ne.g. 8=FIX.4.4|9=128|35=A|34=1|…"}
-                  rows={7}
-                  className="w-full rounded-xl p-3 text-[10px] font-mono resize-none outline-none transition-all"
-                  style={{
-                    background: 'var(--background)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--foreground)',
-                  }}
-                  onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                />
-              ) : (
-                <div
-                  {...getRootProps()}
-                  className="rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2"
-                  style={{
-                    border: `2px dashed ${isDragActive ? 'var(--primary)' : 'var(--border)'}`,
-                    background: isDragActive ? 'var(--primary-faint)' : 'var(--background)',
-                    minHeight: 140,
-                  }}
-                >
-                  <input {...getInputProps()} />
-                  <div
-                    className="h-10 w-10 rounded-xl flex items-center justify-center"
-                    style={{ background: isDragActive ? 'var(--primary)' : 'var(--border)', opacity: isDragActive ? 1 : 0.6 }}
-                  >
-                    <Upload className="h-5 w-5" style={{ color: isDragActive ? 'white' : 'var(--foreground)' }} />
-                  </div>
-                  {fileName ? (
-                    <div className="text-center">
-                      <p className="text-[11px] font-semibold" style={{ color: 'var(--primary)' }}>{fileName}</p>
-                      <p className="text-[9px] mt-0.5" style={{ color: 'var(--text-muted)' }}>File loaded — click Run Audit</p>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <p className="text-[11px] font-medium" style={{ color: 'var(--foreground)' }}>Drop a FIX log file here</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>.log · .txt · .fix — or click to browse</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* ── Audit Rules ── */}
-            <div>
-              <div
-                className="flex items-center gap-1.5 pb-2 mb-2"
-                style={{ borderBottom: '1px solid var(--border-subtle)' }}
-              >
-                <Layers className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
-                <span className="text-[10px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--primary)' }}>
-                  Active Audit Rules
-                </span>
-              </div>
-              <div className="flex flex-col gap-2">
-                {AUDIT_RULES.map(rule => (
-                  <RuleToggle
-                    key={rule.id}
-                    rule={rule}
-                    active={activeRules[rule.id]}
-                    onChange={toggleRule}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Spacer */}
-            <div className="flex-1" />
-
-            {/* ── Action Footer ── */}
-            <div className="flex flex-col gap-2 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-              <button
-                onClick={handleRunAudit}
-                disabled={!rawLogs.trim()}
-                className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs transition-all"
-                style={{
-                  background: rawLogs.trim() ? 'var(--primary)' : 'var(--border)',
-                  color: rawLogs.trim() ? 'white' : 'var(--text-muted)',
-                  cursor: rawLogs.trim() ? 'pointer' : 'not-allowed',
-                  opacity: rawLogs.trim() ? 1 : 0.6,
-                }}
-              >
-                <Play className="h-3.5 w-3.5" />
-                Run Security Audit
-              </button>
-
-              <button
-                onClick={handleLoadDemo}
-                className="flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-all"
-                style={{
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  background: 'rgba(239,68,68,0.07)',
-                  color: '#f87171',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.14)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.07)'}
-              >
-                <Zap className="h-3.5 w-3.5 animate-pulse" />
-                Load Insecure Demo Logs
-              </button>
-
-              {hasAuditRun && (
-                <button
-                  onClick={handleClear}
-                  className="flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-all"
-                  style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--foreground)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Clear Results
-                </button>
-              )}
-            </div>
-          </div>
+      {!hasAuditRun ? (
+        /* Welcome / Empty State controls card container */
+        <div className="max-w-2xl mx-auto space-y-6">
+          {renderControlsCard()}
         </div>
+      ) : (
+        /* ── MAIN GRID LAYOUT ── */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in duration-300">
+          
+          {/* Left Panel: Controls Card */}
+          <div className="lg:col-span-4 space-y-4">
+            {renderControlsCard()}
+          </div>
 
-        {/* ════════════════════ RIGHT DASHBOARD ════════════════════ */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 gap-4">
+          {/* Right Panel: Audit Dashboard & Results */}
+          <div className="lg:col-span-8 space-y-4 flex flex-col min-w-0">
+            {/* Executive Overview Banner */}
+            <div className="grid grid-cols-3 gap-4 shrink-0">
 
-          {!hasAuditRun ? (
-            /* ── Welcome / Empty State ── */
-            <div
-              className="flex-1 flex flex-col items-center justify-center rounded-2xl text-center p-10 gap-6"
-              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-            >
+              {/* Compliance Gauge */}
               <div
-                className="h-20 w-20 rounded-2xl flex items-center justify-center"
-                style={{
-                  background: 'radial-gradient(circle at 40% 40%, var(--primary-faint), transparent)',
-                  border: '1px solid var(--primary-border)',
-                }}
-              >
-                <ShieldCheck className="h-10 w-10" style={{ color: 'var(--primary)' }} />
-              </div>
-              <div className="space-y-2 max-w-md">
-                <h2 className="text-base font-bold" style={{ color: 'var(--foreground)' }}>
-                  Security Audit Center
-                </h2>
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                  Paste or upload raw FIX session logs in the left panel, configure which rules to enforce, then click <strong style={{ color: 'var(--foreground)' }}>Run Security Audit</strong>.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-lg">
-                {AUDIT_RULES.map(r => (
-                  <div
-                    key={r.id}
-                    className="p-3 rounded-xl text-center"
-                    style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
-                  >
-                    <div className="text-[9px] font-bold uppercase tracking-wider font-mono mb-1" style={{ color: 'var(--primary)' }}>
-                      {r.label.split(' ')[0]}
-                    </div>
-                    <div className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                      {r.label.split(' ').slice(1).join(' ')}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={handleLoadDemo}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all"
-                style={{
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  background: 'rgba(239,68,68,0.08)',
-                  color: '#f87171',
-                }}
-              >
-                <Zap className="h-4 w-4 animate-pulse" />
-                Try Insecure Demo Logs
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* ── Executive Overview Banner ── */}
-              <div className="grid grid-cols-3 gap-4 shrink-0">
-
-                {/* Compliance Gauge */}
-                <div
-                  className="col-span-1 p-4 rounded-2xl flex items-center gap-4"
-                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-                >
-                  <div className="relative h-[76px] w-[76px] shrink-0 flex items-center justify-center">
-                    <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 96 96">
-                      <circle cx="48" cy="48" r="40" stroke="var(--border)" strokeWidth="8" fill="transparent" />
-                      <circle
-                        cx="48" cy="48" r="40"
-                        stroke={gradeInfo.color}
-                        strokeWidth="8"
-                        fill="transparent"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={circumference - (circumference * complianceScore) / 100}
-                        strokeLinecap="round"
-                        style={{ transition: 'stroke-dashoffset 0.7s ease' }}
-                      />
-                    </svg>
-                    <div className="text-center">
-                      <span className="text-2xl font-extrabold" style={{ color: gradeInfo.color }}>{gradeInfo.grade}</span>
-                      <span className="text-[9px] font-mono block" style={{ color: 'var(--text-muted)' }}>{complianceScore}%</span>
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[9px] font-bold uppercase tracking-wider font-mono mb-1" style={{ color: 'var(--text-muted)' }}>
-                      Compliance Grade
-                    </div>
-                    <div className="text-xs font-bold" style={{ color: gradeInfo.color }}>{gradeInfo.text}</div>
-                    <div className="text-[9px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>
-                      {auditedMessages.length} messages scanned · {vulnerabilities.length} findings
-                    </div>
-                  </div>
-                </div>
-
-                {/* Critical count */}
-                <div
-                  className="p-4 rounded-2xl flex flex-col justify-between"
-                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>Critical Findings</span>
-                    <ShieldAlert className="h-4 w-4 text-red-500 animate-bounce" />
-                  </div>
-                  <div>
-                    <span className="text-3xl font-extrabold text-red-500">
-                      {vulnerabilities.filter(v => v.severity === 'Critical').length}
-                    </span>
-                    <span className="text-[9px] block mt-0.5" style={{ color: 'var(--text-muted)' }}>Credential / data leaks</span>
-                  </div>
-                </div>
-
-                {/* High + Medium count */}
-                <div
-                  className="p-4 rounded-2xl flex flex-col justify-between"
-                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>High &amp; Med Threats</span>
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  </div>
-                  <div>
-                    <span className="text-3xl font-extrabold text-amber-500">
-                      {vulnerabilities.filter(v => v.severity === 'High' || v.severity === 'Medium').length}
-                    </span>
-                    <span className="text-[9px] block mt-0.5" style={{ color: 'var(--text-muted)' }}>Replays · injections · jumps</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Tabbed Panel ── */}
-              <div
-                className="flex-1 flex flex-col rounded-2xl overflow-hidden min-h-0"
+                className="col-span-1 p-4 rounded-2xl flex items-center gap-4"
                 style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
               >
-                {/* Tab Bar */}
-                <div
-                  className="flex items-center gap-1 px-4 pt-3 pb-0 shrink-0"
-                  style={{ borderBottom: '1px solid var(--border)' }}
-                >
-                  {TABS.map(tab => {
-                    const Icon = tab.icon;
-                    const active = activeTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-t-lg text-[11px] font-semibold transition-all border-b-2 -mb-px"
-                        style={{
-                          borderBottomColor: active ? 'var(--primary)' : 'transparent',
-                          color: active ? 'var(--primary)' : 'var(--text-muted)',
-                          background: 'transparent',
-                        }}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {tab.label}
-                        {tab.count !== null && (
-                          <span
-                            className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold"
-                            style={{
-                              background: active ? 'var(--primary-faint)' : 'var(--background)',
-                              color: active ? 'var(--primary)' : 'var(--text-muted)',
-                            }}
-                          >
-                            {tab.count}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                <div className="relative h-[76px] w-[76px] shrink-0 flex items-center justify-center">
+                  <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="40" stroke="var(--border)" strokeWidth="8" fill="transparent" />
+                    <circle
+                      cx="48" cy="48" r="40"
+                      stroke={gradeInfo.color}
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={circumference - (circumference * complianceScore) / 100}
+                      strokeLinecap="round"
+                      style={{ transition: 'stroke-dashoffset 0.7s ease' }}
+                    />
+                  </svg>
+                  <div className="text-center">
+                    <span className="text-2xl font-extrabold" style={{ color: gradeInfo.color }}>{gradeInfo.grade}</span>
+                    <span className="text-[9px] font-mono block" style={{ color: 'var(--text-muted)' }}>{complianceScore}%</span>
+                  </div>
                 </div>
+                <div className="min-w-0">
+                  <div className="text-[9px] font-bold uppercase tracking-wider font-mono mb-1" style={{ color: 'var(--text-muted)' }}>
+                    Compliance Grade
+                  </div>
+                  <div className="text-xs font-bold truncate" style={{ color: gradeInfo.color }}>{gradeInfo.text}</div>
+                  <div className="text-[9px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>
+                    {auditedMessages.length} msg scanned · {vulnerabilities.length} findings
+                  </div>
+                </div>
+              </div>
 
-                {/* ── TAB CONTENT ─────────────────────────────────────────────── */}
-                <div className="flex-1 overflow-hidden">
+              {/* Critical count */}
+              <div
+                className="p-4 rounded-2xl flex flex-col justify-between"
+                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>Critical Findings</span>
+                  <ShieldAlert className="h-4 w-4 text-red-500 animate-bounce" />
+                </div>
+                <div>
+                  <span className="text-3xl font-extrabold text-red-500">
+                    {vulnerabilities.filter(v => v.severity === 'Critical').length}
+                  </span>
+                  <span className="text-[9px] block mt-0.5" style={{ color: 'var(--text-muted)' }}>Credential / data leaks</span>
+                </div>
+              </div>
 
-                  {/* ┌─ Tab: Vulnerabilities Grid ─┐ */}
-                  {activeTab === 'findings' && (
-                    <div className="h-full flex flex-col p-4 gap-3">
-                      {/* Search bar */}
-                      <div className="relative shrink-0">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} />
-                        <input
-                          type="text"
-                          value={findingsSearch}
-                          onChange={e => setFindingsSearch(e.target.value)}
-                          placeholder="Filter by severity, category or title…"
-                          className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs font-mono outline-none"
-                          style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }}
-                          onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                          onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                        />
-                      </div>
+              {/* High + Medium count */}
+              <div
+                className="p-4 rounded-2xl flex flex-col justify-between"
+                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>High &amp; Med Threats</span>
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                </div>
+                <div>
+                  <span className="text-3xl font-extrabold text-amber-500">
+                    {vulnerabilities.filter(v => v.severity === 'High' || v.severity === 'Medium').length}
+                  </span>
+                  <span className="text-[9px] block mt-0.5" style={{ color: 'var(--text-muted)' }}>Replays · injections · jumps</span>
+                </div>
+              </div>
+            </div>
 
-                      {filteredFindings.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-                          <CheckCircle2 className="h-10 w-10 text-green-500" />
-                          <div>
-                            <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-                              {findingsSearch ? 'No matching findings' : 'No vulnerabilities detected'}
-                            </p>
-                            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                              {findingsSearch ? 'Try a different filter term.' : 'All enabled rules passed for this session log.'}
-                            </p>
-                          </div>
+            {/* Tabbed Panel */}
+            <div
+              className="flex flex-col rounded-2xl overflow-hidden min-h-0"
+              style={{
+                background: 'var(--card)',
+                border: '1px solid var(--border)',
+                height: 'calc(100vh - 280px)',
+                minHeight: '550px'
+              }}
+            >
+              {/* Tab Bar */}
+              <div
+                className="flex items-center gap-1 px-4 pt-3 pb-0 shrink-0"
+                style={{ borderBottom: '1px solid var(--border)' }}
+              >
+                {TABS.map(tab => {
+                  const Icon = tab.icon;
+                  const active = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-t-lg text-[11px] font-semibold transition-all border-b-2 -mb-px"
+                      style={{
+                        borderBottomColor: active ? 'var(--primary)' : 'transparent',
+                        color: active ? 'var(--primary)' : 'var(--text-muted)',
+                        background: 'transparent',
+                      }}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {tab.label}
+                      {tab.count !== null && (
+                        <span
+                          className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold"
+                          style={{
+                            background: active ? 'var(--primary-faint)' : 'var(--background)',
+                            color: active ? 'var(--primary)' : 'var(--text-muted)',
+                          }}
+                        >
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* TAB CONTENT */}
+              <div className="flex-1 overflow-hidden">
+
+                {/* Tab: Vulnerabilities Grid */}
+                {activeTab === 'findings' && (
+                  <div className="h-full flex flex-col p-4 gap-3">
+                    {/* Search bar */}
+                    <div className="relative shrink-0">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        value={findingsSearch}
+                        onChange={e => setFindingsSearch(e.target.value)}
+                        placeholder="Filter by severity, category or title…"
+                        className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs font-mono outline-none"
+                        style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }}
+                        onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                      />
+                    </div>
+
+                    {filteredFindings.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
+                        <CheckCircle2 className="h-10 w-10 text-green-500" />
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                            {findingsSearch ? 'No matching findings' : 'No vulnerabilities detected'}
+                          </p>
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                            {findingsSearch ? 'Try a different filter term.' : 'All enabled rules passed for this session log.'}
+                          </p>
                         </div>
-                      ) : (
-                        <div className="flex-1 overflow-y-auto min-h-0">
-                          <table className="w-full text-xs">
-                            <thead className="sticky top-0" style={{ background: 'var(--card)' }}>
-                              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                {['Line', 'Severity', 'Category', 'Vulnerability & Remediation'].map(h => (
-                                  <th key={h} className="py-2 pr-3 text-left font-mono font-bold text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                                    {h}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {filteredFindings.map(v => (
-                                <tr
-                                  key={v.id}
-                                  className="transition-colors"
-                                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                                  onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-faint)'}
-                                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                >
-                                  <td className="py-2.5 pr-3 font-mono font-bold text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                                    L{v.line}
-                                  </td>
-                                  <td className="py-2.5 pr-3 whitespace-nowrap">
-                                    <SeverityBadge sev={v.severity} />
-                                  </td>
-                                  <td className="py-2.5 pr-3 font-mono text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                                    {v.category}
-                                  </td>
-                                  <td className="py-2.5 pr-2">
-                                    <div className="font-semibold text-[11px]" style={{ color: 'var(--foreground)' }}>{v.title}</div>
-                                    <div className="text-[9px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>{v.desc}</div>
-                                    <div className="text-[9px] mt-1 flex items-start gap-1" style={{ color: '#f97316' }}>
-                                      <ChevronRight className="h-2.5 w-2.5 mt-0.5 shrink-0" />
-                                      <span>{v.remediation}</span>
-                                    </div>
-                                  </td>
-                                </tr>
+                      </div>
+                    ) : (
+                      <div className="flex-1 overflow-y-auto min-h-0 pr-1">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0" style={{ background: 'var(--card)' }}>
+                            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              {['Line', 'Severity', 'Category', 'Vulnerability & Remediation'].map(h => (
+                                <th key={h} className="py-2 pr-3 text-left font-mono font-bold text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                                  {h}
+                                </th>
                               ))}
-                            </tbody>
-                          </table>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredFindings.map(v => (
+                              <tr
+                                key={v.id}
+                                className="transition-colors"
+                                style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-faint)'}
+                                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <td className="py-2.5 pr-3 font-mono font-bold text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                                  L{v.line}
+                                </td>
+                                <td className="py-2.5 pr-3 whitespace-nowrap">
+                                  <SeverityBadge sev={v.severity} />
+                                </td>
+                                <td className="py-2.5 pr-3 font-mono text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                                  {v.category}
+                                </td>
+                                <td className="py-2.5 pr-2">
+                                  <div className="font-semibold text-[11px]" style={{ color: 'var(--foreground)' }}>{v.title}</div>
+                                  <div className="text-[9px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>{v.desc}</div>
+                                  <div className="text-[9px] mt-1 flex items-start gap-1" style={{ color: '#f97316' }}>
+                                    <ChevronRight className="h-2.5 w-2.5 mt-0.5 shrink-0" />
+                                    <span>{v.remediation}</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab: Log Inspector */}
+                {activeTab === 'inspector' && (
+                  <div className="h-full flex gap-0 min-h-0">
+                    {/* Message list */}
+                    <div
+                      className="w-52 shrink-0 flex flex-col border-r overflow-hidden"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      <div className="p-2 shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <div className="relative">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3" style={{ color: 'var(--text-muted)' }} />
+                          <input
+                            type="text"
+                            value={inspectorSearch}
+                            onChange={e => setInspectorSearch(e.target.value)}
+                            placeholder="Filter messages…"
+                            className="w-full pl-6 pr-2 py-1 rounded text-[10px] font-mono outline-none"
+                            style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-1.5 space-y-1 pr-1">
+                        {filteredMessages.map((msg, idx) => {
+                          const origIdx = auditedMessages.indexOf(msg);
+                          const isSelected = selectedMsgIndex === origIdx;
+                          const hasThreats = msg.findings.length > 0;
+                          return (
+                            <button
+                              key={origIdx}
+                              onClick={() => setSelectedMsgIndex(origIdx)}
+                              className="w-full text-left p-2 rounded-lg transition-all"
+                              style={{
+                                background: isSelected ? 'var(--primary-faint)' : 'transparent',
+                                border: `1px solid ${isSelected ? 'var(--primary-border)' : 'transparent'}`,
+                              }}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[9px] font-mono font-bold" style={{ color: isSelected ? 'var(--primary)' : 'var(--text-muted)' }}>
+                                  #{msg.seqNum || origIdx + 1}
+                                </span>
+                                {hasThreats && (
+                                  <ShieldAlert className="h-3 w-3 text-red-500 shrink-0 animate-pulse" />
+                                )}
+                              </div>
+                              <div className="text-[10px] font-semibold truncate mt-0.5" style={{ color: isSelected ? 'var(--foreground)' : 'var(--text-muted)' }}>
+                                {msg.msgName}
+                              </div>
+                              <div className="text-[9px] font-mono truncate" style={{ color: 'var(--text-muted)' }}>
+                                {msg.sender}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Tag detail panel */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      {selectedMsg ? (
+                        <>
+                          <div
+                            className="px-4 py-2.5 flex items-center justify-between shrink-0"
+                            style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--background)' }}
+                          >
+                            <div>
+                              <span className="text-xs font-bold" style={{ color: 'var(--foreground)' }}>{selectedMsg.msgName}</span>
+                              <span className="text-[9px] font-mono ml-2 animate-in fade-in" style={{ color: 'var(--text-muted)' }}>
+                                Seq #{selectedMsg.seqNum} · {selectedMsg.sender} → {selectedMsg.target}
+                              </span>
+                            </div>
+                            {selectedMsg.findings.length > 0 && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded font-mono shrink-0" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                {selectedMsg.findings.length} threat{selectedMsg.findings.length > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 overflow-y-auto p-3 space-y-1.5 pr-1">
+                            {selectedMsg.tagList.map((tagItem, i) => {
+                              const warning = selectedMsg.findings.find(f => f.tag === String(tagItem.tag));
+                              return (
+                                <div
+                                  key={i}
+                                  className="rounded-lg px-3 py-2 transition-all"
+                                  style={{
+                                    border: `1px solid ${warning ? 'rgba(239,68,68,0.3)' : 'var(--border-subtle)'}`,
+                                    background: warning ? 'rgba(239,68,68,0.05)' : 'var(--background)',
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="font-mono font-bold text-[10px] shrink-0" style={{ color: 'var(--primary)' }}>
+                                        {tagItem.tag}
+                                      </span>
+                                      <span className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
+                                        ({tagItem.name})
+                                      </span>
+                                    </div>
+                                    <span className="font-mono text-[10px] font-semibold break-all text-right" style={{ color: 'var(--foreground)' }}>
+                                      {tagItem.val}
+                                    </span>
+                                  </div>
+                                  {warning && (
+                                    <div className="flex items-start gap-1.5 mt-1.5 pl-1 border-l-2 border-red-500">
+                                      <AlertCircle className="h-3 w-3 text-red-500 shrink-0 mt-0.5" />
+                                      <div>
+                                        <span className="text-[9px] font-bold text-red-400">{warning.title}</span>
+                                        <span className="text-[9px] text-red-400/70 ml-1">— {warning.remediation}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center">
+                          <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>
+                            Select a message from the list
+                          </p>
                         </div>
                       )}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* ┌─ Tab: Log Inspector ─┐ */}
-                  {activeTab === 'inspector' && (
-                    <div className="h-full flex gap-0 min-h-0">
-                      {/* Message list */}
-                      <div
-                        className="w-52 shrink-0 flex flex-col border-r overflow-hidden"
-                        style={{ borderColor: 'var(--border)' }}
-                      >
-                        <div className="p-2 shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                          <div className="relative">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3" style={{ color: 'var(--text-muted)' }} />
-                            <input
-                              type="text"
-                              value={inspectorSearch}
-                              onChange={e => setInspectorSearch(e.target.value)}
-                              placeholder="Filter messages…"
-                              className="w-full pl-6 pr-2 py-1 rounded text-[10px] font-mono outline-none"
-                              style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
-                          {filteredMessages.map((msg, idx) => {
-                            const origIdx = auditedMessages.indexOf(msg);
-                            const isSelected = selectedMsgIndex === origIdx;
-                            const hasThreats = msg.findings.length > 0;
-                            return (
-                              <button
-                                key={origIdx}
-                                onClick={() => setSelectedMsgIndex(origIdx)}
-                                className="w-full text-left p-2 rounded-lg transition-all"
-                                style={{
-                                  background: isSelected ? 'var(--primary-faint)' : 'transparent',
-                                  border: `1px solid ${isSelected ? 'var(--primary-border)' : 'transparent'}`,
-                                }}
-                              >
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-[9px] font-mono font-bold" style={{ color: isSelected ? 'var(--primary)' : 'var(--text-muted)' }}>
-                                    #{msg.seqNum || origIdx + 1}
-                                  </span>
-                                  {hasThreats && (
-                                    <ShieldAlert className="h-3 w-3 text-red-500 shrink-0 animate-pulse" />
-                                  )}
-                                </div>
-                                <div className="text-[10px] font-semibold truncate mt-0.5" style={{ color: isSelected ? 'var(--foreground)' : 'var(--text-muted)' }}>
-                                  {msg.msgName}
-                                </div>
-                                <div className="text-[9px] font-mono truncate" style={{ color: 'var(--text-muted)' }}>
-                                  {msg.sender}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Tag detail panel */}
-                      <div className="flex-1 flex flex-col overflow-hidden">
-                        {selectedMsg ? (
-                          <>
-                            <div
-                              className="px-4 py-2.5 flex items-center justify-between shrink-0"
-                              style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--background)' }}
-                            >
-                              <div>
-                                <span className="text-xs font-bold" style={{ color: 'var(--foreground)' }}>{selectedMsg.msgName}</span>
-                                <span className="text-[9px] font-mono ml-2" style={{ color: 'var(--text-muted)' }}>
-                                  Seq #{selectedMsg.seqNum} · {selectedMsg.sender} → {selectedMsg.target}
-                                </span>
-                              </div>
-                              {selectedMsg.findings.length > 0 && (
-                                <span className="text-[9px] font-bold px-2 py-0.5 rounded font-mono" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                                  {selectedMsg.findings.length} threat{selectedMsg.findings.length > 1 ? 's' : ''}
-                                </span>
-                              )}
+                {/* Tab: Remediation Config */}
+                {activeTab === 'remediation' && (
+                  <div className="h-full overflow-y-auto p-4 pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {REMEDIATION_SETTINGS.map(set => (
+                        <div
+                          key={set.key}
+                          className="p-4 rounded-xl flex flex-col justify-between gap-3"
+                          style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--primary)' }} />
+                              <span className="text-xs font-bold font-mono" style={{ color: 'var(--foreground)' }}>
+                                {set.key} = {set.val}
+                              </span>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-                              {selectedMsg.tagList.map((tagItem, i) => {
-                                const warning = selectedMsg.findings.find(f => f.tag === String(tagItem.tag));
-                                return (
-                                  <div
-                                    key={i}
-                                    className="rounded-lg px-3 py-2 transition-all"
-                                    style={{
-                                      border: `1px solid ${warning ? 'rgba(239,68,68,0.3)' : 'var(--border-subtle)'}`,
-                                      background: warning ? 'rgba(239,68,68,0.05)' : 'var(--background)',
-                                    }}
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <span className="font-mono font-bold text-[10px] shrink-0" style={{ color: 'var(--primary)' }}>
-                                          {tagItem.tag}
-                                        </span>
-                                        <span className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
-                                          ({tagItem.name})
-                                        </span>
-                                      </div>
-                                      <span className="font-mono text-[10px] font-semibold break-all text-right" style={{ color: 'var(--foreground)' }}>
-                                        {tagItem.val}
-                                      </span>
-                                    </div>
-                                    {warning && (
-                                      <div className="flex items-start gap-1.5 mt-1.5 pl-1 border-l-2 border-red-500">
-                                        <AlertCircle className="h-3 w-3 text-red-500 shrink-0 mt-0.5" />
-                                        <div>
-                                          <span className="text-[9px] font-bold text-red-400">{warning.title}</span>
-                                          <span className="text-[9px] text-red-400/70 ml-1">— {warning.remediation}</span>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex-1 flex items-center justify-center">
-                            <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>
-                              Select a message from the list
-                            </p>
+                            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{set.desc}</p>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ┌─ Tab: Remediation Config ─┐ */}
-                  {activeTab === 'remediation' && (
-                    <div className="h-full overflow-y-auto p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {REMEDIATION_SETTINGS.map(set => (
                           <div
-                            key={set.key}
-                            className="p-4 rounded-xl flex flex-col justify-between gap-3"
-                            style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+                            className="flex items-center gap-2 pt-2"
+                            style={{ borderTop: '1px solid var(--border-subtle)' }}
                           >
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--primary)' }} />
-                                <span className="text-xs font-bold font-mono" style={{ color: 'var(--foreground)' }}>
-                                  {set.key} = {set.val}
-                                </span>
-                              </div>
-                              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{set.desc}</p>
-                            </div>
-                            <div
-                              className="flex items-center gap-2 pt-2"
-                              style={{ borderTop: '1px solid var(--border-subtle)' }}
+                            <code
+                              className="flex-1 text-[10px] font-mono px-2 py-1.5 rounded truncate"
+                              style={{ background: 'var(--card)', color: 'var(--foreground)' }}
                             >
-                              <code
-                                className="flex-1 text-[10px] font-mono px-2 py-1.5 rounded truncate"
-                                style={{ background: 'var(--card)', color: 'var(--foreground)' }}
-                              >
-                                {set.config.replace('\n', ' | ')}
-                              </code>
-                              <button
-                                onClick={() => handleCopyConfig(set.config, set.key)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold font-mono transition-all shrink-0"
-                                style={{
-                                  border: '1px solid var(--border)',
-                                  color: copiedSetting === set.key ? '#22c55e' : 'var(--text-muted)',
-                                  background: copiedSetting === set.key ? 'rgba(34,197,94,0.1)' : 'transparent',
-                                }}
-                              >
-                                {copiedSetting === set.key ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                                {copiedSetting === set.key ? 'Copied' : 'Copy'}
-                              </button>
-                            </div>
+                              {set.config.replace('\n', ' | ')}
+                            </code>
+                            <button
+                              onClick={() => handleCopyConfig(set.config, set.key)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold font-mono transition-all shrink-0"
+                              style={{
+                                border: '1px solid var(--border)',
+                                color: copiedSetting === set.key ? '#22c55e' : 'var(--text-muted)',
+                                background: copiedSetting === set.key ? 'rgba(34,197,94,0.1)' : 'transparent',
+                              }}
+                            >
+                              {copiedSetting === set.key ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              {copiedSetting === set.key ? 'Copied' : 'Copy'}
+                            </button>
                           </div>
-                        ))}
-                      </div>
-                      <p className="text-[9px] font-mono mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
-                        QuickFIX/J · QuickFIX/N · QuickFIX (C++) · FIX Antenna — all support these config keys.
-                      </p>
+                        </div>
+                      ))}
                     </div>
-                  )}
+                    <p className="text-[9px] font-mono mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
+                      QuickFIX/J · QuickFIX/N · QuickFIX (C++) · FIX Antenna — all support these config keys.
+                    </p>
+                  </div>
+                )}
 
-                </div>
               </div>
-            </>
-          )}
-        </div>
-        {/* ═════════ END RIGHT DASHBOARD ═════════ */}
+            </div>
 
-      </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* Rules Config Modal */}
+      <AuditRulesModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        activeRules={activeRules}
+        toggleRule={toggleRule}
+        enforceExchange={enforceExchange}
+        setEnforceExchange={setEnforceExchange}
+        exchangeVenue={exchangeVenue}
+        setExchangeVenue={setExchangeVenue}
+      />
     </div>
   );
 }

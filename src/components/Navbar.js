@@ -48,7 +48,6 @@ export default function Navbar() {
     { href: '/coderunner',  label: 'Code Sandbox',     icon: Terminal,     short: 'Code', desc: 'Compile and run FIX parser templates in C++, Python, and Java.' },
     { href: '/fixtags',     label: 'FIX Dictionary',  icon: BookOpen,      short: 'Dict', desc: 'Interactive FIX tag and enums specs dictionary explorer.', inMenu: false },
     { href: '/security-auditor', label: 'FIX Security Auditor', icon: ShieldAlert, short: 'Security', desc: 'Scan logs for replay windows, plaintext credentials, SOH injection, and hijack vulnerabilities.', inMenu: false },
-    { href: '/conformance', label: 'Exchange Conformance Manager', icon: ShieldCheck, short: 'Conformance', desc: 'Validate logs against rules for CME, NASDAQ, ICE, and other venues.', inMenu: false },
     { href: '/live-streaming', label: 'Live Stream Simulator', icon: Radio, short: 'Live Stream', desc: 'Simulate live FIX session socket streaming with dynamic timelines.', inMenu: false },
   ];
 
@@ -89,7 +88,7 @@ export default function Navbar() {
         }
       } catch (e) {}
     }
-    const logsRoutes = ['/', '/compare', '/missing-fills', '/security-auditor', '/conformance'];
+    const logsRoutes = ['/', '/compare', '/missing-fills', '/security-auditor'];
     const aiRoutes = ['/interpreter', '/fixtags'];
     const sysRoutes = ['/latency', '/live-streaming', '/xml', '/coderunner', '/tasks', '/chat'];
     if (logsRoutes.includes(pathname) && logsRoutes.includes(item.href)) score += 35;
