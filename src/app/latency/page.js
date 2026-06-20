@@ -292,6 +292,8 @@ export default function LatencyDashboard() {
   const [hoveredPoint, setHoveredPoint] = useState(null); // Chart tooltip details
   const [loading, setLoading] = useState(false);
   const [expandedChart, setExpandedChart] = useState(null); // "timeline", "distribution" or null
+  const [percentileScale, setPercentileScale] = useState("max"); // "max", "99", "95", "90"
+  const [hideOutliersFromTable, setHideOutliersFromTable] = useState(false);
 
   // Zoom range states
   const [zoomRange, setZoomRange] = useState(null); // { start: number, end: number } or null
@@ -303,11 +305,12 @@ export default function LatencyDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Reset zoom & page when data/tab changes
+  // Reset zoom & page when data/tab/filters change
   useEffect(() => {
     setZoomRange(null);
     setCurrentPage(1);
-  }, [parsedData, activeTab, searchTerm]);
+    setHoveredPoint(null);
+  }, [parsedData, activeTab, searchTerm, percentileScale, hideOutliersFromTable]);
 
   // Fallback synchronous parser
   const runSyncParsing = useCallback((rawLogsText) => {
@@ -533,10 +536,6 @@ export default function LatencyDashboard() {
 
   // SVG Chart Renderer
   const renderSVGChart = () => {
-    const allDataPoints = activeTab === "hop" 
-      ? parsedData.filter(d => d.hopLatency !== null)
-      : rttPairs;
-
     if (allDataPoints.length === 0) {
       return (
         <div 
@@ -565,25 +564,17 @@ export default function LatencyDashboard() {
     const chartWidth = svgWidth - paddingLeft - paddingRight;
     const chartHeight = svgHeight - paddingTop - paddingBottom;
 
-    // Get Y bounds
-    const rawValues = activeTab === "hop" 
+    // Get Y bounds for displayed range
+    const displayValues = activeTab === "hop" 
       ? dataPoints.map(d => d.hopLatency)
       : dataPoints.map(d => d.rttMicroseconds);
 
-    const absoluteMax = Math.max(...rawValues) || 1000;
-    const sortedValues = [...rawValues].sort((a, b) => a - b);
-    const median = sortedValues[Math.floor(sortedValues.length / 2)] || 1;
+    // Calculate timeline stats (Min, Max) based on displayed range
+    const maxVal = displayValues.length > 0 ? Math.max(...displayValues) : 0;
+    const minVal = displayValues.length > 0 ? Math.min(...displayValues) : 0;
 
-    // Calculate timeline stats (Min, Max, 90th percentile, 99th percentile)
-    const maxVal = absoluteMax;
-    const minVal = Math.min(...rawValues) || 0;
-    const p90Idx = Math.min(sortedValues.length - 1, Math.max(0, Math.ceil(sortedValues.length * 0.9) - 1));
-    const p90Val = sortedValues[p90Idx] || 0;
-    const p99Idx = Math.min(sortedValues.length - 1, Math.max(0, Math.ceil(sortedValues.length * 0.99) - 1));
-    const p99Val = sortedValues[p99Idx] || 0;
-
-    // Automatically determine if logarithmic scale is needed to prevent peak squashing
-    const useLogScale = (absoluteMax / median) > 10 && absoluteMax > 10000;
+    // Automatically determine if logarithmic scale is needed to prevent peak squashing (evaluated using limitMax)
+    const useLogScale = (limitMax / median) > 10 && limitMax > 10000;
     
     // Transform values if log scale is enabled
     const transformValue = (val) => {
@@ -595,19 +586,22 @@ export default function LatencyDashboard() {
       return val;
     };
 
-    const values = rawValues.map(transformValue);
-    const maxValue = Math.max(...values) || 1000;
+    const values = displayValues.map(v => transformValue(Math.min(v, limitMax)));
+    const maxValue = transformValue(limitMax);
     const minValue = 0; // standard floor for RTT/latency
     const valueRange = (maxValue - minValue) || 1;
 
     // Build SVG coordinates
     const coordinates = dataPoints.map((dp, idx) => {
       const rawVal = activeTab === "hop" ? dp.hopLatency : dp.rttMicroseconds;
-      const val = transformValue(rawVal);
+      const isOutlier = rawVal > limitMax;
+      const val = transformValue(Math.min(rawVal, limitMax));
       const x = paddingLeft + (idx / Math.max(1, dataPoints.length - 1)) * chartWidth;
-      const y = paddingTop + chartHeight - ((val - minValue) / valueRange) * chartHeight;
+      const y = isOutlier
+        ? paddingTop + 2
+        : paddingTop + chartHeight - ((val - minValue) / valueRange) * chartHeight;
       const originalIndex = zoomRange ? zoomRange.start + idx : idx;
-      return { x, y, data: dp, val: rawVal, originalIndex };
+      return { x, y, data: dp, val: rawVal, originalIndex, isOutlier };
     });
 
     // Construct path line
@@ -646,7 +640,7 @@ export default function LatencyDashboard() {
 
     return (
       <div className="space-y-4">
-        <div className="relative w-full overflow-hidden rounded-xl border border-zinc-900 bg-zinc-950/20">
+        <div className="relative w-full overflow-visible rounded-xl border border-zinc-900 bg-zinc-950/20">
           {zoomRange && (
             <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
               <span className="text-[10px] font-mono text-[var(--text-muted)] bg-zinc-950/80 px-2 py-1 rounded border border-zinc-900">
@@ -767,9 +761,9 @@ export default function LatencyDashboard() {
                     key={idx}
                     cx={pt.x}
                     cy={pt.y}
-                    r={isHovered ? 6 : 4}
-                    fill={isHovered ? "var(--primary)" : "var(--background)"}
-                    stroke="var(--primary)"
+                    r={isHovered ? 6 : pt.isOutlier ? 3.5 : 4}
+                    fill={isHovered ? "var(--primary)" : pt.isOutlier ? "#ef4444" : "var(--background)"}
+                    stroke={pt.isOutlier ? "#ef4444" : "var(--primary)"}
                     strokeWidth={isHovered ? 3 : 2}
                     className="cursor-pointer transition-all duration-100"
                     onMouseEnter={(e) => {
@@ -778,7 +772,8 @@ export default function LatencyDashboard() {
                         val: pt.val,
                         data: pt.data,
                         x: pt.x,
-                        y: pt.y
+                        y: pt.y,
+                        isOutlier: pt.isOutlier
                       });
                     }}
                     onMouseLeave={() => setHoveredPoint(null)}
@@ -812,19 +807,32 @@ export default function LatencyDashboard() {
               className="absolute z-30 p-3 rounded-xl border pointer-events-none text-xs font-mono shadow-xl bg-zinc-950"
               style={{
                 background: "var(--card)",
-                borderColor: "var(--primary-border)",
-                left: `${Math.min(90, Math.max(10, ((hoveredPoint.x / svgWidth) * 100)))}%`,
-                top: hoveredPoint.y < svgHeight / 2 
+                borderColor: hoveredPoint.isOutlier ? "#ef4444" : "var(--primary-border)",
+                left: `${Math.min(85, Math.max(15, ((hoveredPoint.x / svgWidth) * 100)))}%`,
+                top: hoveredPoint.y < 80 
                   ? `${(hoveredPoint.y / svgHeight) * 100 + 6}%` 
-                  : `${(hoveredPoint.y / svgHeight) * 100 - 6}%`,
-                transform: hoveredPoint.y < svgHeight / 2 
+                  : hoveredPoint.y > svgHeight - 80 
+                    ? `${(hoveredPoint.y / svgHeight) * 100 - 6}%`
+                    : hoveredPoint.y < svgHeight / 2 
+                      ? `${(hoveredPoint.y / svgHeight) * 100 + 6}%` 
+                      : `${(hoveredPoint.y / svgHeight) * 100 - 6}%`,
+                transform: hoveredPoint.y < 80 
                   ? "translate(-50%, 0)" 
-                  : "translate(-50%, -100%)"
+                  : hoveredPoint.y > svgHeight - 80 
+                    ? "translate(-50%, -100%)"
+                    : hoveredPoint.y < svgHeight / 2 
+                      ? "translate(-50%, 0)" 
+                      : "translate(-50%, -100%)"
               }}
             >
               {activeTab === "hop" ? (
                 <>
-                  <p className="font-bold text-[var(--primary)] text-center mb-1">
+                  <p className="font-bold text-center mb-1 flex items-center justify-center gap-1.5" style={{ color: hoveredPoint.isOutlier ? "#ef4444" : "var(--primary)" }}>
+                    {hoveredPoint.isOutlier && (
+                      <span className="text-[9px] font-bold bg-red-950 text-red-400 px-1 py-0.5 rounded border border-red-900/30">
+                        Outlier
+                      </span>
+                    )}
                     Latency: {(hoveredPoint.val / 1000).toFixed(3)} ms
                   </p>
                   <div className="space-y-0.5 text-[10px] text-[var(--text-muted)]">
@@ -836,7 +844,12 @@ export default function LatencyDashboard() {
                 </>
               ) : (
                 <>
-                  <p className="font-bold text-[var(--primary)] text-center mb-1">
+                  <p className="font-bold text-center mb-1 flex items-center justify-center gap-1.5" style={{ color: hoveredPoint.isOutlier ? "#ef4444" : "var(--primary)" }}>
+                    {hoveredPoint.isOutlier && (
+                      <span className="text-[9px] font-bold bg-red-950 text-red-400 px-1 py-0.5 rounded border border-red-900/30">
+                        Outlier
+                      </span>
+                    )}
                     RTT: {(hoveredPoint.val / 1000).toFixed(3)} ms
                   </p>
                   <div className="space-y-0.5 text-[10px] text-[var(--text-muted)]">
@@ -994,12 +1007,53 @@ export default function LatencyDashboard() {
 
   const isProcessed = parsedData.length > 0;
 
-  const filteredLogs = parsedData.filter(
-    (m) =>
-      m.seqNum.includes(searchTerm) ||
+  // Calculate limitMax and cutoff calculations in component body scope
+  const allDataPoints = activeTab === "hop" 
+    ? parsedData.filter(d => d.hopLatency !== null)
+    : rttPairs;
+
+  const rawValues = allDataPoints.map(d => activeTab === "hop" ? d.hopLatency : d.rttMicroseconds);
+  const absoluteMax = rawValues.length > 0 ? Math.max(...rawValues) : 1000;
+  const sortedValues = [...rawValues].sort((a, b) => a - b);
+  const sortedAllValues = [...rawValues].sort((a, b) => a - b); // sorted values of active selection
+  const median = sortedValues.length > 0 ? sortedValues[Math.floor(sortedValues.length / 2)] : 1;
+
+  const p90Idx = Math.min(sortedValues.length - 1, Math.max(0, Math.ceil(sortedValues.length * 0.9) - 1));
+  const p90Val = sortedValues.length > 0 ? sortedValues[p90Idx] : 0;
+  const p99Idx = Math.min(sortedValues.length - 1, Math.max(0, Math.ceil(sortedValues.length * 0.99) - 1));
+  const p99Val = sortedValues.length > 0 ? sortedValues[p99Idx] : 0;
+
+  let cutoffValue = absoluteMax;
+  if (percentileScale === "99" && sortedAllValues.length > 0) {
+    const idx = Math.min(sortedAllValues.length - 1, Math.max(0, Math.ceil(sortedAllValues.length * 0.99) - 1));
+    cutoffValue = sortedAllValues[idx] || absoluteMax;
+  } else if (percentileScale === "95" && sortedAllValues.length > 0) {
+    const idx = Math.min(sortedAllValues.length - 1, Math.max(0, Math.ceil(sortedAllValues.length * 0.95) - 1));
+    cutoffValue = sortedAllValues[idx] || absoluteMax;
+  } else if (percentileScale === "90" && sortedAllValues.length > 0) {
+    const idx = Math.min(sortedAllValues.length - 1, Math.max(0, Math.ceil(sortedAllValues.length * 0.90) - 1));
+    cutoffValue = sortedAllValues[idx] || absoluteMax;
+  }
+
+  const limitMax = percentileScale === "max" ? absoluteMax : cutoffValue;
+
+  const filteredLogs = parsedData.filter((m) => {
+    const matchesSearch = m.seqNum.includes(searchTerm) ||
       m.msgTypeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (m.clOrdId && m.clOrdId.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+      (m.clOrdId && m.clOrdId.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    if (!matchesSearch) return false;
+
+    if (hideOutliersFromTable) {
+      if (activeTab === "hop") {
+        if (m.hopLatency !== null && m.hopLatency > limitMax) return false;
+      } else {
+        if (m.rttMicroseconds !== undefined && m.rttMicroseconds > limitMax) return false;
+      }
+    }
+
+    return true;
+  });
 
   const totalItems = filteredLogs.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -1206,16 +1260,41 @@ export default function LatencyDashboard() {
 
           {/* Diagnostic View Mode Bar */}
           <div 
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border"
+            className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 rounded-xl border"
             style={{ border: "1px solid var(--border)", background: "var(--card)" }}
           >
-            <div className=" hidden md:flex items-center gap-2">
-              <Info className="h-4 w-4 text-[var(--primary)]" />
-              <span className="text-xs font-semibold font-mono" style={{ color: "var(--text-muted)" }}>
-                Active Diagnostic View Mode (Controls all charts)
-              </span>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              
+              {/* Percentile Dropdown */}
+              <div className="flex items-center gap-1.5 text-xs font-mono">
+                <span className="text-[var(--text-muted)]">Bounds:</span>
+                <select
+                  value={percentileScale}
+                  onChange={(e) => setPercentileScale(e.target.value)}
+                  className="bg-zinc-950 border border-zinc-900 text-[10px] font-mono rounded p-2 outline-none text-[var(--foreground)] focus:border-[var(--primary)] transition-colors cursor-pointer"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <option value="max">Max (Unfiltered)</option>
+                  <option value="99">99th Percentile</option>
+                  <option value="95">95th Percentile</option>
+                  <option value="90">90th Percentile</option>
+                </select>
+              </div>
+
+              {/* Hide Outliers Table Toggle */}
+              <label className="flex items-center gap-2 text-xs font-mono cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hideOutliersFromTable}
+                  onChange={(e) => setHideOutliersFromTable(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded bg-zinc-950 text-[var(--primary)] focus:ring-[var(--primary)] cursor-pointer"
+                  style={{ borderColor: "var(--border)" }}
+                />
+                <span className="text-[var(--text-muted)]">Hide Outliers</span>
+              </label>
             </div>
-            <div className="fx-tab-group">
+            
+            <div className="fx-tab-group shrink-0">
               <button
                 className={`fx-tab${activeTab === "hop" ? " active" : ""}`}
                 onClick={() => setActiveTab("hop")}
