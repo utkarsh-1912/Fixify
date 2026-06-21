@@ -29,6 +29,7 @@ import {
   Info
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
+import SohVisualizer from '@/components/SohVisualizer';
 
 // ─── Audit Rule Definitions ──────────────────────────────────────────────────
 const AUDIT_RULES = [
@@ -957,6 +958,19 @@ export default function SecurityAuditorPage() {
           />
         )}
 
+        {inputType === 'paste' && rawLogs.trim() && (
+          <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {rawLogs.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
+                <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                  <SohVisualizer content={line} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2 justify-end">
           <button
             onClick={handleLoadDemo}
@@ -1367,6 +1381,14 @@ export default function SecurityAuditorPage() {
                               );
                             })}
                           </div>
+                          {selectedMsg.raw && (
+                            <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+                              <p className="text-[10px] font-bold uppercase tracking-wider mb-2 font-mono" style={{ color: 'var(--text-muted)' }}>Raw Message</p>
+                              <div className="p-3 rounded-lg text-[10px] break-all font-mono max-h-24 overflow-y-auto" style={{ background: 'var(--background)', border: '1px solid var(--border)' }}>
+                                <SohVisualizer content={selectedMsg.raw} />
+                              </div>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="flex-1 flex items-center justify-center">

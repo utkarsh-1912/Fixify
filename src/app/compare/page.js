@@ -513,7 +513,7 @@ export default function FIXComparePage() {
               { label: 'FIX Message 1', value: msg1, set: setMsg1, ph: '8=FIX.4.2|9=65|35=D|11=ORDER_001|…' },
               { label: 'FIX Message 2', value: msg2, set: setMsg2, ph: '8=FIX.4.2|9=68|35=D|11=ORDER_001|…' },
             ].map((field, i) => (
-              <div key={i} className="space-y-2">
+              <div key={i} className="space-y-2 flex flex-col">
                 <label className="fx-section-label">{field.label}</label>
                 <textarea
                   value={field.value}
@@ -524,6 +524,12 @@ export default function FIXComparePage() {
                   onFocus={e => e.target.style.borderColor = 'var(--primary)'}
                   onBlur={e => e.target.style.borderColor = 'var(--border)'}
                 />
+                {field.value.trim() && (
+                  <div className="p-3.5 rounded-xl border select-all max-h-36 overflow-y-auto" style={{ background: 'var(--card)', borderColor: 'var(--border-subtle)' }}>
+                    <span className="text-[9px] font-bold block mb-1 opacity-70">Payload Preview (First line):</span>
+                    <SohVisualizer content={field.value.split('\n')[0]} delimiter={delimiter} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -830,15 +836,23 @@ export default function FIXComparePage() {
                       )}
                     </div>
                   ) : (
-                    <textarea
-                      value={panel.content}
-                      onChange={(e) => panel.setContent(e.target.value)}
-                      placeholder="Paste log content here…"
-                      className="w-full h-44 p-3.5 rounded-xl resize-none text-xs font-mono"
-                      style={inputStyle}
-                      onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                      onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                    />
+                    <div className="space-y-3">
+                      <textarea
+                        value={panel.content}
+                        onChange={(e) => panel.setContent(e.target.value)}
+                        placeholder="Paste log content here…"
+                        className="w-full h-44 p-3.5 rounded-xl resize-none text-xs font-mono"
+                        style={inputStyle}
+                        onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                      />
+                      {panel.content.trim() && (
+                        <div className="p-3 rounded-xl border select-all max-h-24 overflow-y-auto" style={{ background: 'var(--background)', borderColor: 'var(--border-subtle)' }}>
+                          <span className="text-[9px] font-bold block mb-1 opacity-70">Payload Preview (First line):</span>
+                          <SohVisualizer content={panel.content.split('\n')[0]} delimiter={delimiter} />
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

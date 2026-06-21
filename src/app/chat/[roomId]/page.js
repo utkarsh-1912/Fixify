@@ -29,6 +29,7 @@ import {
   MoreVertical
 } from "lucide-react";
 import { encryptMessage, decryptMessage } from "@/lib/cipher";
+import SohVisualizer from "@/components/SohVisualizer";
 
 const reactionEmojis = ["👍", "😂", "❤️", "🔥", "😢"];
 
@@ -1160,7 +1161,14 @@ export default function RoomChatPage({ params }) {
                       fontWeight: isSelf ? 600 : 400,
                     }}
                   >
-                    <p className="text-[11px] sm:text-xs leading-relaxed">{decryptedText}</p>
+                    {(/^8=FIX\./i.test(decryptedText.trim()) || decryptedText.includes('\x01') || decryptedText.includes('\u0001') || (decryptedText.includes('|') && decryptedText.includes('8=FIX'))) ? (
+                      <div className="space-y-1.5 mt-1 select-all">
+                        <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider mb-1 font-mono">FIX Message (SOH Visualizer):</div>
+                        <SohVisualizer content={decryptedText} />
+                      </div>
+                    ) : (
+                      <p className="text-[11px] sm:text-xs leading-relaxed">{decryptedText}</p>
+                    )}
                     <div
                       className="text-[8px] sm:text-[9px] mt-1 text-right"
                       style={{ color: isSelf ? "rgba(0,0,0,0.4)" : "var(--text-muted)" }}
@@ -1445,7 +1453,14 @@ export default function RoomChatPage({ params }) {
                           <span className="font-bold text-emerald-400 text-[10px]">{m.sender}</span>
                           <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>{time}</span>
                         </div>
-                        <p style={{ color: "var(--foreground)" }}>{decryptedText}</p>
+                        {(/^8=FIX\./i.test(decryptedText.trim()) || decryptedText.includes('\x01') || decryptedText.includes('\u0001') || (decryptedText.includes('|') && decryptedText.includes('8=FIX'))) ? (
+                          <div className="space-y-1 select-all mt-1">
+                            <div className="text-[8px] font-bold text-indigo-400 uppercase tracking-wider mb-1 font-mono">FIX Message (SOH Visualizer):</div>
+                            <SohVisualizer content={decryptedText} />
+                          </div>
+                        ) : (
+                          <p style={{ color: "var(--foreground)" }}>{decryptedText}</p>
+                        )}
                         <button
                           onClick={(e) => { e.stopPropagation(); handleTogglePin(m.id); }}
                           className="text-[9px] text-red-400 hover:underline flex items-center gap-0.5 mt-1"

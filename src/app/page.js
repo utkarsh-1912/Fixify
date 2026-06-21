@@ -1676,20 +1676,34 @@ export default function LogsProcessorPage() {
             )}
           </div>
         ) : (
-          <textarea
-            value={pastedText}
-            onChange={(e) => setPastedText(e.target.value)}
-            placeholder={"Paste raw FIX logs (one per line)…\ne.g. 8=FIX.4.2|9=65|35=A|...\n    8=FIX.4.2\x019=85\x0135=D|..."}
-            className="w-full h-64 p-4 rounded-xl resize-none text-xs font-mono"
-            style={{
-              background: 'var(--background)',
-              border: '1px solid var(--border)',
-              color: 'var(--foreground)',
-              outline: 'none',
-            }}
-            onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-            onBlur={e => e.target.style.borderColor = 'var(--border)'}
-          />
+          <div className="space-y-3">
+            <textarea
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+              placeholder={"Paste raw FIX logs (one per line)…\ne.g. 8=FIX.4.2|9=65|35=A|...\n    8=FIX.4.2\x019=85\x0135=D|..."}
+              className="w-full h-64 p-4 rounded-xl resize-none text-xs font-mono"
+              style={{
+                background: 'var(--background)',
+                border: '1px solid var(--border)',
+                color: 'var(--foreground)',
+                outline: 'none',
+              }}
+              onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            />
+            {pastedText.trim() && (
+              <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {pastedText.split('\n').filter(l => l.trim()).slice(0, 3).map((line, idx) => (
+                    <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                      <SohVisualizer content={line} delimiter={delimiter} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

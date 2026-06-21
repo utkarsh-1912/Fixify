@@ -1267,12 +1267,27 @@ export default function MissingFillsPage() {
                     <p className="text-[10px] text-[var(--text-muted)]">Supports .log, .txt files</p>
                   </div>
                 ) : (
-                  <textarea
-                    placeholder="Paste raw FIX messages here (one message per line, SOH or '|' delimited)..."
-                    onChange={(e) => setFixRawText(e.target.value)}
-                    className="w-full h-40 p-3 text-[10px] font-mono rounded-xl border outline-none transition-all resize-none focus:border-[var(--primary)] text-[var(--foreground)] placeholder-[var(--text-muted)]"
-                    style={{ borderColor: 'var(--border)', backgroundColor: 'var(--background)' }}
-                  />
+                  <div className="flex flex-col gap-2 flex-1">
+                    <textarea
+                      value={fixRawText}
+                      placeholder="Paste raw FIX messages here (one message per line, SOH or '|' delimited)..."
+                      onChange={(e) => setFixRawText(e.target.value)}
+                      className="w-full h-40 p-3 text-[10px] font-mono rounded-xl border outline-none transition-all resize-none focus:border-[var(--primary)] text-[var(--foreground)] placeholder-[var(--text-muted)]"
+                      style={{ borderColor: 'var(--border)', backgroundColor: 'var(--background)' }}
+                    />
+                    {fixRawText.trim() && (
+                      <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {fixRawText.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
+                            <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                              <SohVisualizer content={line} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

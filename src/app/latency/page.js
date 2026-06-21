@@ -20,7 +20,7 @@ import {
   ChevronsLeft,
   ChevronsRight
 } from "lucide-react";
-
+import SohVisualizer from "@/components/SohVisualizer";
 // Standard parser helpers specifically for latency tracking
 function extractTagValue(line, tag, delimiter = "|") {
   if (!line) return "";
@@ -1161,6 +1161,18 @@ export default function LatencyDashboard() {
                     onBlur={e => e.target.style.borderColor = "var(--border)"}
                     disabled={loading}
                   />
+                  {pastedText.trim() && (
+                    <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2 mt-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {pastedText.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
+                          <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                            <SohVisualizer content={line} delimiter={delimiter} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={() => processLatencyLogs(pastedText)}
                     disabled={!pastedText.trim() || loading}
