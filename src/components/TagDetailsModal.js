@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, BookOpen, Layers, Info, Hash, ArrowRight } from 'lucide-react';
+import { getCustomDialect } from '@/lib/dialect';
 import fixDescriptions from '@/data/fix-description.json';
 import fix40 from '@/data/FIX/FIX40.json';
 import fix42 from '@/data/FIX/FIX42.json';
@@ -93,12 +94,19 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
   const dictData = DICTS[version] || DICTS["FIX.4.4"];
   const fieldInfo = dictData?.fields?.find((f) => String(f.tag) === tagStr) || {};
 
+  // Check custom dialect
+  const customDialect = getCustomDialect();
+  const customFieldInfo = customDialect?.fields?.find((f) => String(f.tag) === tagStr);
+
   // Final metadata
-  const tagName = fieldInfo.name || descInfo.name || `CustomTag_${tagStr}`;
-  const tagType = fieldInfo.type || "UNKNOWN";
-  const description = descInfo.description || "No description available for this tag.";
+  const isCustomDialectField = !!customFieldInfo;
+  const tagName = customFieldInfo?.name || fieldInfo.name || descInfo.name || `CustomTag_${tagStr}`;
+  const tagType = customFieldInfo?.type || fieldInfo.type || "UNKNOWN";
+  const description = isCustomDialectField 
+    ? `Custom field defined in your uploaded XML dialect schema (${customDialect.version}).`
+    : (descInfo.description || "No description available for this tag.");
   const note = descInfo.note || null;
-  const enums = fieldInfo.values || [];
+  const enums = customFieldInfo?.values || fieldInfo.values || [];
 
   const relatedTags = TAG_RELATIONS[tagStr] || [];
   const normalize = (str) => String(str).toLowerCase().replace(/_/g, ' ');
@@ -151,6 +159,11 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
                 <span className="text-[10px] uppercase font-mono font-bold bg-[var(--primary-faint)] text-[var(--primary)] px-2 py-0.5 rounded border border-[var(--primary-border)]">
                   {version}
                 </span>
+                {isCustomDialectField && (
+                  <span className="text-[10px] uppercase font-mono font-bold bg-amber-950/40 text-amber-400 px-2 py-0.5 rounded border border-amber-900/30">
+                    Custom Dialect
+                  </span>
+                )}
               </div>
             </div>
           </div>

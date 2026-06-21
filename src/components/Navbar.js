@@ -23,7 +23,11 @@ import {
   ArrowRightLeft,
   ShieldCheck,
   Radio,
-  ShieldAlert
+  ShieldAlert,
+  Layers,
+  EyeOff,
+  BarChart3,
+  GitBranch
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 
@@ -49,6 +53,11 @@ export default function Navbar() {
     { href: '/fixtags',     label: 'FIX Dictionary',  icon: BookOpen,      short: 'Dict', desc: 'Interactive FIX tag and enums specs dictionary explorer.', inMenu: false },
     { href: '/security-auditor', label: 'FIX Security Auditor', icon: ShieldAlert, short: 'Security', desc: 'Scan logs for replay windows, plaintext credentials, SOH injection, and hijack vulnerabilities.', inMenu: false },
     { href: '/live-streaming', label: 'Live Stream Simulator', icon: Radio, short: 'Live Stream', desc: 'Simulate live FIX session socket streaming with dynamic timelines.', inMenu: false },
+    { href: '/payload-generator', label: 'FIX Message Generator', icon: Layers, short: 'Generator', desc: 'Compose valid test FIX message payloads with real-time length and checksum validation.', inMenu: false },
+    { href: '/log-sanitizer', label: 'Log Sanitizer & Anonymizer', icon: EyeOff, short: 'Sanitizer', desc: 'Mask sensitive fields like credentials, CompIDs, prices, and sizes in raw logs.', inMenu: false },
+    { href: '/execution-analytics', label: 'Execution Analytics', icon: BarChart3, short: 'Analytics', desc: 'Reconstruct raw logs into performance KPI dashboards and fill rates.', inMenu: false },
+    { href: '/session-reconstructor', label: 'Session Reconstructor', icon: GitBranch, short: 'Reconstructor', desc: 'Trace and chart bidirectional sequence syncing handshakes, heartbeats, and gap recoveries.', inMenu: false },
+    { href: '/custom-dialect', label: 'Custom Dialect Manager', icon: BookOpen, short: 'Dialect', desc: 'Upload custom QuickFIX XML dictionaries to map proprietary tags (5000-9999).', inMenu: false },
   ];
 
   // Apply saved settings and track page visits on mount/pathchange

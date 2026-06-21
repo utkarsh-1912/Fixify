@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BookOpen, Search, ChevronRight, HelpCircle, Upload, Trash2, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, ChevronLeft } from 'lucide-react';
+import Link from 'next/link';
+import { BookOpen, Search, ChevronRight, HelpCircle, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, ChevronLeft, Upload } from 'lucide-react';
 import TagDetailsModal from '@/components/TagDetailsModal';
-import { parseQuickFixXml, getCustomDialect, clearCustomDialectCache } from '@/lib/dialect';
+import { getCustomDialect } from '@/lib/dialect';
 
 import fix40 from '@/data/FIX/FIX40.json';
 import fix42 from '@/data/FIX/FIX42.json';
@@ -53,7 +54,6 @@ export default function FIXDictionaryPage() {
 
   // Custom dialect states
   const [customDialect, setCustomDialect] = useState(null);
-  const [uploadError, setUploadError] = useState("");
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -159,39 +159,7 @@ export default function FIXDictionaryPage() {
     return filteredFields.slice(start, start + pageSize);
   }, [filteredFields, currentPage, pageSize]);
 
-  // Upload XML dialect
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = parseQuickFixXml(reader.result);
-        if (parsed) {
-          localStorage.setItem('fixify-custom-dialect', JSON.stringify(parsed));
-          clearCustomDialectCache();
-          setCustomDialect(parsed);
-          setSelectedVersion(parsed.version);
-          setUploadError("");
-        }
-      } catch (err) {
-        setUploadError(err.message || "Failed to parse QuickFIX XML.");
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  // Delete custom dialect
-  const removeCustomDialect = () => {
-    localStorage.removeItem('fixify-custom-dialect');
-    clearCustomDialectCache();
-    setCustomDialect(null);
-    if (selectedVersion === (customDialect?.version || "")) {
-      setSelectedVersion("FIX.4.4");
-    }
-    setUploadError("");
-  };
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
@@ -202,62 +170,18 @@ export default function FIXDictionaryPage() {
             <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}>
               <BookOpen className="h-5 w-5" style={{ color: 'var(--primary)' }} />
             </div>
-            FIX Dictionary Explorer
+            <span>FIX Dictionary Explorer</span>
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Lookup tag specifications, data types, usage notes, and allowed enum values.
           </p>
         </div>
-      </div>
-
-      {/* Custom XML Dialect Uploader Card */}
-      <div
-        className="p-5 rounded-2xl border border-zinc-800 bg-zinc-900/10 space-y-4"
-        style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-400">
-              Custom XML Dialect Schema
-            </h3>
-            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              Upload a QuickFIX XML schema file (e.g. <code>FIX44-Custom.xml</code>) to override standard tag and enum definitions globally.
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-3 shrink-0">
-            {customDialect ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono" style={{ background: 'var(--background)', border: '1px solid var(--border)' }}>
-                <span className="text-emerald-400 font-bold">✓ Active:</span>
-                <span className="text-zinc-350">{customDialect.version}</span>
-                <button
-                  onClick={removeCustomDialect}
-                  className="ml-2 hover:text-red-400 text-zinc-500 transition-colors"
-                  title="Remove Custom Dialect"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <label className="fx-btn-secondary py-1.5 px-3 cursor-pointer text-xs font-mono flex items-center gap-1.5">
-                <Upload className="h-3.5 w-3.5" />
-                <span>Upload XML Schema</span>
-                <input
-                  type="file"
-                  accept=".xml"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-            )}
-          </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href="/custom-dialect" className="fx-btn-secondary py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer">
+            <Upload className="h-3.5 w-3.5" />
+            <span>Manage Custom Dialect</span>
+          </Link>
         </div>
-        
-        {uploadError && (
-          <p className="text-xs text-red-400 font-mono">
-            ⚠️ {uploadError}
-          </p>
-        )}
       </div>
 
       {/* Toolbar Filter */}
