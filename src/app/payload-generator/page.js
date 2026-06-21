@@ -88,6 +88,7 @@ export default function PayloadGeneratorPage() {
   
   // Copy state
   const [copied, setCopied] = useState(false);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
   
   // Timer for current time
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -357,6 +358,13 @@ export default function PayloadGeneratorPage() {
               <Layers className="h-5 w-5" style={{ color: 'var(--primary)' }} />
             </div>
             <span>FIX Message Generator</span>
+            <button
+              onClick={() => setInfoModalOpen(true)}
+              className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer"
+              title="View help & usage guide"
+            >
+              <Info className="h-4 w-4" />
+            </button>
           </h1>
           <p className="text-sm text-[var(--text-muted)]">
             Compose valid test FIX messages with real-time length audits, checksum validation, and dynamic schema forms.
@@ -829,6 +837,54 @@ export default function PayloadGeneratorPage() {
 
         </div>
       </div>
+
+      {infoModalOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+            onClick={() => setInfoModalOpen(false)}
+          />
+          <div
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg z-50 p-6 rounded-2xl border shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] overflow-hidden"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b pb-4 mb-4" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-[var(--primary)]" />
+                <h3 className="text-sm font-bold uppercase tracking-wider font-mono">Usage &amp; Help Guide</h3>
+              </div>
+              <button
+                onClick={() => setInfoModalOpen(false)}
+                className="text-zinc-500 hover:text-[var(--foreground)] transition-colors text-xs font-semibold font-mono cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed scrollbar-thin">
+              <div className="space-y-2">
+                <p className="font-bold text-[var(--foreground)]">What is the FIX Message Generator?</p>
+                <p className="text-[var(--text-muted)] text-[11px] leading-relaxed">
+                  This tool acts as an interactive payload builder to compile valid test messages. It manages the required protocol fields and automatically recalculates the standard BodyLength (Tag 9) and CheckSum (Tag 10) headers in real-time as you modify details.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-bold text-[var(--foreground)]">How to use:</p>
+                <ul className="list-disc pl-4 space-y-1 text-[var(--text-muted)] text-[11px] leading-relaxed">
+                  <li><strong>Select Version &amp; MsgType:</strong> Choose your target FIX protocol version and message type (e.g. Logon, New Order Single, Cancel, Reject).</li>
+                  <li><strong>Populate Fields:</strong> Edit standard fields inside the generated form. You can also append custom tags with custom values.</li>
+                  <li><strong>Real-time Math Cards:</strong> Trace the step-by-step diagnostic cards illustrating how the exact BodyLength bytes and modulo 256 Checksum values are calculated.</li>
+                  <li><strong>View Output Formats:</strong> Switch tabs to copy or inspect the message in SOH Visual (colored tags), Pipe (`|`), Hex Dump, or JSON structure.</li>
+                  <li><strong>Conformance Auditor:</strong> Review the compliance checklist at the bottom indicating if mandatory tags (like `38` order quantity, or `44` price) are missing or invalid.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

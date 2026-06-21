@@ -150,8 +150,18 @@ export const extractTimestamp = (line, customDelimiter) => {
  * Checks structure, checksum (modulo 256), and body length.
  */
 export const validateFIXMessage = (rawMessage, customDelimiter) => {
-  const line = rawMessage.trim();
+  let line = rawMessage.trim();
   if (!line) return null;
+
+  // Clean log prefix if any (find where the FIX message starts)
+  const fixStartIdx = line.indexOf('8=FIX.');
+  const fixtStartIdx = line.indexOf('8=FIXT.');
+  if (fixStartIdx !== -1) {
+    line = line.substring(fixStartIdx);
+  } else if (fixtStartIdx !== -1) {
+    line = line.substring(fixtStartIdx);
+  }
+
 
   // Determine separator
   let sep = '\x01';

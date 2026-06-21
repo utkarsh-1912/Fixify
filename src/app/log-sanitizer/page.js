@@ -13,7 +13,9 @@ import {
   Layers,
   Settings,
   Lock,
-  Download
+  Download,
+  Trash2,
+  Info
 } from 'lucide-react';
 
 export default function LogSanitizerPage() {
@@ -23,6 +25,8 @@ export default function LogSanitizerPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSetup, setShowSetup] = useState(true);
   const [inputMode, setInputMode] = useState('file'); // 'file' or 'paste'
+  const [fileName, setFileName] = useState('');
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   // Masking configuration
   const [maskCredentials, setMaskCredentials] = useState(true);
@@ -51,20 +55,28 @@ export default function LogSanitizerPage() {
     setStats({ messageCount: 0, fieldsMasked: 0, byteReduction: 0 });
     setCopied(false);
     setShowSetup(true);
+    setFileName('');
   };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (event) => {
-      setInputText(event.target.result);
+      const textContent = event.target.result;
+      setInputText(textContent);
+      performSanitize(textContent);
     };
     reader.readAsText(file);
   };
 
   const handleSanitize = () => {
-    if (!inputText.trim()) return;
+    performSanitize(inputText);
+  };
+
+  const performSanitize = (text) => {
+    if (!text.trim()) return;
     setIsProcessing(true);
 
     setTimeout(() => {
@@ -179,7 +191,7 @@ export default function LogSanitizerPage() {
       setStats({
         messageCount: totalMessages,
         fieldsMasked: totalMasked,
-        byteReduction: inputText.length - output.length
+        byteReduction: text.length - output.length
       });
       setIsProcessing(false);
       setShowSetup(false);
@@ -233,20 +245,44 @@ export default function LogSanitizerPage() {
 
       <div className="space-y-3">
         {inputMode === 'file' ? (
-          <label
-            className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg cursor-pointer hover:bg-zinc-800/10 dark:hover:bg-zinc-855/20 transition-all text-center"
-            style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
-          >
-            <Upload className="h-6 w-6 text-[var(--text-muted)] mb-2" />
-            <span className="text-xs font-semibold text-[var(--primary)]">Choose Log File</span>
-            <p className="text-[10px] text-[var(--text-muted)] mt-1">Supports .txt · .fix · .log</p>
-            <input
-              type="file"
-              accept=".txt,.log,.fix"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </label>
+          fileName ? (
+            <div className="p-6 rounded-lg border flex items-center justify-between" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-[var(--primary-faint)] border border-[var(--primary-border)] shrink-0">
+                  <FileText className="h-4 w-4 text-[var(--primary)]" />
+                </div>
+                <div className="truncate text-left">
+                  <p className="text-xs font-mono font-bold truncate text-[var(--foreground)]" title={fileName}>
+                    {fileName}
+                  </p>
+                  <p className="text-[9px] text-[var(--text-muted)]">File loaded successfully</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setFileName(''); setInputText(''); }}
+                className="h-7 w-7 rounded-lg border flex items-center justify-center text-[var(--text-muted)] hover:text-red-400 hover:border-red-500/30 transition-all cursor-pointer"
+                style={{ borderColor: 'var(--border)' }}
+                title="Remove file"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <label
+              className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg cursor-pointer hover:bg-zinc-800/10 dark:hover:bg-zinc-855/20 transition-all text-center"
+              style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+            >
+              <Upload className="h-6 w-6 text-[var(--text-muted)] mb-2" />
+              <span className="text-xs font-semibold text-[var(--primary)]">Choose Log File</span>
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">Supports .txt · .fix · .log</p>
+              <input
+                type="file"
+                accept=".txt,.log,.fix"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+          )
         ) : (
           <textarea
             value={inputText}
@@ -384,6 +420,13 @@ export default function LogSanitizerPage() {
               <EyeOff className="h-5 w-5" style={{ color: 'var(--primary)' }} />
             </div>
             <span>Log Sanitizer &amp; Anonymizer</span>
+            <button
+              onClick={() => setInfoModalOpen(true)}
+              className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer"
+              title="View help & usage guide"
+            >
+              <Info className="h-4 w-4" />
+            </button>
           </h1>
           <p className="text-sm text-[var(--text-muted)]">
             Mask credentials, client identifiers, prices, and sizes in raw logs. Auto-recalculates checksums and lengths.
@@ -488,6 +531,54 @@ export default function LogSanitizerPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {infoModalOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+            onClick={() => setInfoModalOpen(false)}
+          />
+          <div
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg z-50 p-6 rounded-2xl border shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] overflow-hidden"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b pb-4 mb-4" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-[var(--primary)]" />
+                <h3 className="text-sm font-bold uppercase tracking-wider font-mono">Usage & Help Guide</h3>
+              </div>
+              <button
+                onClick={() => setInfoModalOpen(false)}
+                className="text-zinc-500 hover:text-[var(--foreground)] transition-colors text-xs font-semibold font-mono cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed scrollbar-thin">
+              <div className="space-y-2">
+                <p className="font-bold text-[var(--foreground)]">What is the Log Sanitizer &amp; Anonymizer?</p>
+                <p className="text-[var(--text-muted)] text-[11px] leading-relaxed">
+                  Raw FIX logs often contain sensitive client identifiers, passwords, transaction prices, or sizes. The Sanitizer masks these fields using customizable substitution tokens while automatically recalculating the standard MsgLength (9) and CheckSum (10) headers to ensure the parsed logs remain compatible with external test systems or debuggers.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-bold text-[var(--foreground)]">How to use:</p>
+                <ul className="list-disc pl-4 space-y-1 text-[var(--text-muted)] text-[11px] leading-relaxed">
+                  <li><strong>Upload / Paste Logs:</strong> Choose a file or select Paste tab to insert your raw FIX log stream.</li>
+                  <li><strong>Select Masking Rules:</strong> Toggle rules to mask Credentials (e.g. tag 554), CompIDs (e.g. tag 49), Prices (e.g. tag 44), and Sizes (e.g. tag 38).</li>
+                  <li><strong>Custom Tags:</strong> Enter additional custom tag numbers separated by commas (e.g., <code>115,120</code>) to mask counterparty-specific tags.</li>
+                  <li><strong>Mask replacement:</strong> Specify your replacement string (defaults to <code>[MASKED]</code>).</li>
+                  <li><strong>Download & Copy:</strong> Retrieve the sanitized logs, review stats detailing byte reductions, and copy or download the anonymized stream.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

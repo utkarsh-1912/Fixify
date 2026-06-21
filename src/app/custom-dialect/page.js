@@ -24,6 +24,7 @@ export default function CustomDialectPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   useEffect(() => {
     const custom = getCustomDialect();
@@ -102,6 +103,13 @@ export default function CustomDialectPage() {
               <BookOpen className="h-5 w-5" style={{ color: 'var(--primary)' }} />
             </div>
             <span>Custom XML Dialect Schema</span>
+            <button
+              onClick={() => setInfoModalOpen(true)}
+              className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-all cursor-pointer"
+              title="View help & usage guide"
+            >
+              <Info className="h-4 w-4" />
+            </button>
           </h1>
           <p className="text-sm text-[var(--text-muted)]">
             Upload custom QuickFIX XML dictionaries to dynamically translate counterparty-specific tags (e.g. range 5000–9999) inside parsed log views.
@@ -308,6 +316,54 @@ export default function CustomDialectPage() {
           </div>
         </div>
       </div>
+
+      {infoModalOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+            onClick={() => setInfoModalOpen(false)}
+          />
+          <div
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg z-50 p-6 rounded-2xl border shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] overflow-hidden"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b pb-4 mb-4" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-[var(--primary)]" />
+                <h3 className="text-sm font-bold uppercase tracking-wider font-mono">Usage & Help Guide</h3>
+              </div>
+              <button
+                onClick={() => setInfoModalOpen(false)}
+                className="text-zinc-500 hover:text-[var(--foreground)] transition-colors text-xs font-semibold font-mono cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed scrollbar-thin">
+              <div className="space-y-2">
+                <p className="font-bold text-[var(--foreground)]">What is the Custom XML Dialect Manager?</p>
+                <p className="text-[var(--text-muted)] text-[11px] leading-relaxed">
+                  FIX counterparties frequently use proprietary tags in the range of 5000–9999 for customized execution reporting. This page allows you to upload a standard QuickFIX XML dialect schema to dynamically translate those custom tags in all log, session reconstruction, and comparator views.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-bold text-[var(--foreground)]">How to use:</p>
+                <ul className="list-disc pl-4 space-y-1 text-[var(--text-muted)] text-[11px] leading-relaxed">
+                  <li><strong>Upload File:</strong> Click "Choose Schema File" to import a standard <code>.xml</code> QuickFIX dictionary file containing field definitions and enum values.</li>
+                  <li><strong>Paste Schema:</strong> Switch to the "Paste" tab to directly paste raw XML dictionary text and click "Load XML Dialect".</li>
+                  <li><strong>Active Indicator:</strong> A successful load will display the parsed dialect version and count of fields. The dialect becomes active globally.</li>
+                  <li><strong>Tag Dictionary Explorer:</strong> Browse, filter, and inspect the parsed custom tags, types, and enum descriptions in the table.</li>
+                  <li><strong>Revert:</strong> Click "Remove" inside the active card to erase custom configurations and fall back to standard FIX protocol tags.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
