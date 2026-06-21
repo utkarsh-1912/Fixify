@@ -19,6 +19,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import { validateFIXMessage, getValueMeaning, getTagName } from "@/lib/fixParser";
+import SohVisualizer from "@/components/SohVisualizer";
 
 // Standard CSV/TSV Parser with double-quote handling
 function parseCSV(text) {
@@ -1609,8 +1610,8 @@ export default function MissingFillsPage() {
 
                     <div className="space-y-2 text-[11px]">
                       <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw FIX Message (Line {selectedResultItem.fix.lineIndex})</span>
-                      <div className="p-3 rounded-lg text-[10px] font-mono break-all max-h-32 overflow-y-auto bg-[var(--background)] text-[var(--foreground)]">
-                        {selectedResultItem.fix.rawMessage}
+                      <div className="p-3 rounded-lg text-[10px] font-mono break-all max-h-36 overflow-y-auto bg-[var(--background)]">
+                        <SohVisualizer content={selectedResultItem.fix.rawMessage} />
                       </div>
                     </div>
                   </div>

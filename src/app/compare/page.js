@@ -19,6 +19,7 @@ import { validateFIXMessage, getTagValue } from "@/lib/fixParser";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
 import TagDetailsModal from "@/components/TagDetailsModal";
 import { getCustomDialect } from "@/lib/dialect";
+import SohVisualizer from "@/components/SohVisualizer";
 
 // Import FIX version dictionaries
 import fix40 from "@/data/FIX/FIX40.json";
@@ -581,8 +582,8 @@ export default function FIXComparePage() {
                 {/* Message validation status cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
-                    { label: 'Message 1', valid: activePair.isValid1, count: activePair.tagCount1, errors: activePair.errors1 },
-                    { label: 'Message 2', valid: activePair.isValid2, count: activePair.tagCount2, errors: activePair.errors2 },
+                    { label: 'Message 1', valid: activePair.isValid1, count: activePair.tagCount1, errors: activePair.errors1, raw: activePair.line1 },
+                    { label: 'Message 2', valid: activePair.isValid2, count: activePair.tagCount2, errors: activePair.errors2, raw: activePair.line2 },
                   ].map((p, i) => (
                     <div
                       key={i}
@@ -603,11 +604,19 @@ export default function FIXComparePage() {
                         </span>
                       </div>
                       {!p.valid && p.errors && p.errors.length > 0 && (
-                        <ul className="pl-7 list-disc text-[10px] space-y-0.5" style={{ color: '#ef4444' }}>
+                        <ul className="pl-7 list-disc text-[10px] space-y-0.5 font-sans mb-1.5" style={{ color: '#ef4444' }}>
                           {p.errors.map((err, idx) => (
                             <li key={idx}>{err}</li>
                           ))}
                         </ul>
+                      )}
+                      {p.raw && (
+                        <div className="mt-2 pt-2 border-t border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <span className="text-[9px] font-bold block mb-1 opacity-70">Raw Message Payload:</span>
+                          <div className="p-2.5 rounded bg-zinc-950/40 max-h-24 overflow-y-auto select-all">
+                            <SohVisualizer content={p.raw} delimiter={delimiter} />
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -979,11 +988,11 @@ export default function FIXComparePage() {
                         </div>
                         <div className="p-2.5 rounded-lg break-all" style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)', color: 'var(--primary)' }}>
                           <span className="text-[9px] font-bold block mb-0.5 opacity-60">FILE 1:</span>
-                          {msg1.line}
+                          <SohVisualizer content={msg1.line} delimiter={delimiter} />
                         </div>
                         <div className="p-2.5 rounded-lg break-all" style={{ background: 'var(--card-hover)', border: '1px solid var(--border)', color: 'var(--foreground)' }}>
                           <span className="text-[9px] font-bold block mb-0.5" style={{ color: 'var(--text-muted)' }}>FILE 2:</span>
-                          {msg2.line}
+                          <SohVisualizer content={msg2.line} delimiter={delimiter} />
                         </div>
                       </div>
                     ))}
@@ -1001,7 +1010,9 @@ export default function FIXComparePage() {
                         {modalContent.data.map((msg, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                             <td className="py-2.5 px-4 text-center font-bold" style={{ color: 'var(--text-muted)', borderRight: '1px solid var(--border)' }}>{msg.lineNumber}</td>
-                            <td className="py-2.5 px-4 break-all" style={{ color: 'var(--foreground)' }}>{msg.line}</td>
+                            <td className="py-2.5 px-4 break-all" style={{ color: 'var(--foreground)' }}>
+                              <SohVisualizer content={msg.line} delimiter={delimiter} />
+                            </td>
                           </tr>
                         ))}
                       </tbody>

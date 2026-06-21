@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
 import TagDetailsModal from "@/components/TagDetailsModal";
+import SohVisualizer from "@/components/SohVisualizer";
 
 export default function InterpreterPage() {
   const [messages, setMessages] = useState([
@@ -202,7 +203,7 @@ export default function InterpreterPage() {
           <span 
             key={`${keyPrefix}-aura-${idx}`} 
             onClick={() => setModelDetails('aura')}
-            className="font-extrabold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent inline-block cursor-pointer hover:opacity-80 transition-all duration-200 active:scale-95 select-none"
+            className="font-extrabold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent inline-block cursor-pointer hover:opacity-80 transition-all duration-200 active:scale-95 select-none animate-gradient-text"
             title="Click to view AURA details"
           >
             {origWord}
@@ -213,7 +214,7 @@ export default function InterpreterPage() {
           <span 
             key={`${keyPrefix}-gemini-${idx}`} 
             onClick={() => setModelDetails('gemini')}
-            className="font-extrabold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent inline-block cursor-pointer hover:opacity-80 transition-all duration-200 active:scale-95 select-none"
+            className="font-extrabold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent inline-block cursor-pointer hover:opacity-80 transition-all duration-200 active:scale-95 select-none animate-gradient-text"
             title="Click to view Gemini details"
           >
             {origWord}
@@ -246,18 +247,26 @@ export default function InterpreterPage() {
       if (line.startsWith("```")) {
         if (inCodeBlock) {
           const codeText = codeBlockLines.join("\n");
+          const isFix = /^8=FIX\./i.test(codeText.trim()) || codeText.includes('\x01') || codeText.includes('\u0001') || (codeText.includes('|') && codeText.includes('8=FIX'));
           elements.push(
-            <pre
-              key={`codeblock-${i}`}
-              className="p-3 rounded-xl font-mono text-[11px] leading-relaxed my-2 overflow-x-auto select-all cursor-pointer hover:bg-zinc-800/20"
-              style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--primary)' }}
-              title="Click to copy raw code"
-              onClick={() => {
-                navigator.clipboard.writeText(codeText);
-              }}
-            >
-              <code>{codeText}</code>
-            </pre>
+            isFix ? (
+              <div key={`codeblock-${i}`} className="my-2 p-3.5 rounded-xl border select-all" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+                <div className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 font-mono">FIX Message (SOH Visualizer)</div>
+                <SohVisualizer content={codeText} />
+              </div>
+            ) : (
+              <pre
+                key={`codeblock-${i}`}
+                className="p-3 rounded-xl font-mono text-[11px] leading-relaxed my-2 overflow-x-auto select-all cursor-pointer hover:bg-zinc-800/20"
+                style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--primary)' }}
+                title="Click to copy raw code"
+                onClick={() => {
+                  navigator.clipboard.writeText(codeText);
+                }}
+              >
+                <code>{codeText}</code>
+              </pre>
+            )
           );
           codeBlockLines = [];
           inCodeBlock = false;
@@ -572,9 +581,16 @@ export default function InterpreterPage() {
                     }}
                   >
                     {isUser ? (
-                      <p className="text-xs leading-relaxed font-mono whitespace-pre-wrap break-all text-[var(--foreground)]">
-                        {msg.text}
-                      </p>
+                      (/^8=FIX\./i.test(msg.text.trim()) || msg.text.includes('\x01') || msg.text.includes('\u0001') || (msg.text.includes('|') && msg.text.includes('8=FIX'))) ? (
+                        <div className="space-y-1.5 select-all">
+                          <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider mb-1 font-mono">Pasted FIX Message:</div>
+                          <SohVisualizer content={msg.text} />
+                        </div>
+                      ) : (
+                        <p className="text-xs leading-relaxed font-mono whitespace-pre-wrap break-all text-[var(--foreground)]">
+                          {msg.text}
+                        </p>
+                      )
                     ) : (
                       <div className="font-mono text-zinc-300 space-y-1 break-all">
                         {formatBotResponse(msg.text)}
@@ -846,7 +862,7 @@ export default function InterpreterPage() {
                     <img src="/aura_logo_icon.png" alt="AURA Logo" className="h-full w-full rounded-xl object-cover" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-sans">
+                    <h3 className="text-base font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-sans animate-gradient-text">
                       AURA
                     </h3>
                     <p className="text-[10px] text-zinc-400 font-mono">
@@ -889,7 +905,7 @@ export default function InterpreterPage() {
                     <img src="/gemini_logo.jpeg" alt="Gemini Logo" className="h-full w-full rounded-xl object-cover" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent font-sans">
+                    <h3 className="text-base font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent font-sans animate-gradient-text">
                       Gemini 2.5 Flash
                     </h3>
                     <p className="text-[10px] text-zinc-400 font-mono">

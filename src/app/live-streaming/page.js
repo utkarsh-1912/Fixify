@@ -21,6 +21,7 @@ import {
   FileText
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
+import SohVisualizer from "@/components/SohVisualizer";
 
 export default function LiveStreamingPage() {
   const [isRunning, setIsRunning] = useState(false);
@@ -566,9 +567,9 @@ export default function LiveStreamingPage() {
 
               <div className="space-y-1">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Raw Payload:</span>
-                <p className="p-2.5 rounded-lg bg-zinc-950/60 border border-zinc-900 text-[9px] font-mono text-zinc-400 break-all select-all">
-                  {selectedLogMsg.raw}
-                </p>
+                <div className="p-2.5 rounded-lg bg-zinc-950/60 border border-zinc-900 select-all overflow-y-auto max-h-36">
+                  <SohVisualizer content={selectedLogMsg.raw} />
+                </div>
               </div>
 
               <div className="space-y-1.5">

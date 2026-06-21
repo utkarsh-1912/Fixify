@@ -36,6 +36,7 @@ import {
 } from "@/lib/fixParser";
 import TagDetailsModal from "@/components/TagDetailsModal";
 import ErrorAnalyticsModal from "@/components/ErrorAnalyticsModal";
+import SohVisualizer from "@/components/SohVisualizer";
 
 function evaluateFQL(lineContent, query, delimiter = "|") {
   if (!query || !query.trim()) return true;
@@ -2319,7 +2320,7 @@ export default function LogsProcessorPage() {
               className="p-3 rounded-lg text-[10px] break-all font-mono max-h-20 overflow-y-auto"
               style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
             >
-              {selectedLineInfo.content}
+              <SohVisualizer content={selectedLineInfo.content} delimiter={delimiter} />
             </div>
           </div>
         </div>
