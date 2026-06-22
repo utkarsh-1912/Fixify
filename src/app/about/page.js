@@ -1,14 +1,23 @@
 'use client';
 
-import { Info, Shield, Zap, Package, ChevronRight, Activity, Terminal, Code, ArrowRightLeft } from "lucide-react";
+import { 
+  Info, Shield, Zap, Package, ChevronRight, Activity, Terminal, Code, 
+  ArrowRightLeft, ShieldAlert, EyeOff, Layers, TrendingUp, FileCode, 
+  MessageSquare, BookOpen, Palette, Cpu, GitBranch, Columns 
+} from "lucide-react";
 import Link from "next/link";
 
 export default function AboutPage() {
   const features = [
     {
+      icon: Columns,
+      title: 'Logs Comparator & Parser',
+      desc: 'Compare session logs side-by-side, hide administrative messages, show only differences, and inspect message tags dynamically in a side-drawer.',
+    },
+    {
       icon: Zap,
       title: 'Real-time Latency Diagnostics',
-      desc: 'Correlate, inspect, and analyze session logs using an inline background Web Worker thread (preventing UI lockups) and export reports instantly to CSV. Features percentile outlier filters (99th/95th/90th bounds control) and logarithmic scaling to compress extreme spikes.',
+      desc: 'Correlate, inspect, and analyze session logs using an inline background Web Worker thread. Features percentile outlier filters (99th/95th/90th bounds control), sequence table filters, and logarithmic scale timelines.',
     },
     {
       icon: ArrowRightLeft,
@@ -16,29 +25,69 @@ export default function AboutPage() {
       desc: 'Compare raw FIX execution reports against blotter databases (CSV/TSV/Excel) to instantly isolate missing executions. Supports session filtering, customizable fill criteria, and dynamic CSV downloads.',
     },
     {
-      icon: Shield,
-      title: 'Session & Sequence Diagnostics',
-      desc: 'Audit sequence gap anomalies, session Logon order, and MsgSeqNum duplicates (tag 34) in log streams, ensuring compliance with PossDupFlag (tag 43) rules before trading integration.',
+      icon: ShieldAlert,
+      title: 'Security & Compliance Auditor',
+      desc: 'Audit credential leakage (plaintext passwords/signatures), duplicate MsgSeqNum replay attacks, tag injection attempts, and sequence hijacking. Features compliance grading metrics and an interactive inspector.',
+    },
+    {
+      icon: EyeOff,
+      title: 'Log Sanitizer & Anonymizer',
+      desc: 'Scrub sensitive tags (passwords, CompIDs, prices, sizes) from raw logs while preserving compliance. Auto-recalculates BodyLength (Tag 9) and Checksum (Tag 10) to keep logs structured and valid.',
+    },
+    {
+      icon: Layers,
+      title: 'Interactive Payload Generator',
+      desc: 'Construct valid FIX messages using a form builder. Auto-recalculates body length/checksum on the fly, validates schemas, and outputs in SOH Visual, Pipe (|), Hex Dump, or JSON structure.',
+    },
+    {
+      icon: TrendingUp,
+      title: 'Multi-Algo Technical Trade Studio',
+      desc: 'Simulate trading strategies on Yahoo Finance tickers. Features automated technical indicator signals (RSI, Bollinger Bands, MACD), backtesting engines, and a local portfolio paper-trading ledger.',
+    },
+    {
+      icon: FileCode,
+      title: 'QuickFIX XML Dialect Manager',
+      desc: 'Upload custom QuickFIX XML dialect schemas to parse and explore custom fields and tag dictionaries. Plugs directly into the timeline, generator, and AI interpreter diagnostics.',
+    },
+    {
+      icon: MessageSquare,
+      title: 'Secure P2P Chat Rooms',
+      desc: 'Collaborate with team members inside end-to-end encrypted chat rooms. Chat messages and pinned references are decrypted in the client browser, securing sensitive trading details.',
+    },
+    {
+      icon: Terminal,
+      title: 'FIXi Chat AI Interpreter',
+      desc: 'Query protocol details via offline AURA intelligence or Google Gemini 2.5 Flash. Supports multi-line input textarea submissions and highlights AURA/Gemini keywords with glowing gradients.',
     },
     {
       icon: Code,
       title: 'XML Formatter & Key Shortcuts',
-      desc: 'Format XML schemas using DOM Parser or Regex engines. Jump to nodes using match counters/chevrons, and speed up work with global developer hotkeys (Ctrl+F, F3, Ctrl+S, Ctrl+Enter, Ctrl+Shift+M).',
+      desc: 'Format XML schemas using DOM Parser or Regex engines. Jump to nodes using match counters/chevrons, and speed up work with global developer hotkeys.',
     },
     {
-      icon: Terminal,
-      title: 'FIXi Chat & AURA Intelligence',
-      desc: 'Query protocol details via offline AURA intelligence or Google Gemini 2.5 Flash. Supports multi-line input textarea submissions (Enter to send, Shift+Enter for newline) and batch tag lookups.',
+      icon: GitBranch,
+      title: 'Interactive Flowcharts',
+      desc: 'Auto-generate interactive state flow diagrams from parsed FIX messages to inspect message sequence ordering, Logon/Logout sessions, and message lifecycles.',
     },
     {
-      icon: Activity,
-      title: 'Logs Comparator & Flowcharts',
-      desc: 'Compare session logs side-by-side with Hide Administrative and Show Differences Only checkboxes. Map message lifecycles automatically into state diagrams or flowcharts.',
+      icon: Cpu,
+      title: 'Code Sandbox Editor',
+      desc: 'Execute Python, C++, and Java FIX parser templates inside a client-side execution container to test customized encoding and decoding logic.',
     },
     {
       icon: Package,
       title: 'Kanban Tasks & Slide-out Drawer',
-      desc: 'Manage tasks with neon glassmorphic cockpit columns, blockers mapping, and warning badges. Edit inline subtasks, commentary feeds, and timelines inside a slide-out right drawer.',
+      desc: 'Manage integration milestones with neon glassmorphic Kanban boards. Edit inline subtasks, blockers, commentary logs, and activity timelines inside a slide-over panel drawer.',
+    },
+    {
+      icon: Palette,
+      title: 'Whiteboard Sketcher',
+      desc: 'Draw workflows, network topology designs, and session sequence diagrams using an interactive client-side sketchpad with undo/redo capabilities.',
+    },
+    {
+      icon: BookOpen,
+      title: 'FIX Dictionary & Search',
+      desc: 'Search and browse complete FIX tag references across standard versions (4.0 to 5.0SP2) and custom dialect schemas loaded into the dialect manager.',
     },
   ];
 

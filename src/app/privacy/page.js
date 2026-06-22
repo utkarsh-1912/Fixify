@@ -1,6 +1,6 @@
 'use client';
 
-import { Shield, EyeOff, Lock, ServerOff, Database, RefreshCw } from "lucide-react";
+import { Shield, EyeOff, Lock, ServerOff, Database, RefreshCw, Key, Cloud, Eye, FileCode, Terminal } from "lucide-react";
 import Link from "next/link";
 
 export default function PrivacyPage() {
@@ -8,17 +8,47 @@ export default function PrivacyPage() {
     {
       icon: ServerOff,
       title: "No Remote Storage",
-      desc: "All session transcripts, message lists, and XML uploads stay strictly within your browser context. No remote server is used to log, monitor, or track actions."
+      desc: "All session transcripts, message lists, and XML uploads stay strictly within your browser context. No remote server logs or tracks your logs."
     },
     {
       icon: Database,
       title: "Local Session Limits",
-      desc: "Your data resides strictly in volatile memory. Closing the browser tab or hitting 'Clear Logs' wipes out all calculated states, log lists, and visualizer coordinates instantly."
+      desc: "Your data resides strictly in volatile memory. Closing the browser tab or hitting 'Clear Logs' wipes out all calculated states and caches instantly."
     },
     {
       icon: RefreshCw,
       title: "Client-Side Compiler",
-      desc: "FIX validations, RTT hop offsets, checksum calculations, and chart generators execute locally as static browser functions. No remote API calls are generated for data analysis."
+      desc: "FIX validations, RTT hop offsets, checksum calculations, and chart generators execute locally as static browser processes."
+    },
+    {
+      icon: Key,
+      title: "End-to-End P2P Encryption",
+      desc: "Chat rooms utilize local shared keys to encrypt messages in the browser before socket relay. The server cannot inspect chat transcripts."
+    },
+    {
+      icon: Cloud,
+      title: "Opt-In Cloud Intelligence",
+      desc: "Conversational diagnostics run offline by default (AURA). Gemini reasoning is strictly opt-in and insulates your API keys in local storage."
+    },
+    {
+      icon: Eye,
+      title: "Local Sanitizer scrubbing",
+      desc: "Masking of credentials, names, CompIDs, and prices runs client-side inside the browser sandbox before any sanitised files are saved."
+    },
+    {
+      icon: FileCode,
+      title: "Isolated Dialect Schemas",
+      desc: "Uploaded custom QuickFIX XML dialect schemas reside exclusively in local storage and are never uploaded or synced to external servers."
+    },
+    {
+      icon: Database,
+      title: "In-Memory Blotter Audits",
+      desc: "Blotter database files (CSV/TSV/Excel) parsed in the Missing Fills analyzer are held only in temporary variables and wiped on page refresh."
+    },
+    {
+      icon: Terminal,
+      title: "Sandboxed Code Execution",
+      desc: "Script templates in the Code Sandbox run entirely inside your browser sandbox, without executing arbitrary commands on your host system."
     }
   ];
 
