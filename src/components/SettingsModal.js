@@ -6,7 +6,10 @@ import {
   Check,
   Palette,
   Type,
-  X
+  X,
+  Download,
+  Upload,
+  Trash2
 } from 'lucide-react';
 
 // Applies settings directly to document.body and documentElement
@@ -83,6 +86,69 @@ export default function SettingsModal({ isOpen, onClose }) {
     localStorage.setItem('fixify-font-family', fontFamily);
     applyGlobalSettings({ theme, fontScale, fontFamily });
     onClose();
+  };
+
+  const handleExportProfile = () => {
+    try {
+      const backup = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('fixify')) {
+          backup[key] = localStorage.getItem(key);
+        }
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `fixify_profile_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (e) {
+      alert("Failed to export profile: " + e.message);
+    }
+  };
+
+  const handleImportProfile = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        let count = 0;
+        Object.entries(data).forEach(([key, val]) => {
+          if (key.startsWith('fixify')) {
+            localStorage.setItem(key, val);
+            count++;
+          }
+        });
+        if (count > 0) {
+          alert(`Successfully imported ${count} configuration keys! Reloading workspace to apply profiles.`);
+          window.location.reload();
+        } else {
+          alert("Invalid profile file. No FIXify keys found.");
+        }
+      } catch (err) {
+        alert("Failed to parse profile file: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleClearCache = () => {
+    if (confirm("Are you sure you want to clear all cached workspace data? This will delete all your settings, custom dialects, log inputs, correlation chains, tasks, and drawings.")) {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('fixify')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      alert("Workspace cache cleared successfully. Reloading...");
+      window.location.reload();
+    }
   };
 
   const adjustScale = (delta) =>
@@ -297,6 +363,56 @@ export default function SettingsModal({ isOpen, onClose }) {
                   />
                 ))}
               </div>
+            </div>
+          </section>
+
+          {/* Workspace Profile Backup & Restore */}
+          <section className="space-y-3 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2">
+              <Download className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
+              <span className="fx-section-label">Workspace Profile Manager</span>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Backup or restore your custom dialects, settings, Kanban tasks, and sketches.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <button
+                onClick={handleExportProfile}
+                className="flex-1 fx-btn-secondary py-2 px-3 text-xs font-semibold flex items-center justify-center gap-2"
+              >
+                <Download className="h-3.5 w-3.5" /> Export Profile
+              </button>
+              <label
+                className="flex-1 fx-btn-secondary py-2 px-3 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer text-center"
+                style={{ margin: 0 }}
+              >
+                <Upload className="h-3.5 w-3.5" /> Import Profile
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportProfile}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* Cache & Data Management */}
+          <section className="space-y-3 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2">
+              <Trash2 className="h-3.5 w-3.5 text-red-500" />
+              <span className="fx-section-label text-red-500">Cache &amp; Data Management</span>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Permanently delete all workspace data cached in your browser. This action cannot be undone.
+            </p>
+            <div className="pt-1">
+              <button
+                onClick={handleClearCache}
+                className="w-full py-2 px-3 text-xs font-semibold flex items-center justify-center gap-2 rounded-xl transition-all border border-red-900/30 text-red-400 bg-red-950/10 hover:bg-red-950/20"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Clear Workspace Cache
+              </button>
             </div>
           </section>
         </div>

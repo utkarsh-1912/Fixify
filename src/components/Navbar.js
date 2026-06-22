@@ -58,6 +58,7 @@ export default function Navbar() {
     { href: '/log-sanitizer', label: 'Log Sanitizer & Anonymizer', icon: EyeOff, short: 'Sanitizer', desc: 'Mask sensitive fields like credentials, CompIDs, prices, and sizes in raw logs.', inMenu: false },
     { href: '/custom-dialect', label: 'Custom Dialect Manager', icon: BookOpen, short: 'Dialect', desc: 'Upload custom QuickFIX XML dictionaries to map proprietary tags (5000-9999).', inMenu: false },
     { href: '/multi-algo',   label: 'Multi-Algo Studio', icon: LineChart, short: 'Algos', desc: 'Scan markets with SMA, RSI, MACD, and Bollinger Bands, overlay interactive charts, and paper trade.', inMenu: false },
+    { href: '/correlation', label: 'Multi-Hop Tracker', icon: Network, short: 'Correlation', desc: 'Correlate transaction flows across multiple system layers and trace transit delays.', inMenu: false },
   ];
 
   // Apply saved settings and track page visits on mount/pathchange

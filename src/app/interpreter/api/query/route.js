@@ -1310,12 +1310,27 @@ export async function POST(req) {
     const clientKey = req.headers.get("x-gemini-key");
     const apiKey = clientKey || process.env.GEMINI_API_KEY || "";
 
+    // Build Schema-Aware Custom Dialect Context
+    let dialectContext = "";
+    if (customDialect && Array.isArray(customDialect.fields) && customDialect.fields.length > 0) {
+      dialectContext = "\n\nYou are also aware of a custom uploaded QuickFIX XML dialect schema loaded in the workspace (Version: " + customDialect.version + "). " +
+        "Here are the custom fields and tags defined in this dialect. Use them to override or augment standard FIX definitions when appropriate:\n" +
+        customDialect.fields.map(f => {
+          let desc = `- Tag ${f.tag}: ${f.name} (Type: ${f.type})`;
+          if (f.values && f.values.length > 0) {
+            desc += ` [Allowed values: ${f.values.map(v => `${v.enum}=${v.description}`).join(', ')}]`;
+          }
+          return desc;
+        }).join('\n') + "\n\nUse this custom schema context to answer any questions about custom tags or enums in this session.";
+    }
+
     const systemInstruction = 
       "You are FIXi, a helpful AI consultant specialized in the FIX (Financial Information eXchange) protocol. " +
       "You help developers, traders, and QA engineers analyze FIX messages, troubleshoot trading session logs, " +
       "explain tag numbers, data types, and enum values, and audit conformance flows. " +
       "Keep explanations clear, professional, and code-focused. If a FIX message table is provided, " +
-      "explain the transaction flow and highlight any fields that might indicate errors or mismatches.";
+      "explain the transaction flow and highlight any fields that might indicate errors or mismatches." +
+      dialectContext;
 
     let table = null;
     let answer = "";

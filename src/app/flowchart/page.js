@@ -28,7 +28,13 @@ import {
   X,
   Wrench,
   Sliders,
-  ChevronDown
+  ChevronDown,
+  Play,
+  Pause,
+  SkipForward,
+  SkipBack,
+  Square,
+  GripVertical
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { validateFIXMessage } from "@/lib/fixParser";
@@ -109,7 +115,9 @@ function InlineLabel({ node, updateLabel }) {
 }
 
 const StartNode = ({ id, data }) => (
-  <div className="px-4 py-2 bg-zinc-900 border-2 border-emerald-500 rounded-full text-zinc-200 text-xs shadow-md min-w-[140px] text-center">
+  <div className="px-4 py-2 bg-zinc-900 border-2 border-emerald-500 rounded-full text-zinc-200 text-xs shadow-md min-w-[140px] text-center"
+    style={data.isActivePlayback ? { borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary)', transform: 'scale(1.05)', transition: 'all 0.2s' } : {}}
+  >
     <Handle type="source" position={Position.Right} style={{ background: '#10b981' }} />
     <InlineLabel node={{ id, data }} updateLabel={data.updateLabel} />
     <Handle type="target" position={Position.Left} style={{ background: '#10b981' }} />
@@ -120,8 +128,10 @@ const ProcessNode = ({ id, data }) => {
   const isCorrupted = data.meta?.errors?.length > 0;
   return (
     <div className={`px-4 py-2.5 bg-zinc-900 border rounded-lg text-zinc-200 text-xs shadow-md min-w-[150px] text-center ${
-      isCorrupted ? 'border-red-500/80 shadow-red-500/10' : 'border-zinc-750'
-    }`}>
+        isCorrupted ? 'border-red-500/80 shadow-red-500/10' : 'border-zinc-750'
+      }`}
+      style={data.isActivePlayback ? { borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary)', transform: 'scale(1.05)', transition: 'all 0.2s' } : {}}
+    >
       <Handle type="target" position={Position.Left} style={{ background: '#71717a' }} />
       <InlineLabel node={{ id, data }} updateLabel={data.updateLabel} />
       {data.meta?.clOrdID && (
@@ -137,7 +147,10 @@ const ProcessNode = ({ id, data }) => {
 const DecisionNode = ({ id, data }) => (
   <div style={{ width: 110, height: 110 }} className="flex items-center justify-center relative">
     <div
-      style={{ transform: "rotate(45deg)" }}
+      style={{ 
+        transform: "rotate(45deg)",
+        ...(data.isActivePlayback ? { borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary)', transform: 'rotate(45deg) scale(1.05)', transition: 'all 0.2s' } : {})
+      }}
       className="w-20 h-20 flex items-center justify-center border border-zinc-750 bg-zinc-900 shadow-md rounded-md"
     >
       <div style={{ transform: "rotate(-45deg)" }} className="w-16">
@@ -151,7 +164,10 @@ const DecisionNode = ({ id, data }) => (
 );
 
 const MilestoneNode = ({ id, data }) => (
-  <div className="px-4 py-2.5 bg-zinc-900 border-t-4 border-cyan-500 border-x border-b border-zinc-750 rounded text-zinc-250 text-xs shadow-md min-w-[150px] text-center">
+  <div 
+    className="px-4 py-2.5 bg-zinc-900 border-t-4 border-cyan-500 border-x border-b border-zinc-750 rounded text-zinc-250 text-xs shadow-md min-w-[150px] text-center"
+    style={data.isActivePlayback ? { borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary)', transform: 'scale(1.05)', transition: 'all 0.2s' } : {}}
+  >
     <Handle type="target" position={Position.Top} style={{ background: '#06b6d4' }} />
     <InlineLabel node={{ id, data }} updateLabel={data.updateLabel} />
     <Handle type="source" position={Position.Bottom} style={{ background: '#06b6d4' }} />
@@ -159,7 +175,10 @@ const MilestoneNode = ({ id, data }) => (
 );
 
 const EndNode = ({ id, data }) => (
-  <div className="px-4 py-2 bg-zinc-900 border-2 border-red-500 rounded-full text-zinc-250 text-xs shadow-md min-w-[140px] text-center">
+  <div 
+    className="px-4 py-2 bg-zinc-900 border-2 border-red-500 rounded-full text-zinc-250 text-xs shadow-md min-w-[140px] text-center"
+    style={data.isActivePlayback ? { borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary)', transform: 'scale(1.05)', transition: 'all 0.2s' } : {}}
+  >
     <Handle type="target" position={Position.Left} style={{ background: '#ef4444' }} />
     <InlineLabel node={{ id, data }} updateLabel={data.updateLabel} />
   </div>
@@ -258,6 +277,238 @@ function FlowchartPage() {
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
   const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
+
+  // Playback states
+  const [playbackIndex, setPlaybackIndex] = useState(-1);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playbackIntervalRef = useRef(null);
+
+  // Drag-to-Corner states
+  const [playerCorner, setPlayerCorner] = useState("bottom-right");
+  const [dragPos, setDragPos] = useState(null);
+  const playerRef = useRef(null);
+
+  const startDrag = (e) => {
+    if (e.button !== 0) return; // only left click
+    e.preventDefault();
+
+    const rect = playerRef.current.getBoundingClientRect();
+    const containerRect = reactFlowWrapper.current.getBoundingClientRect();
+
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    const handleMouseMove = (moveEvent) => {
+      let x = moveEvent.clientX - containerRect.left - offsetX;
+      let y = moveEvent.clientY - containerRect.top - offsetY;
+
+      // Constrain within container bounds
+      x = Math.max(8, Math.min(containerRect.width - rect.width - 8, x));
+      y = Math.max(8, Math.min(containerRect.height - rect.height - 8, y));
+
+      setDragPos({ x, y });
+    };
+
+    const handleMouseUp = (upEvent) => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+
+      const finalX = upEvent.clientX - containerRect.left - offsetX;
+      const finalY = upEvent.clientY - containerRect.top - offsetY;
+
+      const w = rect.width;
+      const h = rect.height;
+      const cw = containerRect.width;
+      const ch = containerRect.height;
+
+      // Snapping corner coordinates (x, y) relative to container
+      const corners = {
+        "top-left": { x: 16, y: 16 },
+        "top-right": { x: cw - w - 16, y: 16 },
+        "bottom-right": { x: cw - w - 16, y: ch - h - 16 }
+      };
+
+      // Calculate closest corner
+      let closestCorner = "bottom-right";
+      let minDistance = Infinity;
+
+      Object.entries(corners).forEach(([name, coords]) => {
+        const dist = Math.hypot(finalX - coords.x, finalY - coords.y);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestCorner = name;
+        }
+      });
+
+      setPlayerCorner(closestCorner);
+      setDragPos(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const getPlayerPositionStyle = () => {
+    if (dragPos) {
+      return {
+        position: 'absolute',
+        left: `${dragPos.x}px`,
+        top: `${dragPos.y}px`,
+        transform: 'none',
+        transition: 'none'
+      };
+    }
+    
+    // Snapped corner positioning
+    const style = {
+      position: 'absolute',
+      transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+      top: 'auto',
+      left: 'auto',
+      right: 'auto',
+      bottom: 'auto'
+    };
+    
+    if (playerCorner === "top-left") {
+      style.top = '16px';
+      style.left = '16px';
+    } else if (playerCorner === "top-right") {
+      style.top = '16px';
+      style.right = '16px';
+    } else {
+      // bottom-right (default)
+      style.bottom = '16px';
+      style.right = '16px';
+    }
+    
+    return style;
+  };
+
+  const getSortedSequenceNodeIds = useCallback(() => {
+    return nodes
+      .filter(n => n.id.startsWith('fix-seq-node-'))
+      .sort((a, b) => {
+        const partsA = a.id.split('-');
+        const partsB = b.id.split('-');
+        const idxA = parseInt(partsA[3], 10);
+        const idxB = parseInt(partsB[3], 10);
+        return idxA - idxB;
+      })
+      .map(n => n.id);
+  }, [nodes]);
+
+  // Synchronize playbackIndex changes to node and edge states
+  useEffect(() => {
+    let activeNode = null;
+    
+    setNodes(nds => {
+      const seqNodeIds = nds
+        .filter(n => n.id.startsWith('fix-seq-node-'))
+        .sort((a, b) => {
+          const partsA = a.id.split('-');
+          const partsB = b.id.split('-');
+          const idxA = parseInt(partsA[3], 10);
+          const idxB = parseInt(partsB[3], 10);
+          return idxA - idxB;
+        })
+        .map(n => n.id);
+      const activeNodeId = seqNodeIds[playbackIndex] || null;
+      
+      if (activeNodeId) {
+        activeNode = nds.find(n => n.id === activeNodeId);
+      }
+      
+      return nds.map(n => ({
+        ...n,
+        data: {
+          ...n.data,
+          isActivePlayback: n.id === activeNodeId
+        }
+      }));
+    });
+
+    if (playbackIndex !== -1) {
+      setTimeout(() => {
+        if (activeNode) setSelectedNode(activeNode);
+      }, 50);
+    }
+
+    setEdges(eds => {
+      const seqNodeIds = nodes
+        .filter(n => n.id.startsWith('fix-seq-node-'))
+        .sort((a, b) => {
+          const partsA = a.id.split('-');
+          const partsB = b.id.split('-');
+          const idxA = parseInt(partsA[3], 10);
+          const idxB = parseInt(partsB[3], 10);
+          return idxA - idxB;
+        })
+        .map(n => n.id);
+      const activeNodeId = seqNodeIds[playbackIndex] || null;
+
+      return eds.map(e => {
+        const isActiveEdge = e.target === activeNodeId;
+        return {
+          ...e,
+          style: isActiveEdge 
+            ? { stroke: 'var(--primary)', strokeWidth: 3 } 
+            : { stroke: e.id.includes('error') ? '#ef4444' : '#10b981', strokeWidth: 1 }
+        };
+      });
+    });
+  }, [playbackIndex]);
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      clearInterval(playbackIntervalRef.current);
+      setIsPlaying(false);
+    } else {
+      setIsPlaying(true);
+      const seqNodeIds = getSortedSequenceNodeIds();
+      if (seqNodeIds.length === 0) return;
+
+      let nextIndex = playbackIndex;
+      if (playbackIndex >= seqNodeIds.length - 1 || playbackIndex === -1) {
+        nextIndex = 0;
+        setPlaybackIndex(0);
+      }
+
+      playbackIntervalRef.current = setInterval(() => {
+        setPlaybackIndex(prev => {
+          if (prev >= seqNodeIds.length - 1) {
+            clearInterval(playbackIntervalRef.current);
+            setIsPlaying(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1500);
+    }
+  };
+
+  const handleStepForward = () => {
+    const seqNodeIds = getSortedSequenceNodeIds();
+    if (playbackIndex < seqNodeIds.length - 1) {
+      setPlaybackIndex(prev => prev + 1);
+    }
+  };
+
+  const handleStepBackward = () => {
+    if (playbackIndex > 0) {
+      setPlaybackIndex(prev => prev - 1);
+    }
+  };
+
+  const handleStop = () => {
+    clearInterval(playbackIntervalRef.current);
+    setIsPlaying(false);
+    setPlaybackIndex(-1);
+    setSelectedNode(null);
+  };
+
+  useEffect(() => {
+    return () => clearInterval(playbackIntervalRef.current);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1339,6 +1590,72 @@ function FlowchartPage() {
             <Background gap={18} color="var(--border)" />
             <Controls />
           </ReactFlow>
+
+          {/* Floating Flowchart Playback Controls */}
+          {getSortedSequenceNodeIds().length > 0 && (
+            <div 
+              ref={playerRef}
+              className="absolute z-10 flex items-center gap-1.5 px-2 py-1 rounded-lg border shadow-lg backdrop-blur-md select-none touch-none"
+              style={{ 
+                background: 'var(--card)', 
+                borderColor: 'var(--border)',
+                ...getPlayerPositionStyle()
+              }}
+            >
+              {/* Drag Handle */}
+              <div 
+                onMouseDown={startDrag}
+                className="cursor-grab active:cursor-grabbing p-1 text-zinc-500 hover:text-zinc-300 transition-colors shrink-0"
+                title="Drag to snap to top-left, top-right, or bottom-right corners"
+              >
+                <GripVertical className="h-3 w-3" />
+              </div>
+
+              <button
+                onClick={handleStepBackward}
+                disabled={playbackIndex <= 0}
+                className="p-1 hover:bg-zinc-800 rounded disabled:opacity-20 disabled:pointer-events-none transition-colors"
+                title="Step Backward"
+              >
+                <SkipBack className="h-3 w-3 text-[var(--foreground)]" />
+              </button>
+              
+              <button
+                onClick={handlePlayPause}
+                className="h-5.5 w-5.5 rounded flex items-center justify-center transition-all bg-[var(--primary)] text-zinc-950 hover:opacity-90 shrink-0"
+                style={{ background: 'var(--primary)', color: '#000000' }}
+                title={isPlaying ? "Pause" : "Play Replay"}
+              >
+                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+              </button>
+              
+              <button
+                onClick={handleStepForward}
+                disabled={playbackIndex >= getSortedSequenceNodeIds().length - 1}
+                className="p-1 hover:bg-zinc-800 rounded disabled:opacity-20 disabled:pointer-events-none transition-colors"
+                title="Step Forward"
+              >
+                <SkipForward className="h-3 w-3 text-[var(--foreground)]" />
+              </button>
+              
+              <div className="h-3.5 w-px bg-zinc-800 animate-pulse" />
+              
+              <button
+                onClick={handleStop}
+                disabled={playbackIndex === -1}
+                className="p-1 hover:bg-zinc-800 rounded disabled:opacity-20 disabled:pointer-events-none transition-colors"
+                title="Stop & Reset"
+              >
+                <Square className="h-3 w-3 text-[var(--foreground)]" />
+              </button>
+              
+              {playbackIndex !== -1 && (
+                <span className="text-[9px] font-mono text-[var(--text-muted)] pl-0.5 whitespace-nowrap">
+                  {playbackIndex + 1}/{getSortedSequenceNodeIds().length}
+                </span>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Right Properties Drawer (Width 3/12) */}

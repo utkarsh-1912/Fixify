@@ -32,6 +32,12 @@ export default function LiveStreamingPage() {
   const [stats, setStats] = useState({ receivedCount: 0, gapDetections: 0, avgLatency: 0 });
   const [timelinePoints, setTimelinePoints] = useState([]);
   
+  // Real-time WebSocket connection states
+  const [connectionMode, setConnectionMode] = useState("simulated"); // "simulated" | "websocket"
+  const [wsUrl, setWsUrl] = useState("ws://localhost:8080");
+  const wsRef = useRef(null);
+  const expectedSeqNumRef = useRef(1);
+  
   // Custom states for modals, hover tooltips, and timeout stop safeguard
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [chartExpanded, setChartExpanded] = useState(false);
@@ -97,137 +103,210 @@ export default function LiveStreamingPage() {
     }, ACTIVITY_CHECK_MS);
   };
 
+  const handleIncomingRawMessage = (rawMsg, customLatency = null, customGap = null) => {
+    if (!rawMsg || !rawMsg.trim()) return;
+    const parsed = validateFIXMessage(rawMsg);
+    if (!parsed) return;
+
+    const msgType = parsed.tags['35'] || '0';
+    const msgName = parsed.msgTypeName || 'Unknown';
+    const seqNum = parseInt(parsed.tags['34'] || '0', 10);
+
+    let latency = customLatency;
+    if (latency === null) {
+      latency = 5;
+      const sendingTimeStr = parsed.tags['52'];
+      if (sendingTimeStr) {
+        try {
+          let date = null;
+          if (sendingTimeStr.includes('-')) {
+            const timePart = sendingTimeStr.split('-')[1];
+            if (timePart) {
+              const [hh, mm, ss] = timePart.split(':');
+              const [sec, ms] = ss.split('.');
+              date = new Date();
+              date.setUTCHours(parseInt(hh, 10));
+              date.setUTCMinutes(parseInt(mm, 10));
+              date.setUTCSeconds(parseInt(sec, 10));
+              date.setUTCMilliseconds(parseInt(ms || '0', 10));
+            }
+          } else {
+            date = new Date(sendingTimeStr);
+          }
+          if (date && !isNaN(date.getTime())) {
+            const diff = Date.now() - date.getTime();
+            if (diff > 0 && diff < 100000) {
+              latency = diff;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    let isGap = customGap;
+    if (isGap === null) {
+      isGap = false;
+      if (expectedSeqNumRef.current > 1 && seqNum > expectedSeqNumRef.current) {
+        isGap = true;
+      }
+      expectedSeqNumRef.current = seqNum + 1;
+    }
+
+    const logItem = {
+      time: new Date().toLocaleTimeString(),
+      seqNum,
+      msgType,
+      msgName,
+      latency,
+      isGap,
+      raw: rawMsg
+    };
+
+    setFeedLogs(prev => [...prev.slice(-29), logItem]);
+    setTimelinePoints(prev => {
+      const lastX = prev.length > 0 ? prev[prev.length - 1].x : 0;
+      return [...prev.slice(-29), { x: lastX + 1, y: latency, isGap, msgType }];
+    });
+    setStats(prev => {
+      const count = prev.receivedCount + 1;
+      const totalLat = prev.avgLatency * prev.receivedCount + latency;
+      return {
+        receivedCount: count,
+        gapDetections: prev.gapDetections + (isGap ? 1 : 0),
+        avgLatency: parseFloat((totalLat / count).toFixed(2))
+      };
+    });
+  };
+
   const startFeed = () => {
     setIsRunning(true);
     setIsPaused(false);
-    setSessionState("CONNECTING");
     setFeedLogs([]);
     setTimelinePoints([]);
-    seqNumRef.current = 1;
     setStats({ receivedCount: 0, gapDetections: 0, avgLatency: 0 });
+    seqNumRef.current = 1;
+    expectedSeqNumRef.current = 1;
 
-    // Start the 5-min activity watchdog
     scheduleActivityCheck();
 
-    let step = 0;
-    
-    // Simulate active connection steps based on profile
-    timerRef.current = setInterval(() => {
-      // Check if paused or showConfirmModal is active
-      if (isPaused || showConfirmModal) return;
+    if (connectionMode === "websocket") {
+      setSessionState("CONNECTING");
+      try {
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
-      step++;
+        ws.onopen = () => {
+          setSessionState("ESTABLISHED");
+        };
 
-      let newMsg = "";
-      let latency = 5;
-      let msgType = "0"; // Heartbeat
-      let msgName = "Heartbeat";
+        ws.onmessage = (event) => {
+          if (isPaused || showConfirmModal) return;
+          handleIncomingRawMessage(event.data);
+        };
 
-      // Configure latency distribution and message details based on connection profile
-      if (profile === "market-data") {
-        latency = Math.floor(Math.random() * 4) + 1; // 1-4ms
-      } else if (profile === "drop-copy") {
-        latency = Math.floor(Math.random() * 20) + 20; // 20-39ms
-      } else {
-        latency = Math.floor(Math.random() * 8) + 5; // 5-12ms standard order-gateway
+        ws.onerror = () => {
+          setSessionState("ERROR");
+        };
+
+        ws.onclose = () => {
+          setSessionState("DISCONNECTED");
+          setIsRunning(false);
+        };
+      } catch (err) {
+        setSessionState("ERROR");
+        setIsRunning(false);
+        alert("WebSocket Connection Failed: " + err.message);
       }
+    } else {
+      setSessionState("CONNECTING");
+      let step = 0;
+      timerRef.current = setInterval(() => {
+        if (isPaused || showConfirmModal) return;
 
-      if (step === 1) {
-        setSessionState("LOGON_SENT");
-        msgType = "A";
-        msgName = "Logon Initiated";
-        newMsg = `8=FIX.4.4|9=72|35=A|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|98=0|108=30|10=180|`;
-      } else if (step === 2) {
-        setSessionState("ESTABLISHED");
-        msgType = "A";
-        msgName = "Logon Established (Acceptor Reply)";
-        newMsg = `8=FIX.4.4|9=72|35=A|34=1|49=TEST_GATEWAY|56=LIVE_CLIENT|52=${new Date().toISOString()}|98=0|108=30|10=182|`;
-        seqNumRef.current--; // Keep align seq
-      } else {
-        const roll = Math.random();
-        
+        step++;
+
+        let newMsg = "";
+        let latency = 5;
+        let msgType = "0";
+        let msgName = "Heartbeat";
+
         if (profile === "market-data") {
-          // Market Data feed profile generates Incremental Refresh or Heartbeats
-          if (roll < 0.25) {
-            msgType = "0";
-            msgName = "Heartbeat";
-            newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=MD_FEED|56=LIVE_CLIENT|52=${new Date().toISOString()}|10=114|`;
-          } else {
-            msgType = "X";
-            msgName = "Market Data Incremental Refresh";
-            const bid = (180 + Math.random() * 10).toFixed(2);
-            const ask = (parseFloat(bid) + 0.05).toFixed(2);
-            newMsg = `8=FIX.4.4|9=152|35=X|34=${seqNumRef.current}|49=MD_FEED|56=LIVE_CLIENT|52=${new Date().toISOString()}|262=MD_REQ_1|268=2|269=0|270=${bid}|271=100|269=1|270=${ask}|271=150|10=199|`;
-          }
+          latency = Math.floor(Math.random() * 4) + 1; // 1-4ms
         } else if (profile === "drop-copy") {
-          // Drop Copy feed profile generates execution reports for trades executed elsewhere
-          if (roll < 0.2) {
-            msgType = "0";
-            msgName = "Heartbeat";
-            newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=DROP_COPY|56=LIVE_CLIENT|52=${new Date().toISOString()}|10=114|`;
-          } else {
-            msgType = "8";
-            msgName = "Execution Report (Drop Copy Allocation)";
-            latency += Math.floor(Math.random() * 15); // higher latency spikes
-            const prc = (120 + Math.random() * 15).toFixed(2);
-            newMsg = `8=FIX.4.4|9=162|35=8|34=${seqNumRef.current}|49=DROP_COPY|56=LIVE_CLIENT|52=${new Date().toISOString()}|37=DC_${Date.now()}|17=E_${Date.now()}|150=F|39=2|55=MSFT|38=200|32=200|31=${prc}|10=210|`;
-          }
+          latency = Math.floor(Math.random() * 20) + 20; // 20-39ms
         } else {
-          // Standard Order Gateway generates orders and corresponding executions
-          if (roll < 0.35) {
-            msgType = "0";
-            msgName = "Heartbeat";
-            newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|10=114|`;
-          } else if (roll < 0.7) {
-            msgType = "D";
-            msgName = "New Order Single";
-            const qty = [100, 200, 500, 1000][Math.floor(Math.random() * 4)];
-            const prc = (150 + Math.random() * 30).toFixed(2);
-            newMsg = `8=FIX.4.4|9=120|35=D|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|11=CL_${Date.now()}|55=AAPL|54=1|38=${qty}|44=${prc}|40=2|10=044|`;
+          latency = Math.floor(Math.random() * 8) + 5; // 5-12ms standard order-gateway
+        }
+
+        if (step === 1) {
+          setSessionState("LOGON_SENT");
+          msgType = "A";
+          msgName = "Logon Initiated";
+          newMsg = `8=FIX.4.4|9=72|35=A|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|98=0|108=30|10=180|`;
+        } else if (step === 2) {
+          setSessionState("ESTABLISHED");
+          msgType = "A";
+          msgName = "Logon Established (Acceptor Reply)";
+          newMsg = `8=FIX.4.4|9=72|35=A|34=1|49=TEST_GATEWAY|56=LIVE_CLIENT|52=${new Date().toISOString()}|98=0|108=30|10=182|`;
+          seqNumRef.current--; // Keep align seq
+        } else {
+          const roll = Math.random();
+          
+          if (profile === "market-data") {
+            if (roll < 0.25) {
+              msgType = "0";
+              msgName = "Heartbeat";
+              newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=MD_FEED|56=LIVE_CLIENT|52=${new Date().toISOString()}|10=114|`;
+            } else {
+              msgType = "X";
+              msgName = "Market Data Incremental Refresh";
+              const bid = (180 + Math.random() * 10).toFixed(2);
+              const ask = (parseFloat(bid) + 0.05).toFixed(2);
+              newMsg = `8=FIX.4.4|9=152|35=X|34=${seqNumRef.current}|49=MD_FEED|56=LIVE_CLIENT|52=${new Date().toISOString()}|262=MD_REQ_1|268=2|269=0|270=${bid}|271=100|269=1|270=${ask}|271=150|10=199|`;
+            }
+          } else if (profile === "drop-copy") {
+            if (roll < 0.2) {
+              msgType = "0";
+              msgName = "Heartbeat";
+              newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=DROP_COPY|56=LIVE_CLIENT|52=${new Date().toISOString()}|10=114|`;
+            } else {
+              msgType = "8";
+              msgName = "Execution Report (Drop Copy Allocation)";
+              latency += Math.floor(Math.random() * 15);
+              const prc = (120 + Math.random() * 15).toFixed(2);
+              newMsg = `8=FIX.4.4|9=162|35=8|34=${seqNumRef.current}|49=DROP_COPY|56=LIVE_CLIENT|52=${new Date().toISOString()}|37=DC_${Date.now()}|17=E_${Date.now()}|150=F|39=2|55=MSFT|38=200|32=200|31=${prc}|10=210|`;
+            }
           } else {
-            msgType = "8";
-            msgName = "Execution Report (Trade Fill)";
-            latency += Math.floor(Math.random() * 10) + 5;
-            const prc = (150 + Math.random() * 30).toFixed(2);
-            newMsg = `8=FIX.4.4|9=140|35=8|34=${seqNumRef.current}|49=TEST_GATEWAY|56=LIVE_CLIENT|52=${new Date().toISOString()}|37=O_${Date.now()}|17=E_${Date.now()}|150=F|39=2|55=AAPL|38=100|32=100|31=${prc}|10=190|`;
+            if (roll < 0.35) {
+              msgType = "0";
+              msgName = "Heartbeat";
+              newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|10=114|`;
+            } else if (roll < 0.7) {
+              msgType = "D";
+              msgName = "New Order Single";
+              const qty = [100, 200, 500, 1000][Math.floor(Math.random() * 4)];
+              const prc = (150 + Math.random() * 30).toFixed(2);
+              newMsg = `8=FIX.4.4|9=120|35=D|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|11=CL_${Date.now()}|55=AAPL|54=1|38=${qty}|44=${prc}|40=2|10=044|`;
+            } else {
+              msgType = "8";
+              msgName = "Execution Report (Trade Fill)";
+              latency += Math.floor(Math.random() * 10) + 5;
+              const prc = (150 + Math.random() * 30).toFixed(2);
+              newMsg = `8=FIX.4.4|9=140|35=8|34=${seqNumRef.current}|49=TEST_GATEWAY|56=LIVE_CLIENT|52=${new Date().toISOString()}|37=O_${Date.now()}|17=E_${Date.now()}|150=F|39=2|55=AAPL|38=100|32=100|31=${prc}|10=190|`;
+            }
           }
         }
-      }
 
-      // Introduce sequence gap every 12 messages for gap telemetry display
-      let isGap = false;
-      if (step > 4 && step % 12 === 0) {
-        seqNumRef.current += 3; // artificial gap
-        isGap = true;
-      }
+        let isGap = false;
+        if (step > 4 && step % 12 === 0) {
+          seqNumRef.current += 3; // artificial gap
+          isGap = true;
+        }
 
-      const logItem = {
-        time: new Date().toLocaleTimeString(),
-        seqNum: seqNumRef.current,
-        msgType,
-        msgName,
-        latency,
-        isGap,
-        raw: newMsg
-      };
-
-      // Auto removal of old messages: strictly keep last 30 items
-      setFeedLogs(prev => [...prev.slice(-29), logItem]); 
-      seqNumRef.current++;
-
-      setTimelinePoints(prev => [...prev.slice(-29), { x: step, y: latency, isGap, msgType }]);
-
-      setStats(prev => {
-        const count = prev.receivedCount + 1;
-        const totalLat = prev.avgLatency * prev.receivedCount + latency;
-        return {
-          receivedCount: count,
-          gapDetections: prev.gapDetections + (isGap ? 1 : 0),
-          avgLatency: parseFloat((totalLat / count).toFixed(2))
-        };
-      });
-
-    }, 1500);
+        handleIncomingRawMessage(newMsg, latency, isGap);
+        seqNumRef.current++;
+      }, 1500);
+    }
   };
 
   const stopFeed = () => {
@@ -237,6 +316,10 @@ export default function LiveStreamingPage() {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
     if (activityTimerRef.current) {
       clearTimeout(activityTimerRef.current);
@@ -253,6 +336,7 @@ export default function LiveStreamingPage() {
     setFeedLogs([]);
     setTimelinePoints([]);
     seqNumRef.current = 1;
+    expectedSeqNumRef.current = 1;
     setStats({ receivedCount: 0, gapDetections: 0, avgLatency: 0 });
   };
 
@@ -374,20 +458,64 @@ export default function LiveStreamingPage() {
           className="p-5 rounded-2xl border space-y-4 lg:col-span-1 h-fit"
           style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
         >
-          {/* Presets Profile Selector */}
+          {/* Connection Mode Toggle */}
           <div className="space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">Session Profile:</span>
-            <select
-              value={profile}
-              onChange={(e) => setProfile(e.target.value)}
-              disabled={isRunning}
-              className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-700 text-zinc-350"
-            >
-              <option value="order-gateway">Order Routing (Balanced)</option>
-              <option value="market-data">Market Data Feed (Fast)</option>
-              <option value="drop-copy">Drop Copy Allocation (Spiky)</option>
-            </select>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">Connection Mode:</span>
+            <div className="grid grid-cols-2 gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+              <button
+                disabled={isRunning}
+                onClick={() => setConnectionMode("simulated")}
+                className={`py-1 text-[10px] font-mono font-bold rounded-md transition-all cursor-pointer ${
+                  connectionMode === "simulated" 
+                    ? "bg-[var(--primary)] text-zinc-950 font-bold" 
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Simulation
+              </button>
+              <button
+                disabled={isRunning}
+                onClick={() => setConnectionMode("websocket")}
+                className={`py-1 text-[10px] font-mono font-bold rounded-md transition-all cursor-pointer ${
+                  connectionMode === "websocket" 
+                    ? "bg-[var(--primary)] text-zinc-950 font-bold" 
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                WebSocket
+              </button>
+            </div>
           </div>
+
+          {connectionMode === "simulated" ? (
+            /* Presets Profile Selector */
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">Session Profile:</span>
+              <select
+                value={profile}
+                onChange={(e) => setProfile(e.target.value)}
+                disabled={isRunning}
+                className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-700 text-zinc-350"
+              >
+                <option value="order-gateway">Order Routing (Balanced)</option>
+                <option value="market-data">Market Data Feed (Fast)</option>
+                <option value="drop-copy">Drop Copy Allocation (Spiky)</option>
+              </select>
+            </div>
+          ) : (
+            /* WebSocket Connection Config */
+            <div className="space-y-2 animate-fade-in">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">WebSocket URL:</span>
+              <input
+                type="text"
+                value={wsUrl}
+                onChange={(e) => setWsUrl(e.target.value)}
+                disabled={isRunning}
+                className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-750 text-zinc-300"
+                placeholder="ws://localhost:8080"
+              />
+            </div>
+          )}
 
           <div className="flex flex-col gap-2 pt-2">
             {!isRunning ? (
