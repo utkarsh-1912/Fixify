@@ -13,7 +13,9 @@ import {
   ArrowUp, 
   ArrowDown, 
   Info, 
-  AlertTriangle 
+  AlertTriangle, 
+  ClipboardList,
+  UploadCloud
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
 import SohVisualizer from '@/components/SohVisualizer';
@@ -523,23 +525,23 @@ export default function MultiHopCorrelationPage() {
         <div className="lg:col-span-5 space-y-4">
           
           {/* Input Panel */}
-          <div className="fx-card space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="fx-card space-y-3 md:p-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             <div className="flex items-center justify-between">
               <span className="fx-section-label">1. Log Input Source</span>
               
               {/* Input Tab Selector */}
               <div className="fx-tab-group">
                 <button
-                  onClick={() => setActiveInputTab("text")}
-                  className={`fx-tab ${activeInputTab === "text" ? "active" : ""}`}
-                >
-                  Editor
-                </button>
-                <button
                   onClick={() => setActiveInputTab("upload")}
                   className={`fx-tab ${activeInputTab === "upload" ? "active" : ""}`}
                 >
-                  File Upload
+                  <UploadCloud className="h-3.5 w-3.5" /> <span className="hidden sm:inline">File</span>
+                </button>
+                <button
+                  onClick={() => setActiveInputTab("text")}
+                  className={`fx-tab ${activeInputTab === "text" ? "active" : ""}`}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Paste</span>
                 </button>
               </div>
             </div>
