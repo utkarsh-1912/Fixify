@@ -822,13 +822,13 @@ export default function MultiHopCorrelationPage() {
           {/* Slide-out Panel */}
           <div 
             ref={traceSectionRef}
-            className="fixed inset-y-0 right-0 h-full w-full lg:w-[850px] md:w-[700px] sm:w-[500px] z-50 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300 border-l"
+            className="fixed inset-y-0 right-0 h-full w-full md:w-[600px] z-50 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300 border-l"
             style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
           >
             {/* Header */}
             <div className="flex justify-between items-center px-5 py-4 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2">
-                <span className="fx-section-label" style={{ color: 'var(--primary)' }}>4. Sequence Topology Trace</span>
+                <span className="fx-section-label" style={{ color: 'var(--primary)' }}>Sequence Topology Trace</span>
                 <span className="px-2 py-0.5 text-[9px] font-mono rounded" style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }}>
                   ID: {selectedChain.clOrdID} | Symbol: {selectedChain.symbol}
                 </span>
@@ -847,10 +847,10 @@ export default function MultiHopCorrelationPage() {
 
             {/* Scrollable Content Container */}
             <div className="flex-1 overflow-y-auto p-5 scrollbar-thin">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 
                 {/* Timeline Diagram Flow (7/12 Width) */}
-                <div className="md:col-span-7 flex flex-col space-y-4">
+                <div className="flex flex-col space-y-4">
                   <span className="fx-section-label">Transit Hops Timeline</span>
 
                   <div className="relative pl-6 space-y-6">
@@ -979,7 +979,7 @@ export default function MultiHopCorrelationPage() {
                 </div>
 
                 {/* Inspect Details panel (5/12 Width) */}
-                <div className="md:col-span-5 flex flex-col space-y-4">
+                <div className="flex flex-col space-y-4">
                   <span className="fx-section-label">Message SOH Inspection</span>
 
                   <div 
