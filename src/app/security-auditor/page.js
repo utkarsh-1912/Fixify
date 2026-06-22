@@ -958,7 +958,7 @@ export default function SecurityAuditorPage() {
           />
         )}
 
-        {inputType === 'paste' && rawLogs.trim() && (
+        {inputMode === 'paste' && rawLogs.trim() && (
           <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
             <div className="space-y-2 max-h-48 overflow-y-auto">
