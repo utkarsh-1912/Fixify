@@ -88,7 +88,7 @@ export default function RoomChatPage({ params }) {
 
   // Lobby/Creds state (prefilled if dynamic route page loads directly)
   const [secretKey, setSecretKey] = useState("fix-sec-key-101");
-  const [username, setUsername] = useState("Utkarsh");
+  const [username, setUsername] = useState("Jammie");
   const [isJoined, setIsJoined] = useState(false);
   const [recentRooms, setRecentRooms] = useState([]);
   const [showSecretKey, setShowSecretKey] = useState(false);
@@ -159,7 +159,7 @@ export default function RoomChatPage({ params }) {
     
     const savedRoom = localStorage.getItem('fixify-chat-roomId');
     const savedKey = localStorage.getItem('fixify-chat-secretKey') || "fix-sec-key-101";
-    const savedUser = localStorage.getItem('fixify-chat-username') || "Utkarsh";
+    const savedUser = localStorage.getItem('fixify-chat-username') || "Jammie";
     const savedIsJoined = localStorage.getItem('fixify-chat-isJoined') === 'true';
 
     setSecretKey(savedKey);
@@ -742,7 +742,7 @@ export default function RoomChatPage({ params }) {
                   type="text"
                   value={username}
                   onChange={(e) => handleUsernameChange(e.target.value)}
-                  placeholder="e.g. Utkarsh"
+                  placeholder="e.g. Jammie"
                   className="w-full fx-input"
                 />
               </div>

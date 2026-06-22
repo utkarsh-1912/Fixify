@@ -329,7 +329,7 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] 
     if (!newCommentText.trim()) return;
     const comm = {
       id: `c-${Date.now()}`,
-      author: "Utkarsh", // default user
+      author: "Jammie", // default user
       text: newCommentText.trim(),
       timestamp: new Date().toISOString()
     };

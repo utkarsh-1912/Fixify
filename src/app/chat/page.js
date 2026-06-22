@@ -115,7 +115,7 @@ export default function ChatLobbyPage() {
                 type="text"
                 value={username}
                 onChange={(e) => handleUsernameChange(e.target.value)}
-                placeholder="e.g. Utkarsh"
+                placeholder="e.g. Jammie"
                 className="w-full fx-input"
               />
             </div>
@@ -183,7 +183,7 @@ export default function ChatLobbyPage() {
                       key={room}
                       onClick={() => {
                         setRoomId(room);
-                        const fallbackUser = localStorage.getItem("fixify-chat-username") || "Utkarsh";
+                        const fallbackUser = localStorage.getItem("fixify-chat-username") || "Jammie";
                         const fallbackKey = localStorage.getItem("fixify-chat-secretKey") || "fix-sec-key-101";
                         
                         const finalUser = username.trim() ? username.trim() : fallbackUser;
