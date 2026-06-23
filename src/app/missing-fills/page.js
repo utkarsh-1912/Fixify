@@ -16,8 +16,6 @@ import {
   Sliders,
   ChevronRight,
   ChevronDown,
-  Eye,
-  EyeOff,
   TrendingUp,
   HelpCircle
 } from "lucide-react";
@@ -1287,8 +1285,8 @@ export default function MissingFillsPage() {
                           onClick={() => setShowPayload(p => !p)}
                         >
                           {showPayload
-                            ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                            : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                            ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                            : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
                           }
                           <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Raw Payload Preview (First 3 lines)</span>
                         </button>
@@ -1645,8 +1643,8 @@ export default function MissingFillsPage() {
                         onClick={() => setShowDetailPayload(p => !p)}
                       >
                         {showDetailPayload
-                          ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                          : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                          ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                          : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
                         }
                         <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Raw FIX Message (Line {selectedResultItem.fix.lineIndex})</span>
                       </button>

@@ -9,7 +9,6 @@ import {
   RefreshCw, 
   Activity, 
   Eye,
-  EyeOff,
   X, 
   ArrowUp, 
   ArrowDown, 
@@ -205,8 +204,8 @@ function MessageInspectModal({ msg, onClose }) {
               onClick={() => setShowPayload(p => !p)}
             >
               {showPayload
-                ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
               }
               <span className="fx-section-label" style={{ color: showPayload ? 'var(--primary)' : undefined }}>
                 Raw Message Payload
@@ -1027,8 +1026,8 @@ export default function MultiHopCorrelationPage() {
                       onClick={() => setShowPayload(p => !p)}
                     >
                       {showPayload
-                        ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                        : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                        ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                        : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
                       }
                       <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
                         Raw Payload Preview (First 3 lines)

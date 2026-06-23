@@ -13,8 +13,7 @@ import {
   Eye,
   Search,
   ChevronDown,
-  ChevronRight,
-  EyeOff
+  ChevronRight
 } from "lucide-react";
 import { validateFIXMessage, getTagValue } from "@/lib/fixParser";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
@@ -535,8 +534,8 @@ export default function FIXComparePage() {
                       onClick={() => field.label === 'Message 1' ? setShowPayload1(p => !p) : setShowPayload2(p => !p)}
                     >
                       {(field.label === 'Message 1' ? showPayload1 : showPayload2)
-                        ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                        : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                        ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                        : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
                       }
                       <span className="text-[9px] font-bold opacity-70">Payload Preview (First line)</span>
                     </button>
@@ -881,8 +880,8 @@ export default function FIXComparePage() {
                             onClick={() => panel.idx === 0 ? setShowPayload1(p => !p) : setShowPayload2(p => !p)}
                           >
                             {(panel.idx === 0 ? showPayload1 : showPayload2)
-                              ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                              : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                              ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                              : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
                             }
                             <span className="text-[9px] font-bold opacity-70">Payload Preview (First line)</span>
                           </button>
