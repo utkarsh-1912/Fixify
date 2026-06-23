@@ -628,7 +628,7 @@ export default function PayloadGeneratorPage() {
               className="px-5 py-3.5 flex items-center justify-between border-b"
               style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
             >
-              <div className="fx-tab-group">
+              <div className="fx-tab-group overflow-x-auto text-nowrap scrollbar-hidden mr-2">
                 <button
                   className={`fx-tab${formatTab === 'soh' ? ' active' : ''}`}
                   onClick={() => setFormatTab('soh')}
@@ -657,7 +657,7 @@ export default function PayloadGeneratorPage() {
 
               <button onClick={handleCopy} className="fx-btn-primary py-1.5 px-3 text-xs font-semibold">
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Clipboard className="h-3.5 w-3.5" />}
-                <span>{copied ? 'Copied!' : 'Copy'}</span>
+                <span className="hidden md:inline">{copied ? 'Copied!' : 'Copy'}</span>
               </button>
             </div>
 

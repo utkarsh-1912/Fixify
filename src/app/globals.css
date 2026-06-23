@@ -206,6 +206,10 @@ body.font-family-serif { font-family: Georgia, Cambria, "Times New Roman", Times
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
+/* ─── Scrollbars Hidden──────────────────────────────────────────────────── */
+.scrollbar-hidden {-ms-overflow-style: none; /* IE/Edge */ scrollbar-width: none; /* Firefox */}
+.scrollbar-hidden::-webkit-scrollbar {  display: none;}
+
 /* ─── Reusable Component Base Classes ──────────────────────────────────── */
 
 /* Cards */
