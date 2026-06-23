@@ -970,21 +970,21 @@ export default function RoomChatPage({ params }) {
                 <h1 className="text-sm sm:text-lg font-bold tracking-tight truncate" style={{ color: "var(--foreground)" }}>
                   #{roomId}
                 </h1>
-                <span
-                  className="hidden sm:flex text-[9px] font-bold px-2 py-0.5 rounded-full uppercase font-mono tracking-wider items-center gap-1 shrink-0"
-                  style={{
-                    background: "rgba(16,185,129,0.08)",
-                    border: "1px solid rgba(16,185,129,0.2)",
-                    color: "var(--primary)"
-                  }}
-                >
-                  <CheckCircle className="h-3 w-3" /> E2EE
-                </span>
               </div>
 
               {/* Status row — compact on mobile */}
               <div className="flex items-center gap-1.5 sm:gap-2 text-xs font-mono text-zinc-400 mt-1 md:mt-2">
                 <span className="flex items-center gap-0.5">
+                  <span
+                    className="hidden sm:flex text-[9px] font-bold px-2 py-0.5 mr-1 rounded-full uppercase font-mono tracking-wider items-center gap-1 shrink-0"
+                    style={{
+                      background: "rgba(16,185,129,0.08)",
+                      border: "1px solid rgba(16,185,129,0.2)",
+                      color: "var(--primary)"
+                    }}
+                  >
+                    <CheckCircle className="h-3 w-3" /> E2EE
+                  </span>
                   {isPollingActive ? (
                     <>
                       <Wifi className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-400" />
