@@ -10,10 +10,11 @@ import {
   Layers,
   Columns,
   RefreshCw,
-  FileText,
-  ArrowRight,
+  Eye,
   Search,
-  Eye
+  ChevronDown,
+  ChevronRight,
+  EyeOff
 } from "lucide-react";
 import { validateFIXMessage, getTagValue } from "@/lib/fixParser";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
@@ -114,6 +115,9 @@ export default function FIXComparePage() {
   const [showDiffsOnly, setShowDiffsOnly] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTag, setActiveTag] = useState(null);
+  const [showPayload1, setShowPayload1] = useState(false);
+  const [showPayload2, setShowPayload2] = useState(false);
+  const [showDetailPayload, setShowDetailPayload] = useState(false);
 
   // Load state on mount
   useEffect(() => {
@@ -525,9 +529,22 @@ export default function FIXComparePage() {
                   onBlur={e => e.target.style.borderColor = 'var(--border)'}
                 />
                 {field.value.trim() && (
-                  <div className="p-3.5 rounded-xl border select-all max-h-36 overflow-y-auto" style={{ background: 'var(--card)', borderColor: 'var(--border-subtle)' }}>
-                    <span className="text-[9px] font-bold block mb-1 opacity-70">Payload Preview (First line):</span>
-                    <SohVisualizer content={field.value.split('\n')[0]} delimiter={delimiter} />
+                  <div className="rounded-xl border" style={{ background: 'var(--card)', borderColor: 'var(--border-subtle)' }}>
+                    <button
+                      className="flex items-center gap-1.5 w-full text-left px-3.5 py-2.5"
+                      onClick={() => field.label === 'Message 1' ? setShowPayload1(p => !p) : setShowPayload2(p => !p)}
+                    >
+                      {(field.label === 'Message 1' ? showPayload1 : showPayload2)
+                        ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                        : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                      }
+                      <span className="text-[9px] font-bold opacity-70">Payload Preview (First line)</span>
+                    </button>
+                    {(field.label === 'Message 1' ? showPayload1 : showPayload2) && (
+                      <div className="px-3.5 pb-3 select-all">
+                        <SohVisualizer content={field.value.split('\n')[0]} delimiter={delimiter} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -617,11 +634,22 @@ export default function FIXComparePage() {
                         </ul>
                       )}
                       {p.raw && (
-                        <div className="mt-2 pt-2 border-t border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
-                          <span className="text-[9px] font-bold block mb-1 opacity-70">Raw Message Payload:</span>
-                          <div className="p-2.5 rounded bg-zinc-950/40 max-h-24 overflow-y-auto select-all">
-                            <SohVisualizer content={p.raw} delimiter={delimiter} />
-                          </div>
+                        <div className="pt-2 border-t border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <button
+                            className="flex items-center gap-1.5 w-full text-left"
+                            onClick={() => setShowDetailPayload(s => !s)}
+                          >
+                            {showDetailPayload
+                              ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                              : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                            }
+                            <span className="text-[9px] font-bold opacity-70">Raw Message Payload</span>
+                          </button>
+                          {showDetailPayload && (
+                            <div className="mt-1.5 p-2.5 rounded bg-zinc-950/40 max-h-24 overflow-y-auto select-all">
+                              <SohVisualizer content={p.raw} delimiter={delimiter} />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -847,9 +875,22 @@ export default function FIXComparePage() {
                         onBlur={e => e.target.style.borderColor = 'var(--border)'}
                       />
                       {panel.content.trim() && (
-                        <div className="p-3 rounded-xl border select-all max-h-24 overflow-y-auto" style={{ background: 'var(--background)', borderColor: 'var(--border-subtle)' }}>
-                          <span className="text-[9px] font-bold block mb-1 opacity-70">Payload Preview (First line):</span>
-                          <SohVisualizer content={panel.content.split('\n')[0]} delimiter={delimiter} />
+                        <div className="rounded-xl border" style={{ background: 'var(--background)', borderColor: 'var(--border-subtle)' }}>
+                          <button
+                            className="flex items-center gap-1.5 w-full text-left px-3 py-2"
+                            onClick={() => panel.idx === 0 ? setShowPayload1(p => !p) : setShowPayload2(p => !p)}
+                          >
+                            {(panel.idx === 0 ? showPayload1 : showPayload2)
+                              ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                              : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                            }
+                            <span className="text-[9px] font-bold opacity-70">Payload Preview (First line)</span>
+                          </button>
+                          {(panel.idx === 0 ? showPayload1 : showPayload2) && (
+                            <div className="px-3 pb-2.5 select-all">
+                              <SohVisualizer content={panel.content.split('\n')[0]} delimiter={delimiter} />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

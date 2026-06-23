@@ -11,6 +11,9 @@ import {
   Wifi, 
   WifiOff, 
   ChevronRight, 
+  ChevronDown,
+  Eye,
+  EyeOff,
   Info, 
   RotateCcw,
   Sliders,
@@ -45,6 +48,7 @@ export default function LiveStreamingPage() {
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmCountdown, setConfirmCountdown] = useState(10);
+  const [showPayload, setShowPayload] = useState(false);
   
   // 5-minute activity check — wall-clock timer (not message-count based)
   const ACTIVITY_CHECK_MS = 5 * 60 * 1000; // 300 000 ms
@@ -637,7 +641,7 @@ export default function LiveStreamingPage() {
                 feedLogs.map((log, idx) => (
                   <div 
                     key={idx} 
-                    onClick={() => setSelectedLogMsg(log)}
+                    onClick={() => { setSelectedLogMsg(log); setShowPayload(false); }}
                     className="space-y-0.5 border-b pb-1 last:border-0 hover:bg-zinc-950/30 p-1.5 rounded-lg transition-all cursor-pointer border-transparent" 
                     style={{ borderColor: 'var(--border-subtle)' }}
                     title="Click to view message tags details modal"
@@ -694,10 +698,21 @@ export default function LiveStreamingPage() {
               </div>
 
               <div className="space-y-1">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Raw Payload:</span>
-                <div className="p-2.5 rounded-lg bg-zinc-950/60 border border-zinc-900 select-all overflow-y-auto max-h-36">
-                  <SohVisualizer content={selectedLogMsg.raw} />
-                </div>
+                <button
+                  className="flex items-center gap-1.5 w-full text-left"
+                  onClick={() => setShowPayload(p => !p)}
+                >
+                  {showPayload
+                    ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                    : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                  }
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Raw Payload</span>
+                </button>
+                {showPayload && (
+                  <div className="p-2.5 rounded-lg bg-zinc-950/60 border border-zinc-900 select-all overflow-y-auto max-h-36">
+                    <SohVisualizer content={selectedLogMsg.raw} />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">

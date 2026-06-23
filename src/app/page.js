@@ -102,6 +102,8 @@ export default function LogsProcessorPage() {
   const [selectedOrderIdFilter, setSelectedOrderIdFilter] = useState("all");
   const [activeErrorType, setActiveErrorType] = useState(null); // 'checksum', 'length' or null
   const [isClOrdChainModalOpen, setIsClOrdChainModalOpen] = useState(false);
+  const [showPayload, setShowPayload] = useState(false);
+  const [showDetailPayload, setShowDetailPayload] = useState(false);
 
   const [flowZoom, setFlowZoom] = useState(1.0);
   const [flowPage, setFlowPage] = useState(1);
@@ -1009,6 +1011,7 @@ export default function LogsProcessorPage() {
                   onClick={() => {
                     lastClickSourceRef.current = 'timeline';
                     setSelectedLineInfo(msg);
+                    setShowDetailPayload(false);
                   }}
                   className={`p-3.5 rounded-xl cursor-pointer transition-all space-y-1.5 ${isCurrent ? 'bg-zinc-800/20' : 'hover:bg-zinc-800/10'}`}
                   style={{ 
@@ -1452,6 +1455,7 @@ export default function LogsProcessorPage() {
                   onClick={() => {
                     lastClickSourceRef.current = 'sequence';
                     setSelectedLineInfo(msg);
+                    setShowDetailPayload(false);
                   }}
                   className="cursor-pointer group/arrow"
                 >
@@ -1692,15 +1696,26 @@ export default function LogsProcessorPage() {
               onBlur={e => e.target.style.borderColor = 'var(--border)'}
             />
             {pastedText.trim() && (
-              <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-                <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {pastedText.split('\n').filter(l => l.trim()).slice(0, 3).map((line, idx) => (
-                    <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
-                      <SohVisualizer content={line} delimiter={delimiter} />
-                    </div>
-                  ))}
-                </div>
+              <div className="rounded-xl border text-[11px] font-mono" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                <button
+                  className="flex items-center gap-1.5 w-full text-left px-3.5 py-2.5"
+                  onClick={() => setShowPayload(p => !p)}
+                >
+                  {showPayload
+                    ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                    : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                  }
+                  <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Raw Payload Preview (First 3 lines)</span>
+                </button>
+                {showPayload && (
+                  <div className="space-y-2 max-h-48 overflow-y-auto px-3.5 pb-3.5">
+                    {pastedText.split('\n').filter(l => l.trim()).slice(0, 3).map((line, idx) => (
+                      <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                        <SohVisualizer content={line} delimiter={delimiter} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2328,14 +2343,25 @@ export default function LogsProcessorPage() {
           </div>
 
           {/* Raw message */}
-          <div className="px-6 py-4" style={{ borderTop: '1px solid var(--border)' }}>
-            <p className="fx-section-label mb-2">Raw Message</p>
-            <div
-              className="p-3 rounded-lg text-[10px] break-all font-mono max-h-20 overflow-y-auto"
-              style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+          <div className="px-6 py-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <button
+              className="flex items-center gap-1.5 w-full text-left mb-1"
+              onClick={() => setShowDetailPayload(p => !p)}
             >
-              <SohVisualizer content={selectedLineInfo.content} delimiter={delimiter} />
-            </div>
+              {showDetailPayload
+                ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              }
+              <p className="fx-section-label">Raw Message</p>
+            </button>
+            {showDetailPayload && (
+              <div
+                className="p-3 rounded-lg text-[10px] break-all font-mono max-h-20 overflow-y-auto"
+                style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+              >
+                <SohVisualizer content={selectedLineInfo.content} delimiter={delimiter} />
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -17,6 +17,9 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Eye,
+  EyeOff,
   ChevronsLeft,
   ChevronsRight
 } from "lucide-react";
@@ -304,6 +307,7 @@ export default function LatencyDashboard() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [showPayload, setShowPayload] = useState(false);
 
   // Reset zoom & page when data/tab/filters change
   useEffect(() => {
@@ -1162,15 +1166,26 @@ export default function LatencyDashboard() {
                     disabled={loading}
                   />
                   {pastedText.trim() && (
-                    <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2 mt-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {pastedText.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
-                          <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
-                            <SohVisualizer content={line} delimiter={delimiter} />
-                          </div>
-                        ))}
-                      </div>
+                    <div className="rounded-xl border text-[11px] font-mono mt-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                      <button
+                        className="flex items-center gap-1.5 w-full text-left px-3.5 py-2.5"
+                        onClick={() => setShowPayload(p => !p)}
+                      >
+                        {showPayload
+                          ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                          : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                        }
+                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Raw Payload Preview (First 3 lines)</span>
+                      </button>
+                      {showPayload && (
+                        <div className="space-y-2 max-h-48 overflow-y-auto px-3.5 pb-3.5">
+                          {pastedText.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
+                            <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                              <SohVisualizer content={line} delimiter={delimiter} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                   <button

@@ -17,11 +17,13 @@ import {
   Check,
   Search,
   ChevronRight,
+  ChevronDown,
+  Eye,
+  EyeOff,
   ToggleLeft,
   ToggleRight,
   Layers,
   Wrench,
-  Eye,
   X,
   Zap,
   ClipboardList,
@@ -729,6 +731,8 @@ export default function SecurityAuditorPage() {
   const [activeTab, setActiveTab] = useState('findings'); // 'findings' | 'inspector' | 'remediation'
   const [findingsFilter, setFindingsFilter] = useState('all'); // 'all' | 'critical' | 'high_med'
   const [selectedMsgIndex, setSelectedMsgIndex] = useState(null);
+  const [showDetailPayload, setShowDetailPayload] = useState(false);
+  const [showPreviewPayload, setShowPreviewPayload] = useState(false);
   const [copiedSetting, setCopiedSetting] = useState(null);
   const [findingsSearch, setFindingsSearch] = useState('');
   const [inspectorSearch, setInspectorSearch] = useState('');
@@ -959,15 +963,26 @@ export default function SecurityAuditorPage() {
         )}
 
         {inputMode === 'paste' && rawLogs.trim() && (
-          <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {rawLogs.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
-                <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
-                  <SohVisualizer content={line} />
-                </div>
-              ))}
-            </div>
+          <div className="rounded-xl border text-[11px] font-mono" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+            <button
+              className="flex items-center gap-1.5 w-full text-left px-3.5 py-2.5"
+              onClick={() => setShowPreviewPayload(p => !p)}
+            >
+              {showPreviewPayload
+                ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              }
+              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Raw Payload Preview (First 3 lines)</span>
+            </button>
+            {showPreviewPayload && (
+              <div className="space-y-2 max-h-48 overflow-y-auto px-3.5 pb-3.5">
+                {rawLogs.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
+                  <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                    <SohVisualizer content={line} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1296,7 +1311,7 @@ export default function SecurityAuditorPage() {
                           return (
                             <button
                               key={origIdx}
-                              onClick={() => setSelectedMsgIndex(origIdx)}
+                              onClick={() => { setSelectedMsgIndex(origIdx); setShowDetailPayload(false); }}
                               className="w-full text-left p-2 rounded-lg transition-all"
                               style={{
                                 background: isSelected ? 'var(--primary-faint)' : 'transparent',
@@ -1383,10 +1398,21 @@ export default function SecurityAuditorPage() {
                           </div>
                           {selectedMsg.raw && (
                             <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
-                              <p className="text-[10px] font-bold uppercase tracking-wider mb-2 font-mono" style={{ color: 'var(--text-muted)' }}>Raw Message</p>
-                              <div className="p-3 rounded-lg text-[10px] break-all font-mono max-h-24 overflow-y-auto" style={{ background: 'var(--background)', border: '1px solid var(--border)' }}>
-                                <SohVisualizer content={selectedMsg.raw} />
-                              </div>
+                              <button
+                                className="flex items-center gap-1.5 w-full text-left mb-2"
+                                onClick={() => setShowDetailPayload(p => !p)}
+                              >
+                                {showDetailPayload
+                                  ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                                  : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                                }
+                                <p className="text-[10px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>Raw Message</p>
+                              </button>
+                              {showDetailPayload && (
+                                <div className="p-3 rounded-lg text-[10px] break-all font-mono max-h-24 overflow-y-auto" style={{ background: 'var(--background)', border: '1px solid var(--border)' }}>
+                                  <SohVisualizer content={selectedMsg.raw} />
+                                </div>
+                              )}
                             </div>
                           )}
                         </>

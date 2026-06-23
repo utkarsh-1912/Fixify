@@ -15,6 +15,9 @@ import {
   RefreshCw,
   Sliders,
   ChevronRight,
+  ChevronDown,
+  Eye,
+  EyeOff,
   TrendingUp,
   HelpCircle
 } from "lucide-react";
@@ -300,6 +303,8 @@ export default function MissingFillsPage() {
   const [selectedSessions, setSelectedSessions] = useState([]);
   const [filterOrderId, setFilterOrderId] = useState("");
   const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
+  const [showPayload, setShowPayload] = useState(false);
+  const [showDetailPayload, setShowDetailPayload] = useState(false);
 
   // Auto-detect columns when headers load
   useEffect(() => {
@@ -1276,15 +1281,26 @@ export default function MissingFillsPage() {
                       style={{ borderColor: 'var(--border)', backgroundColor: 'var(--background)' }}
                     />
                     {fixRawText.trim() && (
-                      <div className="p-3.5 rounded-xl border text-[11px] font-mono space-y-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw Payload Preview (First 3 lines):</span>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {fixRawText.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
-                            <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
-                              <SohVisualizer content={line} />
-                            </div>
-                          ))}
-                        </div>
+                      <div className="rounded-xl border text-[11px] font-mono" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                        <button
+                          className="flex items-center gap-1.5 w-full text-left px-3.5 py-2.5"
+                          onClick={() => setShowPayload(p => !p)}
+                        >
+                          {showPayload
+                            ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                            : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                          }
+                          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Raw Payload Preview (First 3 lines)</span>
+                        </button>
+                        {showPayload && (
+                          <div className="space-y-2 max-h-48 overflow-y-auto px-3.5 pb-3.5">
+                            {fixRawText.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
+                              <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                                <SohVisualizer content={line} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1624,10 +1640,21 @@ export default function MissingFillsPage() {
                     </div>
 
                     <div className="space-y-2 text-[11px]">
-                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Raw FIX Message (Line {selectedResultItem.fix.lineIndex})</span>
-                      <div className="p-3 rounded-lg text-[10px] font-mono break-all max-h-36 overflow-y-auto bg-[var(--background)]">
-                        <SohVisualizer content={selectedResultItem.fix.rawMessage} />
-                      </div>
+                      <button
+                        className="flex items-center gap-1.5 w-full text-left"
+                        onClick={() => setShowDetailPayload(p => !p)}
+                      >
+                        {showDetailPayload
+                          ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                          : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                        }
+                        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Raw FIX Message (Line {selectedResultItem.fix.lineIndex})</span>
+                      </button>
+                      {showDetailPayload && (
+                        <div className="p-3 rounded-lg text-[10px] font-mono break-all max-h-36 overflow-y-auto bg-[var(--background)]">
+                          <SohVisualizer content={selectedResultItem.fix.rawMessage} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
