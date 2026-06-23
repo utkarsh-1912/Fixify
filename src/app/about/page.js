@@ -108,7 +108,7 @@ export default function AboutPage() {
             </h1>
           </div>
           <p className="text-sm max-w-3xl leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-            FIXify 🇲🇺 is a high-performance web console and conformance utility for financial systems integration engineers, support analysts, and traders. Built from the ground up to unify session logs processing, flowchart generation, P2P coordination, and task management.
+            FIXify is a high-performance web console and conformance utility for financial systems integration engineers, support analysts, and traders. Built from the ground up to unify session logs processing, flowchart generation, P2P coordination, and task management.
           </p>
         </div>
       </div>
