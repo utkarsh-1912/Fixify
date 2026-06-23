@@ -19,7 +19,8 @@ import {
   Info,
   HelpCircle,
   Activity,
-  RotateCcw
+  RotateCcw,
+  ClipboardCheck
 } from 'lucide-react';
 import { getTagName } from '@/lib/fixParser';
 
@@ -656,7 +657,7 @@ export default function PayloadGeneratorPage() {
               </div>
 
               <button onClick={handleCopy} className="fx-btn-primary py-1.5 px-3 text-xs font-semibold">
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Clipboard className="h-3.5 w-3.5" />}
+                {copied ? <ClipboardCheck className="h-3.5 w-3.5 text-green-500" /> : <Clipboard className="h-3.5 w-3.5" />}
                 <span className="hidden md:inline">{copied ? 'Copied!' : 'Copy'}</span>
               </button>
             </div>
