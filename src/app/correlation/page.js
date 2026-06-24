@@ -1014,9 +1014,9 @@ export default function MultiHopCorrelationPage() {
           <button
             onClick={handleClearAll}
             className="fx-btn-secondary py-1.5 px-3 text-xs font-semibold"
-            style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#f87171', background: 'rgba(239,68,68,0.05)' }}
           >
-            Clear
+            <RefreshCw className="h-3.5 w-3.5" />
+            Reset
           </button>
         </div>
       </div>
