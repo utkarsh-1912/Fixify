@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   GitCompare,
@@ -11,9 +11,13 @@ import {
   Columns,
   RefreshCw,
   Eye,
+  EyeOff,
   Search,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight
 } from "lucide-react";
 import { validateFIXMessage, getTagValue } from "@/lib/fixParser";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
@@ -117,6 +121,8 @@ export default function FIXComparePage() {
   const [showPayload1, setShowPayload1] = useState(false);
   const [showPayload2, setShowPayload2] = useState(false);
   const [showDetailPayload, setShowDetailPayload] = useState(false);
+  const [diffPage, setDiffPage] = useState(1);
+  const [diffPageSize, setDiffPageSize] = useState(10);
 
   // Load state on mount
   useEffect(() => {
@@ -400,7 +406,14 @@ export default function FIXComparePage() {
       ...row.mappedValues2,
     ].some((value) => String(value).toLowerCase().includes(diffQuery));
   });
-  const previewDiffRows = filteredDiffRows.slice(0, 10);
+  // Reset diff pagination when filters change
+  useEffect(() => {
+    setDiffPage(1);
+  }, [diffSearch, hideAdmin, showDiffsOnly, selectedPairIndex, diffPageSize]);
+
+  const diffTotalPages = Math.ceil(filteredDiffRows.length / diffPageSize) || 1;
+  const diffCurrentPage = Math.max(1, Math.min(diffPage, diffTotalPages));
+  const previewDiffRows = filteredDiffRows.slice((diffCurrentPage - 1) * diffPageSize, diffCurrentPage * diffPageSize);
 
   const inputStyle = {
     background: 'var(--background)',
@@ -802,20 +815,85 @@ export default function FIXComparePage() {
                     </table>
                   </div>
 
-                  {filteredDiffRows.length > 10 && (
-                    <div className="flex items-center justify-between gap-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-                      <span>Showing 10 of {filteredDiffRows.length} matching tags.</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModalContent({ data: filteredDiffRows, title: `Full Tag Comparison (${filteredDiffRows.length} tags)`, type: 'tagDiff' });
-                          setShowModal(true);
-                        }}
-                        className="fx-btn-secondary py-1.5"
-                        title="Expand full comparison"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Expand full comparison</span>
-                      </button>
+                  {/* Pagination Controls */}
+                  {filteredDiffRows.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+                      <div className="flex items-center gap-3">
+                        <span>
+                          Page {diffCurrentPage} of {diffTotalPages} ({filteredDiffRows.length} tags)
+                        </span>
+                        <select
+                          value={diffPageSize}
+                          onChange={(e) => setDiffPageSize(Number(e.target.value))}
+                          className="px-2 py-1.5 rounded-lg text-xs font-mono cursor-pointer"
+                          style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--foreground)', outline: 'none' }}
+                        >
+                          {[10, 20, 50, 100].map(size => (
+                            <option key={size} value={size}>{size}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {diffTotalPages > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setDiffPage(1)}
+                            disabled={diffCurrentPage === 1}
+                            className="hidden sm:inline-flex items-center justify-center p-2 rounded-lg disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors"
+                            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                            title="First Page"
+                          >
+                            <ChevronsLeft className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setDiffPage(prev => Math.max(1, prev - 1))}
+                            disabled={diffCurrentPage === 1}
+                            className="p-2 rounded-lg disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors flex items-center justify-center"
+                            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                            title="Previous Page"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+
+                          {/* Page number indicators */}
+                          <div className="hidden sm:flex items-center gap-1 max-w-[200px] overflow-x-auto">
+                            {Array.from({ length: diffTotalPages }, (_, i) => i + 1)
+                              .filter(page => Math.abs(page - diffCurrentPage) <= 2 || page === 1 || page === diffTotalPages)
+                              .map((page, idx, arr) => {
+                                const isGap = idx > 0 && page - arr[idx - 1] > 1;
+                                return (
+                                  <Fragment key={page}>
+                                    {isGap && <span className="px-1" style={{ color: 'var(--text-muted)' }}>...</span>}
+                                    <button
+                                      onClick={() => setDiffPage(page)}
+                                      className={`px-2.5 py-1 rounded-md text-xs transition-all ${diffCurrentPage === page ? 'bg-[var(--primary)] text-black font-extrabold' : 'hover:bg-zinc-800 text-zinc-400'}`}
+                                    >
+                                      {page}
+                                    </button>
+                                  </Fragment>
+                                );
+                              })}
+                          </div>
+
+                          <button
+                            onClick={() => setDiffPage(prev => Math.min(diffTotalPages, prev + 1))}
+                            disabled={diffCurrentPage === diffTotalPages}
+                            className="p-2 rounded-lg disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors flex items-center justify-center"
+                            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                            title="Next Page"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setDiffPage(diffTotalPages)}
+                            disabled={diffCurrentPage === diffTotalPages}
+                            className="hidden sm:inline-flex items-center justify-center p-2 rounded-lg disabled:opacity-30 disabled:pointer-events-none hover:text-white transition-colors"
+                            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                            title="Last Page"
+                          >
+                            <ChevronsRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

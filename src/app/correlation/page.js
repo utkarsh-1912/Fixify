@@ -112,7 +112,7 @@ function MessageInspectModal({ msg, onClose }) {
   if (!msg) return null;
 
   const tags = msg.parsed?.tags || {};
-  const tagEntries = Object.entries(tags);
+  const tagList = msg.parsed?.tagList || [];
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-150">
@@ -181,19 +181,58 @@ function MessageInspectModal({ msg, onClose }) {
             </div>
           </div>
 
-          {/* All Tags */}
+          {/* All Tags — curated table */}
           <div>
-            <span className="fx-section-label block mb-2">All Parsed Tags ({tagEntries.length})</span>
+            <span className="fx-section-label block mb-2">Tag Breakdown ({tagList.length} fields)</span>
             <div
-              className="rounded-xl border divide-y overflow-hidden"
-              style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+              className="overflow-x-auto rounded-xl"
+              style={{ border: '1px solid var(--border)' }}
             >
-              {tagEntries.map(([tag, val]) => (
-                <div key={tag} className="flex items-start gap-3 px-3 py-1.5 text-[9px] font-mono hover:bg-zinc-800/10">
-                  <span className="shrink-0 w-8 text-right font-bold" style={{ color: 'var(--primary)' }}>{tag}</span>
-                  <span className="break-all" style={{ color: 'var(--foreground)' }}>{val}</span>
-                </div>
-              ))}
+              <table className="w-full text-xs font-mono min-w-[320px]">
+                <thead>
+                  <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                    <th className="py-2.5 px-3 text-left font-semibold">Tag</th>
+                    <th className="py-2.5 px-3 text-left font-semibold">Field Name</th>
+                    <th className="py-2.5 px-3 text-left font-semibold">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tagList.map((t, idx) => {
+                    const isCrucial = ['8', '9', '35', '11', '10', '52'].includes(t.tag);
+                    return (
+                      <tr
+                        key={idx}
+                        style={{
+                          borderBottom: '1px solid var(--border-subtle)',
+                          background: isCrucial ? 'var(--primary-faint)' : 'transparent',
+                        }}
+                        className="hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+                      >
+                        <td
+                          className="py-2 px-3 font-bold"
+                          style={{ color: isCrucial ? 'var(--primary)' : 'var(--foreground)' }}
+                        >
+                          {t.tag}
+                        </td>
+                        <td className="py-2 px-3" style={{ color: 'var(--text-muted)' }}>
+                          {t.name}
+                        </td>
+                        <td className="py-2 px-3 truncate max-w-[160px]" style={{ color: 'var(--foreground)' }} title={t.val}>
+                          {t.meaning && t.meaning !== t.val ? (
+                            <span
+                              className="underline decoration-dotted"
+                              style={{ color: 'var(--primary)' }}
+                              title={`Mapped: ${t.meaning}`}
+                            >
+                              {t.val}
+                            </span>
+                          ) : t.val}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
