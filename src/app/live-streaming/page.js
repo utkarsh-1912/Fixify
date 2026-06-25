@@ -56,6 +56,7 @@ export default function LiveStreamingPage() {
   const activityTimerRef = useRef(null); // fires after ACTIVITY_CHECK_MS
   const countdownIntervalRef = useRef(null);
   const seqNumRef = useRef(1);
+  const isPausedRef = useRef(false); // mirrors isPaused state for use inside setInterval
   const logsEndRef = useRef(null);
 
   useEffect(() => {
@@ -70,6 +71,11 @@ export default function LiveStreamingPage() {
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [feedLogs]);
+
+  // Keep isPausedRef in sync so setInterval closures always read the latest value
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
 
   // Handle countdown timer for auto-stop confirm modal
   useEffect(() => {
@@ -204,7 +210,7 @@ export default function LiveStreamingPage() {
         };
 
         ws.onmessage = (event) => {
-          if (isPaused || showConfirmModal) return;
+          if (isPausedRef.current || showConfirmModal) return;
           handleIncomingRawMessage(event.data);
         };
 
@@ -225,7 +231,7 @@ export default function LiveStreamingPage() {
       setSessionState("CONNECTING");
       let step = 0;
       timerRef.current = setInterval(() => {
-        if (isPaused || showConfirmModal) return;
+        if (isPausedRef.current || showConfirmModal) return;
 
         step++;
 
@@ -535,7 +541,7 @@ export default function LiveStreamingPage() {
                   onClick={togglePause}
                   className="fx-btn-secondary flex-1 justify-center py-2 text-xs font-semibold"
                 >
-                  <Pause className="h-4 w-4" /> {isPaused ? "Resume" : "Pause"}
+                  {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />} {isPaused ? "Resume" : "Pause"}
                 </button>
                 <button
                   onClick={stopFeed}

@@ -274,8 +274,12 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
   const [selectedB, setSelectedB] = useState(null);
   const [linkField, setLinkField] = useState('clOrdID'); // clOrdID | orderID | execID
 
-  const filtered = (search) =>
+  // IDs of messages already participating in any manual link
+  const linkedIds = new Set(manualLinks.flatMap(l => [l.idA, l.idB]));
+
+  const filtered = (search, excludeId) =>
     allMessages.filter(m => {
+      if (m.id === excludeId) return false; // don't show the already-selected other side
       if (!search.trim()) return true;
       const s = search.toLowerCase();
       return (
@@ -295,13 +299,14 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
     setSelectedB(null);
   };
 
-  const MsgRow = ({ msg, selected, onSelect }) => (
+  const MsgRow = ({ msg, selected, linked, onSelect }) => (
     <button
       onClick={() => onSelect(msg)}
       className="w-full text-left px-2.5 py-2 rounded-lg flex items-start gap-2 transition-all"
       style={{
         background: selected ? 'var(--primary-faint)' : 'transparent',
         border: `1px solid ${selected ? 'var(--primary-border)' : 'transparent'}`,
+        opacity: linked && !selected ? 0.45 : 1,
       }}
     >
       <span
@@ -315,7 +320,7 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
           {msg.clOrdID || msg.orderID || msg.execID || msg.sender}
         </div>
         <div className="text-[8px] font-mono truncate" style={{ color: 'var(--text-muted)' }}>
-          {msg.sender} → {msg.target}
+          {msg.sender} → {msg.target}{linked ? ' · linked' : ''}
         </div>
       </div>
       {selected && <Check className="h-3 w-3 shrink-0 ml-auto mt-1" style={{ color: 'var(--primary)' }} />}
@@ -395,13 +400,19 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
                   className="rounded-xl border overflow-y-auto max-h-52 space-y-0.5 p-1 scrollbar-thin"
                   style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
                 >
-                  {filtered(search).length === 0 ? (
+                  {filtered(search, selected?.id).length === 0 ? (
                     <div className="text-[9px] italic font-mono text-center py-4" style={{ color: 'var(--text-muted)' }}>
                       No messages
                     </div>
                   ) : (
-                    filtered(search).map(m => (
-                      <MsgRow key={m.id} msg={m} selected={selected?.id === m.id} onSelect={setSelected} />
+                    filtered(search, selected?.id).map(m => (
+                      <MsgRow
+                        key={m.id}
+                        msg={m}
+                        selected={selected?.id === m.id}
+                        linked={linkedIds.has(m.id)}
+                        onSelect={setSelected}
+                      />
                     ))
                   )}
                 </div>
@@ -784,7 +795,31 @@ export default function MultiHopCorrelationPage() {
     if (trackedConfigs.length === 0 || !rawLogs) return { correlationChains: [], allParsedMessages: [] };
 
     const allMsgs = parseLogs(rawLogs, trackedConfigs);
-    const filteredMsgs = allMsgs.filter(m => m.connectionKey !== null);
+    if (allMsgs.length === 0) return { correlationChains: [], allParsedMessages: allMsgs };
+
+    // Build a lookup for manual links so we can assign connectionKey to unmatched messages
+    // A manually-linked message with no connectionKey gets synthesized into the hop based on
+    // the other side of the link that does have a connectionKey.
+    const msgById = Object.fromEntries(allMsgs.map(m => [m.id, m]));
+
+    // Resolve synthetic connection keys for manually linked messages that lack one
+    const resolvedMsgs = allMsgs.map(m => ({ ...m })); // shallow clone array
+    manualLinks.forEach(link => {
+      const mA = msgById[link.idA];
+      const mB = msgById[link.idB];
+      if (!mA || !mB) return;
+      // If one side has no connectionKey, inherit the other side's
+      if (mA.connectionKey && !mB.connectionKey) {
+        const clone = resolvedMsgs.find(m => m.id === mB.id);
+        if (clone) clone.connectionKey = mA.connectionKey;
+      } else if (mB.connectionKey && !mA.connectionKey) {
+        const clone = resolvedMsgs.find(m => m.id === mA.id);
+        if (clone) clone.connectionKey = mB.connectionKey;
+      }
+    });
+
+    // Use all messages that now have a connectionKey (including synthesized ones)
+    const filteredMsgs = resolvedMsgs.filter(m => m.connectionKey !== null);
     if (filteredMsgs.length === 0) return { correlationChains: [], allParsedMessages: allMsgs };
 
     // DSU
@@ -806,11 +841,11 @@ export default function MultiHopCorrelationPage() {
     Object.values(byOrderID).forEach(list => { for (let i = 1; i < list.length; i++) union(list[0], list[i]); });
     Object.values(byExecID).forEach(list => { for (let i = 1; i < list.length; i++) union(list[0], list[i]); });
 
-    // Apply manual links
+    // Apply manual links — union regardless of connectionKey match
     manualLinks.forEach(link => {
-      const mA = filteredMsgs.find(m => m.id === link.idA);
-      const mB = filteredMsgs.find(m => m.id === link.idB);
-      if (mA && mB) union(link.idA, link.idB);
+      if (parent[link.idA] !== undefined && parent[link.idB] !== undefined) {
+        union(link.idA, link.idB);
+      }
     });
 
     const groups = {};
@@ -951,6 +986,7 @@ export default function MultiHopCorrelationPage() {
 
   const handleClearAll = () => {
     setRawLogs('');
+    setConnectionsConfig([]);
     setSelectedChainId(null);
     setInspectedMessage(null);
     setManualLinks([]);
