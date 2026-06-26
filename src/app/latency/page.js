@@ -1516,8 +1516,12 @@ export default function LatencyDashboard() {
                     <button
                       onClick={() => setCurrentPage(1)}
                       disabled={currentPage === 1}
-                      className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center animate-fade-in border"
-                      style={{ borderColor: 'var(--border)' }}
+                      className="p-1 rounded transition-all flex items-center justify-center animate-fade-in border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                      style={{
+                        background: 'var(--card)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--foreground)'
+                      }}
                       title="First Page"
                     >
                       <ChevronsLeft className="h-3.5 w-3.5" />
@@ -1525,20 +1529,28 @@ export default function LatencyDashboard() {
                     <button
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
-                      className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center animate-fade-in border"
-                      style={{ borderColor: 'var(--border)' }}
+                      className="p-1 rounded transition-all flex items-center justify-center animate-fade-in border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                      style={{
+                        background: 'var(--card)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--foreground)'
+                      }}
                       title="Previous Page"
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </button>
-                    <span className="text-xs font-mono text-zinc-400 px-1 select-none">
+                    <span className="text-xs font-mono px-1 select-none font-bold" style={{ color: 'var(--text-muted)' }}>
                       Page {currentPage} of {totalPages}
                     </span>
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
-                      className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center animate-fade-in border"
-                      style={{ borderColor: 'var(--border)' }}
+                      className="p-1 rounded transition-all flex items-center justify-center animate-fade-in border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                      style={{
+                        background: 'var(--card)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--foreground)'
+                      }}
                       title="Next Page"
                     >
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -1546,8 +1558,12 @@ export default function LatencyDashboard() {
                     <button
                       onClick={() => setCurrentPage(totalPages)}
                       disabled={currentPage === totalPages}
-                      className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center animate-fade-in border"
-                      style={{ borderColor: 'var(--border)' }}
+                      className="p-1 rounded transition-all flex items-center justify-center animate-fade-in border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                      style={{
+                        background: 'var(--card)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--foreground)'
+                      }}
                       title="Last Page"
                     >
                       <ChevronsRight className="h-3.5 w-3.5" />

@@ -679,7 +679,15 @@ function TraceSidebar({ chain, manualLinks, allMessages, onClose, onInspectMessa
                                 const otherId = link.idA === m.id ? link.idB : link.idA;
                                 const otherMsg = (allMessages || []).find(msg => msg.id === otherId);
                                 return (
-                                  <div key={lIdx} className="ml-3 px-2 py-0.5 rounded text-[8px] font-mono flex items-center gap-1 bg-yellow-950/20 border border-yellow-900/30 text-yellow-500">
+                                  <div 
+                                    key={lIdx} 
+                                    className="ml-3 px-2 py-0.5 rounded text-[8px] font-mono flex items-center gap-1 border"
+                                    style={{
+                                      background: 'var(--primary-faint)',
+                                      borderColor: 'var(--primary-border)',
+                                      color: 'var(--primary)'
+                                    }}
+                                  >
                                     <Link2 className="h-2.5 w-2.5 shrink-0" />
                                     <span className="truncate">
                                       Manually linked to: {otherMsg ? `${otherMsg.msgTypeName} (${otherMsg.clOrdID || otherMsg.orderID || otherMsg.sender})` : 'Unknown msg'} via {link.field}

@@ -872,7 +872,12 @@ export default function LogsProcessorPage() {
                   setFlowPageSize(val === "all" ? "all" : Number(val));
                   setFlowPage(1);
                 }}
-                className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-850 text-zinc-350 outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer"
+                className="px-1.5 py-0.5 rounded outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer border"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
               >
                 {[5, 10, 20, 50, 100].map(sz => (
                   <option key={sz} value={sz}>{sz}</option>
@@ -885,7 +890,12 @@ export default function LogsProcessorPage() {
               <button
                 onClick={() => setFlowPage(1)}
                 disabled={currentPage === 1}
-                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                className="p-1 rounded transition-all flex items-center justify-center border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
                 title="First Page"
               >
                 <ChevronsLeft className="h-3 w-3" />
@@ -893,18 +903,28 @@ export default function LogsProcessorPage() {
               <button
                 onClick={() => setFlowPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                className="p-1 rounded transition-all flex items-center justify-center border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
                 title="Previous Page"
               >
                 <ChevronLeft className="h-3 w-3" />
               </button>
-              <span className="text-[10px] text-zinc-400 px-1 select-none">
+              <span className="text-[10px] px-1 select-none font-mono font-bold" style={{ color: 'var(--text-muted)' }}>
                 Page {currentPage} of {totalPages} ({totalCount} msgs)
               </span>
               <button
                 onClick={() => setFlowPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                className="p-1 rounded transition-all flex items-center justify-center border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
                 title="Next Page"
               >
                 <ChevronRight className="h-3 w-3" />
@@ -912,7 +932,12 @@ export default function LogsProcessorPage() {
               <button
                 onClick={() => setFlowPage(totalPages)}
                 disabled={currentPage === totalPages}
-                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                className="p-1 rounded transition-all flex items-center justify-center border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
                 title="Last Page"
               >
                 <ChevronsRight className="h-3 w-3" />
@@ -1273,7 +1298,12 @@ export default function LogsProcessorPage() {
                   setFlowPageSize(val === "all" ? "all" : Number(val));
                   setFlowPage(1);
                 }}
-                className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-855 text-zinc-350 outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer"
+                className="px-1.5 py-0.5 rounded outline-none focus:border-[var(--primary)] text-[10px] font-mono cursor-pointer border"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
               >
                 {[5, 10, 20, 50, 100].map(sz => (
                   <option key={sz} value={sz}>{sz}</option>
@@ -1282,12 +1312,16 @@ export default function LogsProcessorPage() {
               </select>
             </div>
 
-            {/* Page navigation buttons */}
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setFlowPage(1)}
                 disabled={currentPage === 1}
-                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                className="p-1 rounded transition-all flex items-center justify-center border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
                 title="First Page"
               >
                 <ChevronsLeft className="h-3 w-3" />
@@ -1295,18 +1329,28 @@ export default function LogsProcessorPage() {
               <button
                 onClick={() => setFlowPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                className="p-1 rounded transition-all flex items-center justify-center border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
                 title="Previous Page"
               >
                 <ChevronLeft className="h-3 w-3" />
               </button>
-              <span className="text-[10px] text-zinc-400 px-1 select-none">
+              <span className="text-[10px] px-1 select-none font-mono font-bold" style={{ color: 'var(--text-muted)' }}>
                 Page {currentPage} of {totalPages} ({totalCount} msgs)
               </span>
               <button
                 onClick={() => setFlowPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                className="p-1 rounded transition-all flex items-center justify-center border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
                 title="Next Page"
               >
                 <ChevronRight className="h-3 w-3" />
@@ -1314,7 +1358,12 @@ export default function LogsProcessorPage() {
               <button
                 onClick={() => setFlowPage(totalPages)}
                 disabled={currentPage === totalPages}
-                className="p-1 rounded bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:hover:text-zinc-400 transition-all flex items-center justify-center border border-zinc-850"
+                className="p-1 rounded transition-all flex items-center justify-center border disabled:opacity-30 hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--foreground)'
+                }}
                 title="Last Page"
               >
                 <ChevronsRight className="h-3 w-3" />
