@@ -7,16 +7,32 @@ function FileModal({ file, onClose }) {
       onClick={onClose}
     >
       <div 
-        className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl w-[90%] max-w-3xl max-h-[80%] overflow-y-auto flex flex-col animate-in fade-in zoom-in-95 duration-200"
+        className="rounded-2xl shadow-2xl w-[90%] max-w-3xl max-h-[80%] overflow-y-auto flex flex-col animate-in fade-in zoom-in-95 duration-200 border animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--card)',
+          borderColor: 'var(--border)'
+        }}
       >
-        <div className="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 px-6 py-4 bg-zinc-50 dark:bg-zinc-900/50">
-          <h2 className="text-md font-bold text-zinc-900 dark:text-zinc-100">📄 {file.name}</h2>
-          <button onClick={onClose} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-500 hover:text-red-600 transition-all">
+        <div 
+          className="flex justify-between items-center border-b px-6 py-4 shrink-0"
+          style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+        >
+          <h2 className="text-md font-bold" style={{ color: 'var(--foreground)' }}>📄 {file.name}</h2>
+          <button 
+            onClick={onClose} 
+            className="h-8 w-8 rounded-lg flex items-center justify-center transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+          >
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
-        <pre className="p-6 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs bg-zinc-50/50 dark:bg-zinc-950/20 text-zinc-800 dark:text-zinc-300 flex-1">
+        <pre 
+          className="p-6 overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs flex-1"
+          style={{ background: 'var(--background)', color: 'var(--foreground)' }}
+        >
           {file.content}
         </pre>
       </div>

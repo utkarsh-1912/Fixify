@@ -840,17 +840,18 @@ export default function InterpreterPage() {
       {/* Model Details Modal */}
       {modelDetails && (
         <div 
-          className="fixed inset-0 bg-zinc-950/70 backdrop-blur-md flex items-center justify-center z-50 p-4 select-text"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-text"
           onClick={() => setModelDetails(null)}
         >
           <div 
-            className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-md rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 border"
             onClick={(e) => e.stopPropagation()}
+            style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
           >
             {/* Close Button */}
             <button 
               onClick={() => setModelDetails(null)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-200 transition-colors p-1 rounded-lg hover:bg-zinc-800"
+              className="absolute top-4 right-4 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors p-1 rounded-lg hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
             >
               <X className="h-4 w-4" />
             </button>
@@ -858,41 +859,41 @@ export default function InterpreterPage() {
             {modelDetails === 'aura' ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl border border-zinc-800 flex items-center justify-center shrink-0 shadow-lg overflow-hidden bg-zinc-950">
+                  <div className="h-12 w-12 rounded-xl border flex items-center justify-center shrink-0 shadow-lg overflow-hidden bg-zinc-950/20" style={{ borderColor: 'var(--border)' }}>
                     <img src="/aura_logo_icon.png" alt="AURA Logo" className="h-full w-full rounded-xl object-cover" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-sans animate-gradient-text">
                       AURA
                     </h3>
-                    <p className="text-[10px] text-zinc-400 font-mono">
+                    <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
                       AUgmented Response Agent
                     </p>
                   </div>
                 </div>
 
-                <div className="border-t border-zinc-800/85 pt-3.5 space-y-3 font-sans">
+                <div className="border-t pt-3.5 space-y-3 font-sans" style={{ borderColor: 'var(--border)' }}>
                   <div className="space-y-1">
-                    <h4 className="text-xs font-semibold text-zinc-300">Role & Architecture</h4>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    <h4 className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>Role & Architecture</h4>
+                    <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                       AURA is your built-in local offline intelligence assistant. It runs 100% client-side inside your browser, ensuring total privacy and immediate response times.
                     </p>
                   </div>
 
                   <div className="space-y-1">
-                    <h4 className="text-xs font-semibold text-zinc-300">Capabilities</h4>
-                    <ul className="list-disc pl-4 text-[11px] text-zinc-400 space-y-1.5 leading-relaxed">
+                    <h4 className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>Capabilities</h4>
+                    <ul className="list-disc pl-4 text-[11px] space-y-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                       <li><strong>Specs Dictionary</strong>: Dynamically maps message schemas, fields, and types for FIX 4.0, 4.2, 4.4, 5.0, and FIXT 1.1 protocol specifications.</li>
                       <li><strong>Flow Rulebooks</strong>: Pre-compiled validation constraints for key administrative and execution flows (Logon, Cancel, Replace, New Order).</li>
                       <li><strong>Reject Diagnostics</strong>: Standard session rejection code lookups (Tags 373 & 103).</li>
                     </ul>
                   </div>
 
-                  <div className="bg-zinc-950/60 rounded-lg p-2.5 border border-zinc-800">
-                    <p className="text-[10px] text-amber-500 font-semibold flex items-center gap-1.5">
+                  <div className="rounded-lg p-2.5 border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+                    <p className="text-[10px] font-semibold flex items-center gap-1.5 text-amber-500">
                       <Zap className="h-3.5 w-3.5" /> Client-Side Offline Priority
                     </p>
-                    <p className="text-[9px] text-zinc-500 mt-0.5 leading-relaxed">
+                    <p className="text-[9px] mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                       No network requests are ever sent. Your data never leaves your machine.
                     </p>
                   </div>
@@ -901,40 +902,40 @@ export default function InterpreterPage() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-505 via-cyan-505 to-teal-505 flex items-center justify-center shrink-0 shadow-lg">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 flex items-center justify-center shrink-0 shadow-lg">
                     <img src="/gemini_logo.jpeg" alt="Gemini Logo" className="h-full w-full rounded-xl object-cover" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent font-sans animate-gradient-text">
                       Gemini 2.5 Flash
                     </h3>
-                    <p className="text-[10px] text-zinc-400 font-mono">
+                    <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
                       Google LLM Assistant
                     </p>
                   </div>
                 </div>
 
-                <div className="border-t border-zinc-800/85 pt-3.5 space-y-3 font-sans">
+                <div className="border-t pt-3.5 space-y-3 font-sans" style={{ borderColor: 'var(--border)' }}>
                   <div className="space-y-1">
-                    <h4 className="text-xs font-semibold text-zinc-300">Role & Architecture</h4>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    <h4 className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>Role & Architecture</h4>
+                    <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                       Gemini 2.5 Flash is Google's high-speed multimodal reasoning model. It operates online, parsing large text streams to diagnose complex, multi-layered log traces.
                     </p>
                   </div>
 
                   <div className="space-y-1">
-                    <h4 className="text-xs font-semibold text-zinc-300">Capabilities</h4>
-                    <ul className="list-disc pl-4 text-[11px] text-zinc-400 space-y-1.5 leading-relaxed">
+                    <h4 className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>Capabilities</h4>
+                    <ul className="list-disc pl-4 text-[11px] space-y-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                       <li><strong>Natural Reasoning</strong>: Understands conversational queries, custom log files, and unstructured integration questions.</li>
                       <li><strong>Deep Conformance Audits</strong>: Explains advanced transaction flows, gaps in session logs, and custom dialect variations.</li>
                     </ul>
                   </div>
 
-                  <div className="bg-zinc-950/60 rounded-lg p-2.5 border border-zinc-800">
-                    <p className="text-[10px] text-cyan-400 font-semibold flex items-center gap-1.5">
+                  <div className="rounded-lg p-2.5 border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+                    <p className="text-[10px] font-semibold flex items-center gap-1.5 text-cyan-400">
                       <CloudLightning className="h-3.5 w-3.5" /> API Key Integration Required
                     </p>
-                    <p className="text-[9px] text-zinc-500 mt-0.5 leading-relaxed">
+                    <p className="text-[9px] mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                       Requires a valid Gemini API key saved in settings or provided via request header.
                     </p>
                   </div>

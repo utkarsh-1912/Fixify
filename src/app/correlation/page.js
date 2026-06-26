@@ -1036,6 +1036,80 @@ export default function MultiHopCorrelationPage() {
     setManualLinks(prev => prev.filter((_, i) => i !== index));
   };
 
+  const renderControlsCard = () => (
+    <div className="fx-card space-y-3 md:p-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+      <div className="flex items-center justify-between">
+        <span className="fx-section-label">1. Log Input Source</span>
+        <div className="fx-tab-group">
+          <button onClick={() => setActiveInputTab('upload')} className={`fx-tab ${activeInputTab === 'upload' ? 'active' : ''}`}>
+            <UploadCloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">File</span>
+          </button>
+          <button onClick={() => setActiveInputTab('text')} className={`fx-tab ${activeInputTab === 'text' ? 'active' : ''}`}>
+            <ClipboardList className="h-3.5 w-3.5" /><span className="hidden sm:inline">Paste</span>
+          </button>
+        </div>
+      </div>
+
+      {activeInputTab === 'text' ? (
+        <div className="space-y-2">
+          <textarea
+            value={rawLogs}
+            onChange={e => setRawLogs(e.target.value)}
+            placeholder="Paste raw interleaved logs here containing multiple hop FIX messages…"
+            className="fx-input w-full min-h-[200px] text-xs resize-y"
+            style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', outline: 'none' }}
+          />
+          <div className="text-[9px] font-mono flex justify-between px-1" style={{ color: 'var(--text-muted)' }}>
+            <span>Lines: {rawLogs ? rawLogs.split('\n').length : 0}</span>
+            <span>FIX msgs: {rawLogs ? rawLogs.split('\n').filter(l => l.includes('8=FIX')).length : 0}</span>
+          </div>
+          {/* Paste payload preview — Eye/EyeOff toggle */}
+          {rawLogs.trim() && (
+            <div
+              className="rounded-xl border text-[11px] font-mono"
+              style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
+            >
+              <button
+                className="flex items-center gap-1.5 w-full text-left px-3.5 py-2.5"
+                onClick={() => setShowPayload(p => !p)}
+              >
+                {showPayload
+                  ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                  : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                }
+                <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                  Raw Payload Preview (First 3 lines)
+                </span>
+              </button>
+              {showPayload && (
+                <div className="space-y-2 max-h-48 overflow-y-auto px-3.5 pb-3.5">
+                  {rawLogs.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
+                    <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
+                      <SohVisualizer content={line} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          onDragOver={e => e.preventDefault()}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className="border border-dashed rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer text-center transition-colors"
+          style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+        >
+          <Upload className="h-6 w-6 mb-2 animate-pulse" style={{ color: 'var(--primary)' }} />
+          <span className="text-xs font-semibold">Drag & drop log file here</span>
+          <span className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Accepts .log, .txt, .csv</span>
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".log,.txt,.csv,.logx" className="hidden" />
+        </div>
+      )}
+    </div>
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 py-6">
@@ -1090,83 +1164,15 @@ export default function MultiHopCorrelationPage() {
       </div>
 
       {/* Main Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-        {/* Left: Input + Config (5/12) */}
-        <div className="lg:col-span-5 space-y-4">
-
-          {/* Input Panel */}
-          <div className="fx-card space-y-3 md:p-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-            <div className="flex items-center justify-between">
-              <span className="fx-section-label">1. Log Input Source</span>
-              <div className="fx-tab-group">
-                <button onClick={() => setActiveInputTab('upload')} className={`fx-tab ${activeInputTab === 'upload' ? 'active' : ''}`}>
-                  <UploadCloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">File</span>
-                </button>
-                <button onClick={() => setActiveInputTab('text')} className={`fx-tab ${activeInputTab === 'text' ? 'active' : ''}`}>
-                  <ClipboardList className="h-3.5 w-3.5" /><span className="hidden sm:inline">Paste</span>
-                </button>
-              </div>
-            </div>
-
-            {activeInputTab === 'text' ? (
-              <div className="space-y-2">
-                <textarea
-                  value={rawLogs}
-                  onChange={e => setRawLogs(e.target.value)}
-                  placeholder="Paste raw interleaved logs here containing multiple hop FIX messages…"
-                  className="fx-input w-full min-h-[200px] text-xs resize-y"
-                  style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)', outline: 'none' }}
-                />
-                <div className="text-[9px] font-mono flex justify-between px-1" style={{ color: 'var(--text-muted)' }}>
-                  <span>Lines: {rawLogs ? rawLogs.split('\n').length : 0}</span>
-                  <span>FIX msgs: {rawLogs ? rawLogs.split('\n').filter(l => l.includes('8=FIX')).length : 0}</span>
-                </div>
-                {/* Paste payload preview — Eye/EyeOff toggle */}
-                {rawLogs.trim() && (
-                  <div
-                    className="rounded-xl border text-[11px] font-mono"
-                    style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
-                  >
-                    <button
-                      className="flex items-center gap-1.5 w-full text-left px-3.5 py-2.5"
-                      onClick={() => setShowPayload(p => !p)}
-                    >
-                      {showPayload
-                        ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                        : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
-                      }
-                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                        Raw Payload Preview (First 3 lines)
-                      </span>
-                    </button>
-                    {showPayload && (
-                      <div className="space-y-2 max-h-48 overflow-y-auto px-3.5 pb-3.5">
-                        {rawLogs.split('\n').filter(l => l.includes('8=FIX')).slice(0, 3).map((line, idx) => (
-                          <div key={idx} className="p-2 rounded bg-zinc-950/40 border border-zinc-900/50">
-                            <SohVisualizer content={line} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div
-                onDragOver={e => e.preventDefault()}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className="border border-dashed rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer text-center transition-colors"
-                style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
-              >
-                <Upload className="h-6 w-6 mb-2 animate-pulse" style={{ color: 'var(--primary)' }} />
-                <span className="text-xs font-semibold">Drag & drop log file here</span>
-                <span className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Accepts .log, .txt, .csv</span>
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".log,.txt,.csv,.logx" className="hidden" />
-              </div>
-            )}
-          </div>
+      {!rawLogs.trim() ? (
+        <div className="max-w-2xl mx-auto w-full animate-in fade-in duration-300">
+          {renderControlsCard()}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in duration-300">
+          {/* Left: Input + Config (5/12) */}
+          <div className="lg:col-span-5 space-y-4">
+            {renderControlsCard()}
 
           {/* Session & Hop Configurator */}
           <div className="fx-card p-4 space-y-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
@@ -1379,6 +1385,7 @@ export default function MultiHopCorrelationPage() {
           </div>
         </div>
       </div>
+    )}
 
       {/* Trace Sidebar */}
       {selectedChain && (

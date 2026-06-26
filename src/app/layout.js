@@ -24,6 +24,8 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-x-hidden transition-colors duration-200`}
       >
+        <div className="ambient-glow" />
+        <div className="absolute inset-x-0 top-0 h-[450px] bg-grid-pattern pointer-events-none z-[-5]" />
         <Navbar />
         <div className="flex-1 flex flex-col min-w-0 bg-[var(--background)] transition-colors duration-200">
           <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-screen-2xl mx-auto w-full">
