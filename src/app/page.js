@@ -1323,40 +1323,9 @@ export default function LogsProcessorPage() {
           </div>
         )}
 
-        <div className="overflow-x-auto relative p-0.5 bg-zinc-950/40 rounded-2xl border border-zinc-900/80 backdrop-blur-md group/flow-container">
-          {/* Floating Zoom overlay inside sequence flow */}
-          <div 
-            className={`absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-zinc-950/90 backdrop-blur border border-zinc-800 rounded-md p-0.5 z-20 shadow-lg transition-opacity duration-200 ${flowZoom !== 1.0 ? 'opacity-100' : 'opacity-0 group-hover/flow-container:opacity-100'}`}
-          >
-            <button
-              onClick={() => setFlowZoom(prev => Math.min(2.0, Number((prev + 0.1).toFixed(1))))}
-              disabled={flowZoom >= 2.0}
-              className="p-0.5 rounded text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors flex items-center justify-center"
-              title="Zoom In (Increase Width)"
-            >
-              <ZoomIn className="h-3 w-3" />
-            </button>
-            <span className="text-[8px] text-zinc-355 font-bold select-none min-w-[28px] text-center font-mono">
-              {Math.round(flowZoom * 100)}%
-            </span>
-            <button
-              onClick={() => setFlowZoom(prev => Math.max(0.4, Number((prev - 0.1).toFixed(1))))}
-              disabled={flowZoom <= 0.4}
-              className="p-0.5 rounded text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors flex items-center justify-center"
-              title="Zoom Out (Reduce Width)"
-            >
-              <ZoomOut className="h-3 w-3" />
-            </button>
-            {flowZoom !== 1.0 && (
-              <button
-                onClick={() => setFlowZoom(1.0)}
-                className="p-0.5 rounded text-[var(--primary)] hover:text-zinc-200 transition-colors flex items-center justify-center"
-                title="Reset Zoom"
-              >
-                <RefreshCw className="h-3 w-3" />
-              </button>
-            )}
-          </div>
+        <div className="relative w-full group/flow-container">
+          <div className="overflow-x-auto p-0.5 bg-zinc-950/40 rounded-2xl border border-zinc-900/80 backdrop-blur-md">
+
 
           <svg 
             viewBox={`0 0 ${width} ${svgHeight}`} 
@@ -1545,9 +1514,44 @@ export default function LogsProcessorPage() {
             })}
           </svg>
         </div>
+
+        {/* Floating Zoom overlay inside sequence flow */}
+        <div 
+          className={`absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-zinc-950/90 backdrop-blur border border-zinc-800 rounded-md p-0.5 z-20 shadow-lg transition-opacity duration-200 ${flowZoom !== 1.0 ? 'opacity-100' : 'opacity-0 group-hover/flow-container:opacity-100'}`}
+        >
+          <button
+            onClick={() => setFlowZoom(prev => Math.min(2.0, Number((prev + 0.1).toFixed(1))))}
+            disabled={flowZoom >= 2.0}
+            className="p-0.5 rounded text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors flex items-center justify-center"
+            title="Zoom In (Increase Width)"
+          >
+            <ZoomIn className="h-3 w-3" />
+          </button>
+          <span className="text-[8px] text-zinc-355 font-bold select-none min-w-[28px] text-center font-mono">
+            {Math.round(flowZoom * 100)}%
+          </span>
+          <button
+            onClick={() => setFlowZoom(prev => Math.max(0.4, Number((prev - 0.1).toFixed(1))))}
+            disabled={flowZoom <= 0.4}
+            className="p-0.5 rounded text-zinc-400 hover:text-zinc-200 disabled:opacity-30 transition-colors flex items-center justify-center"
+            title="Zoom Out (Reduce Width)"
+          >
+            <ZoomOut className="h-3 w-3" />
+          </button>
+          {flowZoom !== 1.0 && (
+            <button
+              onClick={() => setFlowZoom(1.0)}
+              className="p-0.5 rounded text-[var(--primary)] hover:text-zinc-200 transition-colors flex items-center justify-center"
+              title="Reset Zoom"
+            >
+              <RefreshCw className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const isProcessed = stats.totalMessages > 0;
 

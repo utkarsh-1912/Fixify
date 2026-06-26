@@ -86,7 +86,7 @@ const parseLogs = (rawText, activeConfigs) => {
       let matchedConfig = activeConfigs.find(c => c.key === key1 || c.key === key2);
       
       return {
-        id: `msg-${index}-${Date.now()}`,
+        id: `msg-${index}`,
         raw: fixRaw,
         parsed,
         time: parseTime(parsed.tags['52']),
@@ -280,6 +280,7 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
   const filtered = (search, excludeId) =>
     allMessages.filter(m => {
       if (m.id === excludeId) return false; // don't show the already-selected other side
+      if (linkedIds.has(m.id)) return false; // hide already manually linked messages
       if (!search.trim()) return true;
       const s = search.toLowerCase();
       return (
@@ -489,7 +490,7 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
 }
 
 // ─── Trace Sidebar ───────────────────────────────────────────────────────────
-function TraceSidebar({ chain, onClose, onInspectMessage }) {
+function TraceSidebar({ chain, manualLinks, allMessages, onClose, onInspectMessage }) {
   if (!chain) return null;
 
   return (
@@ -632,47 +633,63 @@ function TraceSidebar({ chain, onClose, onInspectMessage }) {
 
                     {/* Message rows — click opens inspection modal */}
                     {!isMissing && (
-                      <div className="space-y-1.5 mt-2.5">
-                        {ht.messages.map(m => (
-                          <button
-                            key={m.id}
-                            onClick={() => onInspectMessage(m)}
-                            className="w-full text-left p-2 rounded-lg border transition-all group flex items-center justify-between gap-2 hover:border-[var(--primary-border)]"
-                            style={{
-                              background: 'var(--card)',
-                              borderColor: 'var(--border)',
-                            }}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[7px] font-mono font-bold shrink-0 ${
-                                  m.msgType === 'D'
-                                    ? 'bg-blue-950/40 text-blue-400 border border-blue-900/20'
-                                    : m.msgType === '8'
-                                    ? 'badge-success'
-                                    : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
-                                }`}
+                      <div className="space-y-2 mt-2.5">
+                        {ht.messages.map(m => {
+                          const links = (manualLinks || []).filter(l => l.idA === m.id || l.idB === m.id);
+                          return (
+                            <div key={m.id} className="space-y-1">
+                              <button
+                                onClick={() => onInspectMessage(m)}
+                                className="w-full text-left p-2 rounded-lg border transition-all group flex items-center justify-between gap-2 hover:border-[var(--primary-border)]"
+                                style={{
+                                  background: 'var(--card)',
+                                  borderColor: 'var(--border)',
+                                }}
                               >
-                                {m.msgTypeName} ({m.msgType})
-                              </span>
-                              <span className="text-[8px] font-mono truncate" style={{ color: 'var(--foreground)' }}>
-                                {m.clOrdID ? `ClOrdID: ${m.clOrdID}` : m.orderID ? `OrdID: ${m.orderID}` : m.sender}
-                              </span>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[7px] font-mono font-bold shrink-0 ${
+                                      m.msgType === 'D'
+                                        ? 'bg-blue-950/40 text-blue-400 border border-blue-900/20'
+                                        : m.msgType === '8'
+                                        ? 'badge-success'
+                                        : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                                    }`}
+                                  >
+                                    {m.msgTypeName} ({m.msgType})
+                                  </span>
+                                  <span className="text-[8px] font-mono truncate" style={{ color: 'var(--foreground)' }}>
+                                    {m.clOrdID ? `ClOrdID: ${m.clOrdID}` : m.orderID ? `OrdID: ${m.orderID}` : m.sender}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {m.time && (
+                                    <span className="text-[7px] font-mono hidden sm:flex items-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
+                                      <Clock className="h-2.5 w-2.5" />
+                                      {m.parsed.tags['52']?.split('-')[1] || m.parsed.tags['52']}
+                                    </span>
+                                  )}
+                                  <Eye
+                                    className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    style={{ color: 'var(--primary)' }}
+                                  />
+                                </div>
+                              </button>
+                              {links.map((link, lIdx) => {
+                                const otherId = link.idA === m.id ? link.idB : link.idA;
+                                const otherMsg = (allMessages || []).find(msg => msg.id === otherId);
+                                return (
+                                  <div key={lIdx} className="ml-3 px-2 py-0.5 rounded text-[8px] font-mono flex items-center gap-1 bg-yellow-950/20 border border-yellow-900/30 text-yellow-500">
+                                    <Link2 className="h-2.5 w-2.5 shrink-0" />
+                                    <span className="truncate">
+                                      Manually linked to: {otherMsg ? `${otherMsg.msgTypeName} (${otherMsg.clOrdID || otherMsg.orderID || otherMsg.sender})` : 'Unknown msg'} via {link.field}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {m.time && (
-                                <span className="text-[7px] font-mono hidden sm:flex items-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
-                                  <Clock className="h-2.5 w-2.5" />
-                                  {m.parsed.tags['52']?.split('-')[1] || m.parsed.tags['52']}
-                                </span>
-                              )}
-                              <Eye
-                                className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                                style={{ color: 'var(--primary)' }}
-                              />
-                            </div>
-                          </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
@@ -744,7 +761,10 @@ export default function MultiHopCorrelationPage() {
 
   // ── Auto-discover sessions ────────────────────────────────────────────────
   useEffect(() => {
-    if (!rawLogs) return;
+    if (!rawLogs) {
+      setConnectionsConfig([]);
+      return;
+    }
     const uniqueConnsMap = new Map();
     rawLogs.split('\n').forEach(line => {
       if (!line.includes('8=FIX')) return;
@@ -804,19 +824,23 @@ export default function MultiHopCorrelationPage() {
 
     // Resolve synthetic connection keys for manually linked messages that lack one
     const resolvedMsgs = allMsgs.map(m => ({ ...m })); // shallow clone array
-    manualLinks.forEach(link => {
-      const mA = msgById[link.idA];
-      const mB = msgById[link.idB];
-      if (!mA || !mB) return;
-      // If one side has no connectionKey, inherit the other side's
-      if (mA.connectionKey && !mB.connectionKey) {
-        const clone = resolvedMsgs.find(m => m.id === mB.id);
-        if (clone) clone.connectionKey = mA.connectionKey;
-      } else if (mB.connectionKey && !mA.connectionKey) {
-        const clone = resolvedMsgs.find(m => m.id === mA.id);
-        if (clone) clone.connectionKey = mB.connectionKey;
-      }
-    });
+    let changed = true;
+    while (changed) {
+      changed = false;
+      manualLinks.forEach(link => {
+        const mA = resolvedMsgs.find(m => m.id === link.idA);
+        const mB = resolvedMsgs.find(m => m.id === link.idB);
+        if (!mA || !mB) return;
+        // If one side has no connectionKey, inherit the other side's
+        if (mA.connectionKey && !mB.connectionKey) {
+          mB.connectionKey = mA.connectionKey;
+          changed = true;
+        } else if (mB.connectionKey && !mA.connectionKey) {
+          mA.connectionKey = mB.connectionKey;
+          changed = true;
+        }
+      });
+    }
 
     // Use all messages that now have a connectionKey (including synthesized ones)
     const filteredMsgs = resolvedMsgs.filter(m => m.connectionKey !== null);
@@ -1352,6 +1376,8 @@ export default function MultiHopCorrelationPage() {
       {selectedChain && (
         <TraceSidebar
           chain={selectedChain}
+          manualLinks={manualLinks}
+          allMessages={allParsedMessages}
           onClose={() => { setSelectedChainId(null); }}
           onInspectMessage={(msg) => setInspectedMessage(msg)}
         />

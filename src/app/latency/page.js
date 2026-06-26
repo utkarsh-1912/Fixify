@@ -198,7 +198,7 @@ const WORKER_CODE = `
       }
 
       const msgInfo = {
-        id: "msg-" + index + "-" + Date.now(),
+        id: "msg-" + index,
         seqNum: seqNum || "" + (index + 1),
         msgType,
         msgTypeName: getMsgTypeName(msgType),
@@ -340,7 +340,7 @@ export default function LatencyDashboard() {
       }
 
       const msgInfo = {
-        id: `msg-${index}-${Date.now()}`,
+        id: `msg-${index}`,
         seqNum: seqNum || `${index + 1}`,
         msgType,
         msgTypeName: getMsgTypeName(msgType),
