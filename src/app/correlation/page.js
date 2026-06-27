@@ -1036,10 +1036,49 @@ export default function MultiHopCorrelationPage() {
     setManualLinks(prev => prev.filter((_, i) => i !== index));
   };
 
-  const renderControlsCard = () => (
-    <div className="fx-card space-y-3 md:p-2" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-      <div className="flex items-center justify-between">
-        <span className="fx-section-label">1. Log Input Source</span>
+  const renderControlsCard = () => {
+    let workspaceLogs = "";
+    if (typeof window !== "undefined") {
+      const pasted = localStorage.getItem("fixify-logs-pastedText");
+      if (pasted && pasted.trim()) {
+        workspaceLogs = pasted;
+      } else {
+        const filesJson = localStorage.getItem("fixify-logs-files");
+        if (filesJson) {
+          try {
+            const files = JSON.parse(filesJson);
+            if (Array.isArray(files) && files.length > 0) {
+              workspaceLogs = files.map(f => f.content || "").join("\n");
+            }
+          } catch (e) {}
+        }
+      }
+    }
+    const workspaceLines = workspaceLogs ? workspaceLogs.split("\n").filter(l => l.trim()).length : 0;
+
+    return (
+      <div className="fx-card space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+        {workspaceLines > 0 && (
+          <button
+            onClick={() => {
+              setRawLogs(workspaceLogs);
+              setActiveInputTab('text');
+            }}
+            className="w-full text-left p-3 rounded-lg border text-xs flex items-center justify-between transition-all hover:opacity-90 animate-in slide-in-from-top-1 duration-200"
+            style={{ background: 'var(--primary-faint)', borderColor: 'var(--primary-border)', color: 'var(--primary)' }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="font-semibold">✨ Load active logs from main workspace ({workspaceLines} lines)</span>
+            </div>
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--primary-border)', background: 'var(--background)' }}>Import</span>
+          </button>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="fx-section-label">Log Input Source</span>
         <div className="fx-tab-group">
           <button onClick={() => setActiveInputTab('upload')} className={`fx-tab ${activeInputTab === 'upload' ? 'active' : ''}`}>
             <UploadCloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">File</span>
@@ -1109,13 +1148,14 @@ export default function MultiHopCorrelationPage() {
       )}
     </div>
   );
+};
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 py-6">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+      <div className={`flex flex-col sm:flex-row sm:items-start justify-between gap-4 shrink-0 ${!rawLogs.trim() ? 'max-w-2xl mx-auto w-full' : ''}`}>
         <div className="space-y-1">
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2.5" style={{ color: 'var(--foreground)' }}>
             <div
@@ -1124,42 +1164,48 @@ export default function MultiHopCorrelationPage() {
             >
               <Network className="h-4 w-4" style={{ color: 'var(--primary)' }} />
             </div>
-            Multi-Hop Transaction Correlation Tracker
+            Multi-Hop Correlation Tracker
           </h1>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
             Load logs, auto-discover sessions, trace individual transaction journeys across hops, and manually link unmatched orders.
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setShowManualLink(true)}
-            className="fx-btn-secondary py-1.5 px-3 text-xs font-semibold flex items-center gap-1.5"
-            style={{ color: manualLinks.length > 0 ? 'var(--primary)' : undefined }}
-          >
-            <Link2 className="h-3.5 w-3.5" />
-            Manual Link
-            {manualLinks.length > 0 && (
-              <span
-                className="ml-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold"
-                style={{ background: 'var(--primary-faint)', color: 'var(--primary)' }}
-              >
-                {manualLinks.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setRawLogs(DEFAULT_LOGS); setSelectedChainId(null); setInspectedMessage(null); }}
-            className="fx-btn-secondary py-1.5 px-3 text-xs font-semibold"
-          >
-            Load Demo
-          </button>
-          <button
-            onClick={handleClearAll}
-            className="fx-btn-secondary py-1.5 px-3 text-xs font-semibold"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Reset
-          </button>
+          {rawLogs.trim().length > 0 && (
+            <button
+              onClick={() => setShowManualLink(true)}
+              className="fx-btn-secondary py-1.5 px-3 text-xs font-semibold flex items-center gap-1.5"
+              style={{ color: manualLinks.length > 0 ? 'var(--primary)' : undefined }}
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Manual Link
+              {manualLinks.length > 0 && (
+                <span
+                  className="ml-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold"
+                  style={{ background: 'var(--primary-faint)', color: 'var(--primary)' }}
+                >
+                  {manualLinks.length}
+                </span>
+              )}
+            </button>
+          )}
+          {rawLogs.trim().length === 0 && (
+            <button
+              onClick={() => { setRawLogs(DEFAULT_LOGS); setSelectedChainId(null); setInspectedMessage(null); }}
+              className="fx-btn-secondary py-1.5 px-3 text-xs font-semibold"
+            >
+              Load Demo
+            </button>
+          )}
+          {rawLogs.trim().length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="fx-btn-secondary py-1.5 px-3 text-xs font-semibold"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
@@ -1178,7 +1224,7 @@ export default function MultiHopCorrelationPage() {
           <div className="fx-card p-4 space-y-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--border)' }}>
               <div>
-                <span className="fx-section-label" style={{ color: 'var(--primary)' }}>2. Session & Hops Configurator</span>
+                <span className="fx-section-label" style={{ color: 'var(--primary)' }}>Session & Hops Configurator</span>
                 <span className="text-[9px] block mt-0.5" style={{ color: 'var(--text-muted)' }}>
                   Customize tracking filters, labels, and path sequence.
                 </span>
@@ -1264,7 +1310,7 @@ export default function MultiHopCorrelationPage() {
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2">
-                <span className="fx-section-label" style={{ color: 'var(--primary)' }}>3. Correlated Transaction Chains</span>
+                <span className="fx-section-label" style={{ color: 'var(--primary)' }}>Correlated Transaction Chains</span>
                 {correlationChains.length > 0 && (
                   <span
                     className="px-1.5 py-0.5 rounded text-[8px] font-mono"

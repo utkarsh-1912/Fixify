@@ -840,39 +840,49 @@ export default function InterpreterPage() {
       {/* Model Details Modal */}
       {modelDetails && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-text"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-text"
           onClick={() => setModelDetails(null)}
         >
           <div 
-            className="w-full max-w-md rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 border"
+            className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
-            style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
-            {/* Close Button */}
-            <button 
-              onClick={() => setModelDetails(null)}
-              className="absolute top-4 right-4 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors p-1 rounded-lg hover:bg-zinc-800/10 dark:hover:bg-zinc-800/40"
+            {/* Header */}
+            <div
+              className="px-6 py-4 flex justify-between items-start gap-4 shrink-0"
+              style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
             >
-              <X className="h-4 w-4" />
-            </button>
-
-            {modelDetails === 'aura' ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl border flex items-center justify-center shrink-0 shadow-lg overflow-hidden bg-zinc-950/20" style={{ borderColor: 'var(--border)' }}>
-                    <img src="/aura_logo_icon.png" alt="AURA Logo" className="h-full w-full rounded-xl object-cover" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-sans animate-gradient-text">
-                      AURA
-                    </h3>
-                    <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                      AUgmented Response Agent
-                    </p>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl border flex items-center justify-center shrink-0 shadow-sm overflow-hidden bg-zinc-950/20" style={{ borderColor: 'var(--border)' }}>
+                  <img 
+                    src={modelDetails === 'aura' ? "/aura_logo_icon.png" : "/gemini_logo.jpeg"} 
+                    alt={modelDetails === 'aura' ? "AURA Logo" : "Gemini Logo"} 
+                    className="h-full w-full object-cover" 
+                  />
                 </div>
+                <div className="space-y-0.5">
+                  <h3 className={`text-sm font-extrabold bg-gradient-to-r bg-clip-text text-transparent font-sans ${modelDetails === 'aura' ? 'from-indigo-400 via-purple-400 to-pink-400' : 'from-blue-400 via-cyan-400 to-teal-400'}`}>
+                    {modelDetails === 'aura' ? "AURA" : "Gemini 2.5 Flash"}
+                  </h3>
+                  <p className="text-[10px] leading-none" style={{ color: 'var(--text-muted)' }}>
+                    {modelDetails === 'aura' ? "AUgmented Response Agent (Offline)" : "Google LLM Assistant (Online)"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModelDetails(null)}
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50 mt-1"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-                <div className="border-t pt-3.5 space-y-3 font-sans" style={{ borderColor: 'var(--border)' }}>
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-4 text-xs">
+              {modelDetails === 'aura' ? (
+                <div className="space-y-4">
                   <div className="space-y-1">
                     <h4 className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>Role & Architecture</h4>
                     <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
@@ -889,7 +899,7 @@ export default function InterpreterPage() {
                     </ul>
                   </div>
 
-                  <div className="rounded-lg p-2.5 border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+                  <div className="rounded-lg p-2.5 border" style={{ background: 'var(--primary-faint)', borderColor: 'var(--primary-border)' }}>
                     <p className="text-[10px] font-semibold flex items-center gap-1.5 text-amber-500">
                       <Zap className="h-3.5 w-3.5" /> Client-Side Offline Priority
                     </p>
@@ -898,24 +908,8 @@ export default function InterpreterPage() {
                     </p>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 flex items-center justify-center shrink-0 shadow-lg">
-                    <img src="/gemini_logo.jpeg" alt="Gemini Logo" className="h-full w-full rounded-xl object-cover" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent font-sans animate-gradient-text">
-                      Gemini 2.5 Flash
-                    </h3>
-                    <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                      Google LLM Assistant
-                    </p>
-                  </div>
-                </div>
-
-                <div className="border-t pt-3.5 space-y-3 font-sans" style={{ borderColor: 'var(--border)' }}>
+              ) : (
+                <div className="space-y-4">
                   <div className="space-y-1">
                     <h4 className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>Role & Architecture</h4>
                     <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
@@ -931,7 +925,7 @@ export default function InterpreterPage() {
                     </ul>
                   </div>
 
-                  <div className="rounded-lg p-2.5 border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+                  <div className="rounded-lg p-2.5 border" style={{ background: 'var(--primary-faint)', borderColor: 'var(--primary-border)' }}>
                     <p className="text-[10px] font-semibold flex items-center gap-1.5 text-cyan-400">
                       <CloudLightning className="h-3.5 w-3.5" /> API Key Integration Required
                     </p>
@@ -940,11 +934,14 @@ export default function InterpreterPage() {
                     </p>
                   </div>
                 </div>
-              </div>
-            )}
-            
-            {/* Action Button */}
-            <div className="mt-5 flex justify-end">
+              )}
+            </div>
+
+            {/* Footer */}
+            <div
+              className="px-6 py-3.5 flex justify-end shrink-0"
+              style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}
+            >
               <button 
                 onClick={() => setModelDetails(null)}
                 className="fx-btn-secondary py-1.5 px-4 text-xs font-sans font-bold"

@@ -1020,6 +1020,80 @@ function FlowchartPage() {
     e.target.value = "";
   };
 
+  const importWorkspaceLogs = (text) => {
+    try {
+      const lines = text.split(/\r?\n/).filter(Boolean).slice(0, 18);
+      
+      const newNodes = [];
+      const newEdges = [];
+      let prevNodeId = null;
+
+      lines.forEach((line, idx) => {
+        const val = validateFIXMessage(line);
+        if (!val) return;
+
+        const nodeId = `fix-seq-node-${idx}-${Date.now()}`;
+        const label = `${val.msgSeqNum ? 'Seq ' + val.msgSeqNum + ': ' : ''}${val.msgTypeName}`;
+        
+        const position = { x: idx * 220, y: 150 };
+
+        const node = {
+          id: nodeId,
+          type: idx === 0 ? "start" : idx === lines.length - 1 ? "end" : "process",
+          position,
+          data: {
+            label,
+            updateLabel,
+            meta: {
+              msgType: val.msgType,
+              msgTypeName: val.msgTypeName,
+              clOrdID: val.clOrdID,
+              sender: val.senderCompID,
+              target: val.targetCompID,
+              sendingTime: val.sendingTime || val.customTimestamp,
+              errors: val.errors,
+              tagList: val.tagList
+            }
+          }
+        };
+
+        newNodes.push(node);
+
+        if (prevNodeId) {
+          newEdges.push({
+            id: `edge-${prevNodeId}-${nodeId}`,
+            source: prevNodeId,
+            target: nodeId,
+            label: val.clOrdID ? `ClOrdID: ${val.clOrdID}` : (val.msgType ? `Type: ${val.msgType}` : ""),
+            animated: true,
+            style: { stroke: val.errors?.length > 0 ? '#ef4444' : '#10b981' },
+            labelStyle: { fill: '#a1a1aa', fontSize: '9px', fontFamily: 'monospace' }
+          });
+        }
+
+        prevNodeId = nodeId;
+      });
+
+      if (newNodes.length === 0) {
+        alert("No standard FIX message layouts identified in active logs.");
+        return;
+      }
+
+      setNodes(newNodes);
+      setEdges(newEdges);
+      setActiveScenario("");
+      
+      setTimeout(() => {
+        const positioned = getDagreLayout(newNodes, newEdges, "LR");
+        setNodes(positioned);
+        setTimeout(() => rfInstance && rfInstance.fitView({ padding: 0.15 }), 80);
+      }, 120);
+
+    } catch (err) {
+      alert("Failed to auto-arrange sequence flow from workspace logs: " + err.message);
+    }
+  };
+
   const resetChart = useCallback(() => {
     setNodes([]);
     setEdges([]);
@@ -1319,6 +1393,45 @@ function FlowchartPage() {
       {/* Quick FIX Auto generation */}
       <div>
         <p className="fx-section-label mb-3">FIX Sequence</p>
+        {(() => {
+          let workspaceLogs = "";
+          if (typeof window !== "undefined") {
+            const pasted = localStorage.getItem("fixify-logs-pastedText");
+            if (pasted && pasted.trim()) {
+              workspaceLogs = pasted;
+            } else {
+              const filesJson = localStorage.getItem("fixify-logs-files");
+              if (filesJson) {
+                try {
+                  const files = JSON.parse(filesJson);
+                  if (Array.isArray(files) && files.length > 0) {
+                    workspaceLogs = files.map(f => f.content || "").join("\n");
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+          const workspaceLines = workspaceLogs ? workspaceLogs.split("\n").filter(l => l.trim()).length : 0;
+          if (workspaceLines === 0) return null;
+          return (
+            <button
+              onClick={() => {
+                importWorkspaceLogs(workspaceLogs);
+                if (!isDesktop) setIsLeftDrawerOpen(false);
+              }}
+              className="w-full text-left p-2.5 rounded-lg border text-xs flex items-center justify-between transition-all hover:opacity-90 mb-3 animate-in slide-in-from-top-1 duration-200"
+              style={{ background: 'var(--primary-faint)', borderColor: 'var(--primary-border)', color: 'var(--primary)' }}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="font-semibold truncate">✨ Load active logs ({workspaceLines} lines)</span>
+              </div>
+            </button>
+          );
+        })()}
         <input
           type="file"
           id="fixLogSeqInput"
