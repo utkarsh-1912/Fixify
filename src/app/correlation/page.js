@@ -115,17 +115,17 @@ function MessageInspectModal({ msg, onClose }) {
   const tagList = msg.parsed?.tagList || [];
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-150">
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-text animate-fade-in"
+      onClick={onClose}
+    >
       <div
-        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div
-        className="relative w-full max-w-lg max-h-[88vh] flex flex-col rounded-2xl shadow-2xl border animate-in zoom-in-95 duration-200"
-        style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+        className="relative w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
       >
         {/* Header */}
-        <div className="flex justify-between items-center px-5 py-4 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex justify-between items-center px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
           <div className="flex items-center gap-2.5">
             <div
               className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
@@ -144,7 +144,7 @@ function MessageInspectModal({ msg, onClose }) {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-all hover:bg-zinc-800/40"
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
             style={{ color: 'var(--text-muted)' }}
           >
             <X className="h-4 w-4" />
@@ -329,14 +329,17 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
   );
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-text animate-fade-in"
+      onClick={onClose}
+    >
       <div
-        className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border animate-in zoom-in-95 duration-200"
-        style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+        className="relative w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
       >
         {/* Header */}
-        <div className="flex justify-between items-center px-5 py-4 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex justify-between items-center px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
           <div className="flex items-center gap-2.5">
             <div
               className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
@@ -351,7 +354,11 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-800/40" style={{ color: 'var(--text-muted)' }}>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+            style={{ color: 'var(--text-muted)' }}
+          >
             <X className="h-4 w-4" />
           </button>
         </div>

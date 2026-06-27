@@ -1619,7 +1619,7 @@ export default function LatencyDashboard() {
       {/* Expanded Chart Modal */}
       {expandedChart && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 md:p-10 select-none animate-fade-in"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-text animate-fade-in"
           onClick={() => setExpandedChart(null)}
         >
           <div 
@@ -1627,13 +1627,14 @@ export default function LatencyDashboard() {
             style={{ 
               background: 'var(--card)', 
               borderColor: 'var(--border)',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              maxHeight: '85vh'
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div 
-              className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="px-6 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0"
               style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
             >
               <span className="font-semibold text-sm uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
@@ -1661,9 +1662,10 @@ export default function LatencyDashboard() {
 
                 <button
                   onClick={() => setExpandedChart(null)}
-                  className="hidden md:inline p-1.5 rounded-lg hover:bg-zinc-800 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+                  style={{ color: 'var(--text-muted)' }}
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>

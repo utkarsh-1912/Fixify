@@ -17,7 +17,8 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  X
 } from "lucide-react";
 import { validateFIXMessage, getTagValue } from "@/lib/fixParser";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
@@ -1022,16 +1023,16 @@ export default function FIXComparePage() {
       {/* Modal */}
       {showModal && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-text animate-fade-in"
           onClick={() => { setShowModal(false); setModalContent(null); }}
         >
           <div
-            className="w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+            className="relative w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
-            style={{ background: 'var(--card)', border: '1px solid var(--border)', maxHeight: '85vh' }}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
             <div
-              className="px-6 py-4 flex justify-between items-center"
+              className="px-6 py-4 flex justify-between items-center shrink-0"
               style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
             >
               <div className="flex items-center gap-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>
@@ -1040,10 +1041,10 @@ export default function FIXComparePage() {
               </div>
               <button
                 onClick={() => { setShowModal(false); setModalContent(null); }}
-                className="h-7 w-7 rounded-lg flex items-center justify-center text-sm"
-                style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+                style={{ color: 'var(--text-muted)' }}
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
             <div className="p-6 overflow-y-auto flex-1 space-y-4 font-mono text-xs">

@@ -580,22 +580,22 @@ function AuditRulesModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-text animate-fade-in"
       onClick={onClose}
     >
       {/* Dialog */}
       <div
-        className="relative z-10 w-full max-w-lg flex flex-col overflow-hidden rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-lg flex flex-col overflow-hidden rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--card)',
           border: '1px solid var(--border)',
-          maxHeight: '90vh'
+          maxHeight: '85vh'
         }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-6 py-4"
+          className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
         >
           <div className="flex items-center gap-2.5">
@@ -609,17 +609,15 @@ function AuditRulesModal({
               <h2 className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
                 Configure Audit Rules
               </h2>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                 Enable or disable security checks
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="h-8 w-8 rounded-lg flex items-center justify-center transition-all"
-            style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--foreground)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+            style={{ color: 'var(--text-muted)' }}
           >
             <X className="h-4 w-4" />
           </button>

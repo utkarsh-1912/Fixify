@@ -2464,24 +2464,25 @@ function ClOrdIdChainModal({ isOpen, onClose, chain: sessionsData }) {
   if (!isOpen) return null;
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-text animate-fade-in"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-lg rounded-xl overflow-hidden shadow-xl border flex flex-col max-h-[80vh]"
+        className="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border flex flex-col max-h-[80vh]"
         style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
+        <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">Order ID Transitions</h3>
             <p className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5">Segregated by trading session</p>
           </div>
-          <button 
-            onClick={onClose} 
-            className="text-[var(--text-muted)] hover:text-[var(--foreground)] px-2 py-1 rounded-lg hover:bg-zinc-800 transition-all font-mono text-xs"
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+            style={{ color: 'var(--text-muted)' }}
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
