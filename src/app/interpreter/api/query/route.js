@@ -642,7 +642,112 @@ A Sequence Reset (35=4) message is used to recover from sequence gaps or to rese
 
   "fix protocol": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
   
-  "fix": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`
+  "fix": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
+
+  "futures": `**Futures (FUT) Trading in the FIX Protocol**
+
+Futures are traded using standard New Order Single (35=D) and Execution Report (35=8) messages with specific contract metadata tags:
+- **Product (Tag 460)**: Set to \`2\` (COMMODITY).
+- **SecurityType (Tag 167)**: Set to \`FUT\` (Future).
+- **SecurityExchange (Tag 207)**: Identifies the exchange (e.g., \`CME\`, \`ICE\`, \`EUREX\`).
+- **MaturityMonthYear (Tag 200)**: Specifies the contract delivery month in format \`YYYYMM\` (e.g., \`202612\`).
+- **MaturityDate (Tag 541)**: (FIX 4.4+) Complete expiration date in format \`YYYYMMDD\` (e.g., \`20261218\`).
+- **ContractMultiplier (Tag 231)**: Specifies the multiplier used to determine the contract value (e.g., \`50\` for E-mini S&P 500).
+- **MinPriceIncrement (Tag 969)**: Tick size/minimum price fluctuation (e.g. \`0.25\`).
+- **Currency (Tag 15)**: Trading currency (e.g., \`USD\`).`,
+
+  "future": `**Futures (FUT) Trading in the FIX Protocol**
+
+Futures are traded using standard New Order Single (35=D) and Execution Report (35=8) messages with specific contract metadata tags:
+- **Product (Tag 460)**: Set to \`2\` (COMMODITY).
+- **SecurityType (Tag 167)**: Set to \`FUT\` (Future).
+- **SecurityExchange (Tag 207)**: Identifies the exchange (e.g., \`CME\`, \`ICE\`, \`EUREX\`).
+- **MaturityMonthYear (Tag 200)**: Specifies the contract delivery month in format \`YYYYMM\` (e.g., \`202612\`).
+- **MaturityDate (Tag 541)**: (FIX 4.4+) Complete expiration date in format \`YYYYMMDD\` (e.g., \`20261218\`).
+- **ContractMultiplier (Tag 231)**: Specifies the multiplier used to determine the contract value (e.g., \`50\` for E-mini S&P 500).
+- **MinPriceIncrement (Tag 969)**: Tick size/minimum price fluctuation (e.g. \`0.25\`).
+- **Currency (Tag 15)**: Trading currency (e.g., \`USD\`).`,
+
+  "forex": `**Forex (FX) Spot and Forward Trading in the FIX Protocol**
+
+Foreign Exchange (FX) trades are represented using specific currency pair formats and settlement values:
+- **Product (Tag 460)**: Set to \`4\` (CURRENCY).
+- **SecurityType (Tag 167)**: Set to \`FOR\` (Foreign Exchange Contract / Forward) or \`SPOT\` (Spot FX).
+- **Symbol (Tag 55)**: Represents the currency pair (e.g., \`EUR/USD\` or \`EURUSD\`).
+- **Currency (Tag 15)**: The base currency of the transaction (e.g., \`EUR\` in \`EUR/USD\`).
+- **SettlCurrency (Tag 120)**: The counter/settlement currency (e.g., \`USD\` in \`EUR/USD\`).
+- **SettlType (Tag 63)**: Settlement method/value date:
+  - \`0\` = Regular / T+2 (Standard Spot)
+  - \`1\` = Cash / Same Day
+  - \`2\` = Next Day
+  - \`C\` = FX Forward (Value Date is specified in SettlDate)
+- **SettlDate (Tag 64)**: The value/settlement date of the spot or forward transaction (e.g., \`20260715\` in \`YYYYMMDD\` format).
+- **OrderQty (Tag 38)**: The size of the transaction in the base currency (Tag 15).`,
+
+  "swap": `**FX Swap Trading in the FIX Protocol**
+
+An FX Swap consists of two legs (near leg and far leg) executed simultaneously.
+- **Product (Tag 460)**: Set to \`4\` (CURRENCY).
+- **SecurityType (Tag 167)**: Set to \`FXSWAP\`.
+- **Symbol (Tag 55)**: The currency pair (e.g., \`EUR/USD\`).
+- **Currency (Tag 15)**: Base currency of the swap.
+- **Multi-leg representation (FIX 4.4+)**:
+  - Traded using **New Order Multi-leg (35=AB)** and **Multileg Execution Report (35=ASE)**.
+  - Or represented using **Leg Groups** (repeating group starting with Tag 555 - NoLegs):
+    - **LegSymbol (Tag 600)**: Currency pair.
+    - **LegSide (Tag 624)**: Side of this leg (e.g., near leg Sell, far leg Buy).
+    - **LegOrderQty (Tag 685)**: Leg order size.
+    - **LegSettlDate (Tag 588)**: Leg value date.
+    - **LegPrice (Tag 566)**: Leg execution rate.
+- **Legacy (Pre-FIX 4.4) FX Swaps**:
+  - Often processed via New Order Single (35=D) with:
+    - **OrderQty (Tag 38)**: Near leg quantity.
+    - **OrderQty2 (Tag 192)**: Far leg quantity.
+    - **SettlDate (Tag 64)**: Near leg value date.
+    - **FutSettDate2 (Tag 193)**: Far leg value date.`,
+
+  "forward": `**Forex (FX) Forward Trading in the FIX Protocol**
+
+An FX Forward contract is an agreement to buy or sell a currency pair at a future date at an agreed rate.
+- **Product (Tag 460)**: Set to \`4\` (CURRENCY).
+- **SecurityType (Tag 167)**: Set to \`FOR\` (Foreign Exchange Contract / Forward).
+- **Symbol (Tag 55)**: Represents the currency pair (e.g., \`GBP/USD\` or \`GBPUSD\`).
+- **SettlType (Tag 63)**: Set to \`C\` (FX Forward) to specify a custom settlement date.
+- **SettlDate (Tag 64)**: The forward value date in format \`YYYYMMDD\` (e.g., \`20261022\`).
+- **Currency (Tag 15)**: Base currency (e.g., \`GBP\` in \`GBP/USD\`).
+- **SettlCurrency (Tag 120)**: The counter currency (e.g., \`USD\`).`,
+
+  "asset class": `**Asset Classes and Products in the FIX Protocol**
+
+FIX supports multiple asset classes mapped using Tag 460 (Product) and Tag 167 (SecurityType):
+- **Equities (Product 460 = 5)**:
+  - **SecurityType (Tag 167)**: \`CS\` (Common Stock), \`PS\` (Preferred Stock), \`ADR\`.
+  - Main tags: Tag 55 (Symbol), Tag 48 (SecurityID), Tag 22 (SecurityIDSource).
+- **Futures & Options (Product 460 = 2 or 5)**:
+  - **SecurityType (Tag 167)**: \`FUT\` (Future), \`OPT\` (Option), \`WAR\` (Warrant).
+  - Main tags: Tag 200 (MaturityMonthYear), Tag 201 (PutOrCall: 0=Put, 1=Call), Tag 202 (StrikePrice).
+- **FX / Foreign Exchange (Product 460 = 4)**:
+  - **SecurityType (Tag 167)**: \`SPOT\`, \`FOR\` (Forward), \`FXSWAP\`.
+  - Main tags: Tag 15 (Currency), Tag 120 (SettlCurrency), Tag 63 (SettlType), Tag 64 (SettlDate).
+- **Fixed Income / Debt (Product 460 = 3, 6, 11)**:
+  - **SecurityType (Tag 167)**: \`TBOND\` (Treasury Bond), \`CORP\` (Corporate Bond).
+  - Main tags: Tag 223 (CouponRate), Tag 235 (YieldType), Tag 236 (Yield).`,
+
+  "asset classes": `**Asset Classes and Products in the FIX Protocol**
+
+FIX supports multiple asset classes mapped using Tag 460 (Product) and Tag 167 (SecurityType):
+- **Equities (Product 460 = 5)**:
+  - **SecurityType (Tag 167)**: \`CS\` (Common Stock), \`PS\` (Preferred Stock), \`ADR\`.
+  - Main tags: Tag 55 (Symbol), Tag 48 (SecurityID), Tag 22 (SecurityIDSource).
+- **Futures & Options (Product 460 = 2 or 5)**:
+  - **SecurityType (Tag 167)**: \`FUT\` (Future), \`OPT\` (Option), \`WAR\` (Warrant).
+  - Main tags: Tag 200 (MaturityMonthYear), Tag 201 (PutOrCall: 0=Put, 1=Call), Tag 202 (StrikePrice).
+- **FX / Foreign Exchange (Product 460 = 4)**:
+  - **SecurityType (Tag 167)**: \`SPOT\`, \`FOR\` (Forward), \`FXSWAP\`.
+  - Main tags: Tag 15 (Currency), Tag 120 (SettlCurrency), Tag 63 (SettlType), Tag 64 (SettlDate).
+- **Fixed Income / Debt (Product 460 = 3, 6, 11)**:
+  - **SecurityType (Tag 167)**: \`TBOND\` (Treasury Bond), \`CORP\` (Corporate Bond).
+  - Main tags: Tag 223 (CouponRate), Tag 235 (YieldType), Tag 236 (Yield).`
 };
 
 function generateLocalBreakdown(tagList) {
@@ -1329,7 +1434,13 @@ export async function POST(req) {
       "You help developers, traders, and QA engineers analyze FIX messages, troubleshoot trading session logs, " +
       "explain tag numbers, data types, and enum values, and audit conformance flows. " +
       "Keep explanations clear, professional, and code-focused. If a FIX message table is provided, " +
-      "explain the transaction flow and highlight any fields that might indicate errors or mismatches." +
+      "explain the transaction flow and highlight any fields that might indicate errors or mismatches. " +
+      "You are highly knowledgeable about asset class mapping in the FIX protocol: " +
+      "- Equities: mapped via Product (Tag 460=5), SecurityType (Tag 167=CS), Symbol (Tag 55), SecurityID (Tag 48), and SecurityIDSource (Tag 22). " +
+      "- Futures: mapped via Product (Tag 460=2), SecurityType (Tag 167=FUT), MaturityMonthYear (Tag 200 in YYYYMM format), MaturityDate (Tag 541 in YYYYMMDD format), and ContractMultiplier (Tag 231). " +
+      "- Forex Spot & Forwards: mapped via Product (Tag 460=4), SecurityType (Tag 167=SPOT or FOR), SettlType (Tag 63, where C indicates Forward), and value date SettlDate (Tag 64 in YYYYMMDD format). " +
+      "- Forex Swaps: mapped via SecurityType (Tag 167=FXSWAP) and double legs via OrderQty2 (Tag 192) and FutSettDate2 (Tag 193) for pre-FIX 4.4, or Leg Groups (starting with NoLegs Tag 555) for FIX 4.4+. " +
+      "- Fixed Income / Debt: mapped via Product (Tag 460=3/6/11), SecurityType (Tag 167=TBOND/CORP), YieldType (Tag 235), and Yield (Tag 236)." +
       dialectContext;
 
     let table = null;
