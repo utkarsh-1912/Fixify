@@ -312,7 +312,7 @@ export default function Navbar() {
         {/* Mobile drawer */}
         {mobileOpen && (
           <div
-            className="xl:hidden py-2 px-4 space-y-0.5"
+            className="xl:hidden py-2 px-4 space-y-0.5 max-h-[calc(100vh-3.5rem)] overflow-y-auto scrollbar-thin"
             style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}
           >
             {navItems.filter(item => item.inMenu !== false).map(item => {

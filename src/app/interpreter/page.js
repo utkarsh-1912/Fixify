@@ -698,77 +698,91 @@ export default function InterpreterPage() {
 
         {/* Togglable Sidebar: Suggestions & Reference Quick-chips */}
         {showSidebar && (
-          <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0 justify-between transition-all duration-300">
-            <div
-              className="p-5 rounded-2xl border flex-1 space-y-4"
-              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+          <>
+            {/* Backdrop overlay for mobile drawer */}
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998] animate-fade-in"
+              onClick={() => setShowSidebar(false)}
+            />
+            <div 
+              className="fixed inset-y-0 right-0 w-full max-w-xs sm:max-w-sm lg:relative lg:inset-auto lg:h-full lg:w-80 flex flex-col gap-4 shrink-0 justify-between transition-all duration-300 z-[9999] lg:z-auto animate-in slide-in-from-right duration-200 border-l lg:border-none"
+              style={{ 
+                background: 'var(--card)', 
+                borderColor: 'var(--border)' 
+              }}
             >
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
-                <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-zinc-400">
-                  <Sparkles className="h-4 w-4 text-[var(--primary)]" />
-                  <span>Prompt Assistant</span>
+              <div
+                className="p-5 rounded-2xl lg:rounded-none border lg:border-none flex-1 space-y-4 overflow-y-auto"
+                style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+              >
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+                  <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-zinc-400">
+                    <Sparkles className="h-4 w-4 text-[var(--primary)]" />
+                    <span>Prompt Assistant</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowSidebar(false)}
+                    className="text-zinc-500 hover:text-zinc-200 transition-colors p-0.5 rounded-lg"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <button 
-                  type="button" 
-                  onClick={() => setShowSidebar(false)}
-                  className="text-zinc-500 hover:text-zinc-200 transition-colors p-0.5 rounded-lg"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
 
-              {/* Recommendation Engine Algorithm Selector */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Engine Algorithm:</span>
-                <div className="flex items-center gap-1 bg-zinc-950/40 p-1 rounded-lg border border-zinc-800" style={{ borderColor: 'var(--border)' }}>
-                  {['history', 'dialect', 'flow'].map((algo) => (
+                {/* Recommendation Engine Algorithm Selector */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Engine Algorithm:</span>
+                  <div className="flex items-center gap-1 bg-zinc-950/40 p-1 rounded-lg border border-zinc-800" style={{ borderColor: 'var(--border)' }}>
+                    {['history', 'dialect', 'flow'].map((algo) => (
+                      <button
+                        key={algo}
+                        type="button"
+                        onClick={() => setSuggestionAlgo(algo)}
+                        className={`flex-1 py-1 text-[9px] font-mono font-bold uppercase rounded transition-all ${
+                          suggestionAlgo === algo 
+                            ? 'bg-[var(--primary)] text-zinc-950 font-extrabold shadow-sm' 
+                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/20'
+                        }`}
+                      >
+                        {algo}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                  Recommended diagnostic lookups computed dynamically based on the active engine selection:
+                </p>
+
+                <div className="flex flex-col gap-2.5 pt-1">
+                  {getDynamicSuggestions().map((s, idx) => (
                     <button
-                      key={algo}
-                      type="button"
-                      onClick={() => setSuggestionAlgo(algo)}
-                      className={`flex-1 py-1 text-[9px] font-mono font-bold uppercase rounded transition-all ${
-                        suggestionAlgo === algo 
-                          ? 'bg-[var(--primary)] text-zinc-950 font-extrabold shadow-sm' 
-                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/20'
-                      }`}
+                      key={idx}
+                      onClick={() => {
+                        setInput(s.query);
+                        sendQuery(s.query);
+                        if (window.innerWidth < 1024) setShowSidebar(false); // Close mobile drawer on select
+                      }}
+                      disabled={loading}
+                      className="text-left p-3 rounded-xl border transition-all text-xs font-mono hover:-translate-y-0.5 group flex items-start justify-between gap-2"
+                      style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = 'var(--primary-border)';
+                        e.currentTarget.style.background = 'var(--card-hover)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = 'var(--border)';
+                        e.currentTarget.style.background = 'var(--background)';
+                      }}
                     >
-                      {algo}
+                      <span className="text-zinc-350 leading-relaxed">{s.label}</span>
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity mt-0.5" style={{ color: 'var(--primary)' }} />
                     </button>
                   ))}
                 </div>
               </div>
-
-              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Recommended diagnostic lookups computed dynamically based on the active engine selection:
-              </p>
-
-              <div className="flex flex-col gap-2.5 pt-1">
-                {getDynamicSuggestions().map((s, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setInput(s.query);
-                      sendQuery(s.query);
-                    }}
-                    disabled={loading}
-                    className="text-left p-3 rounded-xl border transition-all text-xs font-mono hover:-translate-y-0.5 group flex items-start justify-between gap-2"
-                    style={{ background: 'var(--background)', borderColor: 'var(--border)' }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.borderColor = 'var(--primary-border)';
-                      e.currentTarget.style.background = 'var(--card-hover)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = 'var(--border)';
-                      e.currentTarget.style.background = 'var(--background)';
-                    }}
-                  >
-                    <span className="text-zinc-350 leading-relaxed">{s.label}</span>
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity mt-0.5" style={{ color: 'var(--primary)' }} />
-                  </button>
-                ))}
-              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 

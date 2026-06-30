@@ -384,7 +384,7 @@ function ManualLinkModal({ allMessages, manualLinks, onAddLink, onRemoveLink, on
           </div>
 
           {/* Two-panel picker */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               { label: 'Message A', search: searchA, setSearch: setSearchA, selected: selectedA, setSelected: setSelectedA },
               { label: 'Message B', search: searchB, setSearch: setSearchB, selected: selectedB, setSelected: setSelectedB },
@@ -504,13 +504,13 @@ function TraceSidebar({ chain, manualLinks, allMessages, onClose, onInspectMessa
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+        className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onClose}
       />
 
       {/* Slide-in sidebar from right */}
       <div
-        className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md flex flex-col shadow-2xl border-l animate-in slide-in-from-right duration-300"
+        className="fixed top-0 right-0 bottom-0 z-[9999] w-full max-w-md flex flex-col shadow-2xl border-l animate-in slide-in-from-right duration-300"
         style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
       >
         {/* Sidebar Header */}
@@ -1250,7 +1250,7 @@ export default function MultiHopCorrelationPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="text-[9px] font-bold uppercase tracking-wider font-mono grid grid-cols-12 gap-2 px-1" style={{ color: 'var(--text-muted)' }}>
+                <div className="hidden sm:grid text-[9px] font-bold uppercase tracking-wider font-mono grid-cols-12 gap-2 px-1" style={{ color: 'var(--text-muted)' }}>
                   <div className="col-span-1">On</div>
                   <div className="col-span-5">Session</div>
                   <div className="col-span-4">Hop Label</div>
@@ -1260,48 +1260,53 @@ export default function MultiHopCorrelationPage() {
                   {connectionsConfig.map((cfg, idx) => (
                     <div
                       key={cfg.key}
-                      className="grid grid-cols-12 gap-2 items-center p-2 rounded border transition-all"
+                      className="flex flex-col gap-2.5 p-2.5 rounded border transition-all sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center"
                       style={{ background: 'var(--background)', borderColor: 'var(--border)', opacity: cfg.enabled ? 1 : 0.4 }}
                     >
-                      <div className="col-span-1 flex justify-center">
-                        <input
-                          type="checkbox"
-                          checked={cfg.enabled}
-                          onChange={() => toggleConnection(idx)}
-                          className="h-3 w-3 cursor-pointer"
-                          style={{ accentColor: 'var(--primary)' }}
-                        />
+                      <div className="flex items-center gap-2 sm:contents">
+                        <div className="sm:col-span-1 flex justify-center shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={cfg.enabled}
+                            onChange={() => toggleConnection(idx)}
+                            className="h-3 w-3 cursor-pointer"
+                            style={{ accentColor: 'var(--primary)' }}
+                          />
+                        </div>
+                        <div className="flex-1 sm:col-span-5 font-mono text-[9px] truncate font-semibold sm:font-normal" style={{ color: 'var(--foreground)' }} title={cfg.key}>
+                          {cfg.sender} ➔ {cfg.target}
+                        </div>
                       </div>
-                      <div className="col-span-5 font-mono text-[9px] truncate" style={{ color: 'var(--foreground)' }} title={cfg.key}>
-                        {cfg.sender} ➔ {cfg.target}
-                      </div>
-                      <div className="col-span-4">
-                        <input
-                          type="text"
-                          value={cfg.name}
-                          disabled={!cfg.enabled}
-                          onChange={e => handleHopNameChange(idx, e.target.value)}
-                          className="fx-input w-full px-1.5 py-0.5 text-[9px]"
-                          style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--foreground)' }}
-                        />
-                      </div>
-                      <div className="col-span-2 flex items-center justify-end gap-1">
-                        <button
-                          disabled={idx === 0 || !cfg.enabled}
-                          onClick={() => moveConfigUp(idx)}
-                          className="p-0.5 rounded disabled:opacity-20"
-                          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-                        >
-                          <ArrowUp className="h-2.5 w-2.5" style={{ color: 'var(--foreground)' }} />
-                        </button>
-                        <button
-                          disabled={idx === connectionsConfig.length - 1 || !cfg.enabled}
-                          onClick={() => moveConfigDown(idx)}
-                          className="p-0.5 rounded disabled:opacity-20"
-                          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-                        >
-                          <ArrowDown className="h-2.5 w-2.5" style={{ color: 'var(--foreground)' }} />
-                        </button>
+
+                      <div className="flex gap-2 items-center sm:contents">
+                        <div className="flex-1 sm:col-span-4">
+                          <input
+                            type="text"
+                            value={cfg.name}
+                            disabled={!cfg.enabled}
+                            onChange={e => handleHopNameChange(idx, e.target.value)}
+                            className="fx-input w-full px-1.5 py-0.5 text-[9px]"
+                            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--foreground)' }}
+                          />
+                        </div>
+                        <div className="flex sm:col-span-2 items-center justify-end gap-1 shrink-0">
+                          <button
+                            disabled={idx === 0 || !cfg.enabled}
+                            onClick={() => moveConfigUp(idx)}
+                            className="p-1 rounded disabled:opacity-20"
+                            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                          >
+                            <ArrowUp className="h-3 w-3" style={{ color: 'var(--foreground)' }} />
+                          </button>
+                          <button
+                            disabled={idx === connectionsConfig.length - 1 || !cfg.enabled}
+                            onClick={() => moveConfigDown(idx)}
+                            className="p-1 rounded disabled:opacity-20"
+                            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                          >
+                            <ArrowDown className="h-3 w-3" style={{ color: 'var(--foreground)' }} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
