@@ -766,9 +766,9 @@ export default function FIXComparePage() {
                         {previewDiffRows.map(({ tag, tagName, values1, values2, val1, val2, mappedVal1, mappedVal2, occurrences, status }) => {
                           let rowBg = 'transparent';
                           let badge = <span className="badge-success">Match</span>;
-                          if (status === 'mismatch') { rowBg = 'rgba(234,179,8,0.04)'; badge = <span className="badge-warn">Diff</span>; }
-                          else if (status === 'missingIn1') { rowBg = 'rgba(239,68,68,0.04)'; badge = <span className="badge-danger">Missing 1</span>; }
-                          else if (status === 'missingIn2') { rowBg = 'rgba(251,146,60,0.04)'; badge = <span className="badge-danger" style={{ color: '#fb923c', borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.08)' }}>Missing 2</span>; }
+                          if (status === 'mismatch') { rowBg = 'rgba(234,179,8,0.08)'; badge = <span className="badge-warn">Diff</span>; }
+                          else if (status === 'missingIn1') { rowBg = 'rgba(239,68,68,0.08)'; badge = <span className="badge-danger">Missing 1</span>; }
+                          else if (status === 'missingIn2') { rowBg = 'rgba(251,146,60,0.08)'; badge = <span className="badge-danger" style={{ color: '#fb923c', borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.08)' }}>Missing 2</span>; }
                           const ver1 = activePair?.version1 || "FIX.4.4";
                           const ver2 = activePair?.version2 || "FIX.4.4";
                           const rowVer = status === 'missingIn1' ? ver2 : ver1;
@@ -1063,9 +1063,9 @@ export default function FIXComparePage() {
                         {modalContent.data.map((row) => {
                           let badge = <span className="badge-success">Match</span>;
                           let rowBg = 'transparent';
-                          if (row.status === 'mismatch') { rowBg = 'rgba(234,179,8,0.04)'; badge = <span className="badge-warn">Diff</span>; }
-                          else if (row.status === 'missingIn1') { rowBg = 'rgba(239,68,68,0.04)'; badge = <span className="badge-danger">Missing 1</span>; }
-                          else if (row.status === 'missingIn2') { rowBg = 'rgba(251,146,60,0.04)'; badge = <span className="badge-danger" style={{ color: '#fb923c', borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.08)' }}>Missing 2</span>; }
+                          if (row.status === 'mismatch') { rowBg = 'rgba(234,179,8,0.08)'; badge = <span className="badge-warn">Diff</span>; }
+                          else if (row.status === 'missingIn1') { rowBg = 'rgba(239,68,68,0.08)'; badge = <span className="badge-danger">Missing 1</span>; }
+                          else if (row.status === 'missingIn2') { rowBg = 'rgba(251,146,60,0.08)'; badge = <span className="badge-danger" style={{ color: '#fb923c', borderColor: 'rgba(251,146,60,0.3)', background: 'rgba(251,146,60,0.08)' }}>Missing 2</span>; }
 
                           const ver1 = activePair?.version1 || "FIX.4.4";
                           const ver2 = activePair?.version2 || "FIX.4.4";

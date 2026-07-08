@@ -303,6 +303,8 @@ export default function MissingFillsPage() {
   const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
   const [showPayload, setShowPayload] = useState(false);
   const [showDetailPayload, setShowDetailPayload] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Auto-detect columns when headers load
   useEffect(() => {
@@ -1397,6 +1399,7 @@ export default function MissingFillsPage() {
                       onClick={() => {
                         setActiveTab(tab.id);
                         setSelectedResultItem(null);
+                        setCurrentPage(1);
                       }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border flex items-center gap-2 transition-all ${
                         activeTab === tab.id 
@@ -1421,7 +1424,7 @@ export default function MissingFillsPage() {
                       type="text"
                       placeholder="Filter by Symbol / ExecID..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                       className="pl-8 pr-3 py-1.5 rounded-lg border bg-zinc-950 outline-none text-xs text-[var(--foreground)] placeholder-zinc-600 focus:border-[var(--primary)] transition-all font-mono w-full sm:w-44"
                       style={{ borderColor: 'var(--border)' }}
                     />
@@ -1445,17 +1448,30 @@ export default function MissingFillsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredResults.length > 0 ? (
-                      filteredResults.map((item, idx) => {
+                    {(() => {
+                      const totalPages = Math.max(1, Math.ceil(filteredResults.length / itemsPerPage));
+                      const safePage = Math.min(currentPage, totalPages);
+                      const startIdx = (safePage - 1) * itemsPerPage;
+                      const pageItems = filteredResults.slice(startIdx, startIdx + itemsPerPage);
+                      if (pageItems.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="py-12 text-center text-zinc-500 italic">
+                              No executions match current filters.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return pageItems.map((item, idx) => {
+                        const globalIdx = startIdx + idx;
                         const isSelected = selectedResultItem && (
                           (item.type === 'missing' && selectedResultItem.fix?.id === item.fix?.id) ||
                           (item.type === 'unmapped' && selectedResultItem.blotter?.execId === item.blotter?.execId && selectedResultItem.blotter?.qty === item.blotter?.qty) ||
                           (item.type === 'matched' && selectedResultItem.fix?.id === item.fix?.id)
                         );
-                        
                         return (
                           <tr
-                            key={idx}
+                            key={globalIdx}
                             onClick={() => setSelectedResultItem(item)}
                             className={`hover:bg-zinc-800/10 cursor-pointer transition-colors ${
                               isSelected ? 'bg-zinc-800/20' : 'bg-transparent'
@@ -1502,17 +1518,90 @@ export default function MissingFillsPage() {
                             </td>
                           </tr>
                         );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="py-12 text-center text-zinc-500 italic">
-                          No executions match current filters.
-                        </td>
-                      </tr>
-                    )}
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
+
+              {/* ── Pagination Controls ── */}
+              {filteredResults.length > 0 && (() => {
+                const totalPages = Math.max(1, Math.ceil(filteredResults.length / itemsPerPage));
+                const safePage = Math.min(currentPage, totalPages);
+                const startIdx = (safePage - 1) * itemsPerPage;
+                const endIdx = Math.min(startIdx + itemsPerPage, filteredResults.length);
+                const pageNumbers = [];
+                const delta = 2;
+                for (let i = Math.max(1, safePage - delta); i <= Math.min(totalPages, safePage + delta); i++) {
+                  pageNumbers.push(i);
+                }
+                return (
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                    <span className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                      Showing <span style={{ color: 'var(--foreground)' }}>{startIdx + 1}–{endIdx}</span> of <span style={{ color: 'var(--foreground)' }}>{filteredResults.length}</span> results
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {/* Items per page */}
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                        className="text-[11px] font-mono rounded-lg border px-2 py-1 outline-none transition-colors cursor-pointer"
+                        style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                      >
+                        {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                      {/* Prev */}
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={safePage === 1}
+                        className="px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--primary-faint)]"
+                        style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                      >
+                        ‹ Prev
+                      </button>
+                      {/* First page if not visible */}
+                      {pageNumbers[0] > 1 && (
+                        <>
+                          <button onClick={() => setCurrentPage(1)} className="px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors hover:bg-[var(--primary-faint)]" style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}>1</button>
+                          {pageNumbers[0] > 2 && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>…</span>}
+                        </>
+                      )}
+                      {/* Page numbers */}
+                      {pageNumbers.map(n => (
+                        <button
+                          key={n}
+                          onClick={() => setCurrentPage(n)}
+                          className="px-2.5 py-1 rounded-lg border text-xs font-mono font-bold transition-all"
+                          style={{
+                            borderColor: n === safePage ? 'var(--primary-border)' : 'var(--border)',
+                            background: n === safePage ? 'var(--primary-faint)' : 'transparent',
+                            color: 'var(--foreground)'
+                          }}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      {/* Last page if not visible */}
+                      {pageNumbers[pageNumbers.length - 1] < totalPages && (
+                        <>
+                          {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>…</span>}
+                          <button onClick={() => setCurrentPage(totalPages)} className="px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors hover:bg-[var(--primary-faint)]" style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}>{totalPages}</button>
+                        </>
+                      )}
+                      {/* Next */}
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={safePage === totalPages}
+                        className="px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--primary-faint)]"
+                        style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                      >
+                        Next ›
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
             </div>
 
           </div>

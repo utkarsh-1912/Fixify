@@ -186,7 +186,7 @@ export default function FIXDictionaryPage() {
 
       {/* Toolbar Filter */}
       <div
-        className="flex flex-col md:flex-row gap-4 p-4 rounded-2xl items-stretch md:items-center"
+        className="flex flex-col md:flex-row gap-4 p-4 rounded-xl items-stretch md:items-center"
         style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
       >
         {/* Search */}
@@ -221,7 +221,7 @@ export default function FIXDictionaryPage() {
 
         {/* Version dropdown */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider shrink-0">Protocol Version:</span>
+          <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider shrink-0">FIX Version:</span>
           <select
             value={selectedVersion}
             onChange={(e) => setSelectedVersion(e.target.value)}
@@ -292,7 +292,7 @@ export default function FIXDictionaryPage() {
         </div>
       ) : (
         <div 
-          className="py-16 text-center rounded-2xl flex flex-col items-center justify-center gap-2 border border-dashed"
+          className="py-16 text-center rounded-xl flex flex-col items-center justify-center gap-2 border border-dashed"
           style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
         >
           <HelpCircle className="h-8 w-8 text-zinc-500" />
