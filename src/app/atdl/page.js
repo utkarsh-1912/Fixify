@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Play, RotateCcw, Copy, Check, ChevronRight, ChevronDown, Info, AlertTriangle, CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers, Cpu, Code2, Braces, UserCog } from 'lucide-react';
+import { Upload, Play, RotateCcw, Copy, Check, ChevronRight, ChevronDown, Info, AlertTriangle, CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers, Code2, Braces, UserCog } from 'lucide-react';
 
 /* ─── ATDL Parser — FIXatdl 1.1 ─── */
 function parseATDL(xmlString) {
@@ -481,7 +481,7 @@ export default function ATDLRendererPage() {
           <div className='rounded-2xl border-2 border-dashed flex flex-col items-center justify-center py-20 space-y-6'
             style={{borderColor:'var(--border)',background:'var(--card)'}}>
             <div className='p-5 rounded-2xl' style={{background:'var(--primary-faint)',border:'1px solid var(--primary-border)'}}>
-              <Cpu className='h-12 w-12' style={{color:'var(--primary)'}} />
+              <UserCog className='h-12 w-12' style={{color:'var(--primary)'}} />
             </div>
             <div className='text-center space-y-2 max-w-md px-4'>
               <h2 className='text-base font-bold'>FIXatdl XML Renderer</h2>
