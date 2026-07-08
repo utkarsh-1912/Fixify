@@ -24,7 +24,8 @@ import {
   Check,
   Search,
   Tag,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
 import SohVisualizer from '@/components/SohVisualizer';
@@ -1079,7 +1080,7 @@ export default function MultiHopCorrelationPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="font-semibold">✨ Load active logs from main workspace ({workspaceLines} lines)</span>
+              <span className="font-semibold"><Sparkles className='h-4 w-4' /> Load active logs from main workspace ({workspaceLines} lines)</span>
             </div>
             <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--primary-border)', background: 'var(--background)' }}>Import</span>
           </button>
