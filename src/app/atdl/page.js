@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Play, RotateCcw, Copy, Check, ChevronRight, ChevronDown, Info, AlertTriangle, CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers, Code2, Braces, UserCog } from 'lucide-react';
+import { Upload, Play, RotateCcw, Copy, Check, ChevronRight, ChevronDown, Info, AlertTriangle, CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers, Code2, Braces, UserCog, ChevronUp } from 'lucide-react';
 
 /* ─── ATDL Parser — FIXatdl 1.1 ─── */
 function parseATDL(xmlString) {
@@ -447,7 +447,7 @@ export default function ATDLRendererPage() {
               {parseErrors.length>0&&<span className='text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold'
                 style={{background:'rgba(239,68,68,0.1)',borderColor:'rgba(239,68,68,0.3)',color:'#f87171'}}>Parse Error</span>}
             </div>
-            {showXml?<ChevronDown className='h-4 w-4 shrink-0' />:<ChevronRight className='h-4 w-4 shrink-0' />}
+            {showXml?<ChevronUp className='h-4 w-4 shrink-0' />:<ChevronDown className='h-4 w-4 shrink-0' />}
           </button>
           {showXml&&(
             <div className='p-4 space-y-3'>
