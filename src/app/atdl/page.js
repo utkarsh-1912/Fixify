@@ -493,7 +493,7 @@ export default function ATDLRendererPage() {
               <button onClick={handleLoadDemo}
                 className='px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all hover:scale-[1.02] shadow-lg'
                 style={{background:'var(--primary)',color:'var(--background)'}}>
-                <Sparkles className='h-4 w-4' /> Load Demo Strategies
+                <Sparkles className='h-4 w-4' /> Load Demo
               </button>
               <button onClick={()=>setShowXml(true)}
                 className='px-5 py-2.5 rounded-xl text-sm font-semibold border flex items-center gap-2 transition-colors hover:bg-[var(--primary-faint)]'
