@@ -260,9 +260,8 @@ function ControlField({ control, param, value, onChange, errors }) {
           {label}{param?.required && <span className='text-red-400 ml-0.5'>*</span>}
         </label>
         {param?.fixTag && <span className='text-[9px] font-mono px-1.5 py-0.5 rounded'
-          style={{background:'var(--primary-faint)',color:'var(--primary)',border:'1px solid var(--primary-border)'}}>Tag {param.fixTag}</span>}
-        {(control.tooltip||param?.description) && <span title={control.tooltip||param?.description} className='cursor-help'>
-          <Info className='h-3 w-3' style={{color:'var(--text-muted)'}} /></span>}
+        style={{background:'var(--primary-faint)',color:'var(--primary)',border:'1px solid var(--primary-border)'}}>Tag {param.fixTag}</span>}
+        {(control.tooltip||param?.description) && <span title={control.tooltip||param?.description} className='cursor-help'><Info className='h-3 w-3' style={{color:'var(--text-muted)'}} /></span>}
       </div>
       {renderInput()}
       {hasError && <p className='text-[10px] text-red-400 flex items-center gap-1'><AlertTriangle className='h-3 w-3' />{errors[control.paramRef]}</p>}
