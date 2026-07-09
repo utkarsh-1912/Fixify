@@ -94,6 +94,9 @@ function parseATDL(xmlString) {
 function parseLayoutGroups(layoutEl, parameters, findAll, ga) {
   const proc = (el, depth = 0) => {
     const label = ga(el, 'title', 'label', 'name') || (depth === 0 ? 'Settings' : '');
+    // v1.2: collapsible / collapsed panel attributes
+    const collapsible = ga(el, 'collapsible') !== 'false';
+    const startCollapsed = ga(el, 'collapsed') === 'true';
     const controls = [];
     const subGroups = [];
     for (const c of Array.from(el.children)) {
@@ -101,12 +104,16 @@ function parseLayoutGroups(layoutEl, parameters, findAll, ga) {
         const pr = ga(c, 'parameterRef');
         const param = parameters.find(p => p.name === pr);
         const et = ga(c, 'xsi:type', 'type');
+        // v1.2: initPolicy — 'UseInitValue' | 'UseParamDef' | 'UseState'
+        const initPolicy = ga(c, 'initPolicy') || 'UseInitValue';
         controls.push({
           id: ga(c, 'ID', 'id') || pr,
           paramRef: pr,
           label: ga(c, 'label', 'Label') || pr || '',
           type: et ? mapCT(et) : (param ? inferControlType(param.type, param.enumPairs) : 'text'),
-          initValue: ga(c, 'initValue', 'defaultVal') || (param?.defaultValue || ''),
+          initValue: initPolicy !== 'UseParamDef'
+            ? (ga(c, 'initValue', 'defaultVal') || (param?.defaultValue || ''))
+            : (param?.defaultValue || ''),
           tooltip: ga(c, 'tooltip', 'description') || (param?.description || ''),
           param,
         });
@@ -115,7 +122,7 @@ function parseLayoutGroups(layoutEl, parameters, findAll, ga) {
         if (n) subGroups.push(n);
       }
     }
-    return { label, orientation: ga(el, 'orientation') || 'vertical', controls, subGroups };
+    return { label, orientation: ga(el, 'orientation') || 'vertical', controls, subGroups, collapsible, startCollapsed };
   };
   const groups = [];
   for (const c of Array.from(layoutEl.children)) {
@@ -127,21 +134,30 @@ function parseLayoutGroups(layoutEl, parameters, findAll, ga) {
 
 function mapCT(t) {
   t = t.toLowerCase();
+  // v1.2 additions first (more specific)
+  if (t.includes('spinner'))               return 'spinner';   // v1.2 Spinner_t
+  if (t.includes('multiselect'))           return 'multiselect'; // v1.2 MultiSelectList_t
+  if (t.includes('hidden'))               return 'hidden';     // v1.2 HiddenField_t
+  if (t.includes('monthyear'))            return 'monthyear';  // v1.2 MonthYear_t
+  if (t.includes('localmktdate'))         return 'date';       // v1.2 LocalMktDate_t
+  // v1.1 types
   if (t.includes('clock') || t.includes('time')) return 'time';
-  if (t.includes('date')) return 'date';
+  if (t.includes('date'))                 return 'date';
   if (t.includes('radiobutton') || t.includes('singleselectlist')) return 'radio';
-  if (t.includes('checkbox')) return 'checkbox';
-  if (t.includes('dropdown') || t.includes('editablelist') || t.includes('multiselect')) return 'select';
-  if (t.includes('slider')) return 'slider';
+  if (t.includes('checkbox'))             return 'checkbox';
+  if (t.includes('dropdown') || t.includes('editablelist')) return 'select';
+  if (t.includes('slider'))               return 'slider';
   return 'text';
 }
 
 function inferControlType(pt, ep) {
   if (ep && ep.length > 0) return ep.length <= 4 ? 'radio' : 'select';
   const t = (pt || '').toLowerCase();
-  if (t.includes('bool')) return 'checkbox';
-  if (t.includes('utctimestamp') || t.includes('time')) return 'time';
-  if (t.includes('date')) return 'date';
+  if (t.includes('bool'))                  return 'checkbox';
+  if (t.includes('utctimestamp') || (t.includes('time') && !t.includes('date'))) return 'time';
+  if (t.includes('monthyear'))             return 'monthyear';
+  if (t.includes('localmktdate') || t.includes('date')) return 'date';
+  if (t.includes('multiplestringvalue') || t.includes('multiplecharvalue')) return 'multiselect';
   if (t.includes('float') || t.includes('price') || t.includes('qty') || t.includes('percent') || t.includes('int')) return 'spinner';
   return 'text';
 }
@@ -354,6 +370,66 @@ function ControlField({ control, param, value, onChange, errors }) {
             placeholder={param?.defaultValue || ''} className={baseInput} style={inputStyle}
           />
         );
+      case 'multiselect': {
+        // v1.2 MultiSelectList — render as a compact checkbox group
+        return (
+          <div className='flex flex-wrap gap-2'>
+            {ep.length > 0 ? ep.map(e => {
+              const checked = (value || '').split(' ').includes(e.enumID);
+              return (
+                <label key={e.enumID}
+                  className='flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border cursor-pointer select-none transition-all'
+                  style={checked
+                    ? { background: 'var(--primary-faint)', borderColor: 'var(--primary-border)', color: 'var(--foreground)' }
+                    : { borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'transparent' }
+                  }
+                >
+                  <input type='checkbox' className='sr-only' checked={checked} onChange={() => {
+                    const cur = (value || '').split(' ').filter(Boolean);
+                    const next = checked ? cur.filter(x => x !== e.enumID) : [...cur, e.enumID];
+                    onChange(next.join(' '));
+                  }} />
+                  <div className='w-3 h-3 rounded border flex items-center justify-center shrink-0'
+                    style={{ borderColor: checked ? 'var(--primary)' : 'var(--border)', background: checked ? 'var(--primary)' : 'transparent' }}
+                  >
+                    {checked && <Check className='h-2 w-2 text-white' />}
+                  </div>
+                  {e.uiRep}
+                </label>
+              );
+            }) : <input type='text' value={value || ''} onChange={x => onChange(x.target.value)} placeholder='Space-separated values' className={baseInput} style={inputStyle} />}
+          </div>
+        );
+      }
+      case 'monthyear': {
+        // v1.2 MonthYear_t — YYYYMM or YYYYMMW format
+        const myCur = value || '';
+        const myYear = myCur.length >= 4 ? myCur.slice(0, 4) : '';
+        const myMonth = myCur.length >= 6 ? myCur.slice(4, 6) : '';
+        return (
+          <div className='flex gap-2'>
+            <select value={myMonth} onChange={x => onChange((myYear || new Date().getFullYear().toString()) + x.target.value)}
+              className={baseInput + ' flex-1'} style={{ ...inputStyle, cursor: 'pointer' }}
+            >
+              <option value=''>Month</option>
+              {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
+                <option key={m} value={m}>{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]}</option>
+              ))}
+            </select>
+            <input type='number' value={myYear} min='2000' max='2099' placeholder='YYYY'
+              onChange={x => onChange(x.target.value.slice(0,4) + myMonth)}
+              className={baseInput + ' w-24'} style={inputStyle}
+            />
+          </div>
+        );
+      }
+      case 'hidden':
+        // v1.2 HiddenField_t — render as read-only badge, never shown to user in form
+        return (
+          <span className='text-[10px] font-mono px-2 py-1 rounded border italic'
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--border)', background: 'var(--background)' }}
+          >(hidden field{value ? ' — ' + value : ''})</span>
+        );
       default:
         return <input type='text' value={value || ''} onChange={x => onChange(x.target.value)} placeholder={param?.defaultValue || ''} className={baseInput} style={inputStyle} />;
     }
@@ -388,7 +464,8 @@ function ControlField({ control, param, value, onChange, errors }) {
 
 /* ─── Panel Group (recursive, collapsible) ─── */
 function PanelGroup({ group, values, onChange, errors, depth = 0 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!!group.startCollapsed);
+  const canCollapse = group.collapsible !== false;
   const hasControls = group.controls.length > 0;
   const hasSubGroups = group.subGroups?.length > 0;
   if (!hasControls && !hasSubGroups) return null;
@@ -398,8 +475,8 @@ function PanelGroup({ group, values, onChange, errors, depth = 0 }) {
     >
       {group.label && (
         <button
-          onClick={() => setCollapsed(c => !c)}
-          className='w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-[var(--primary-faint)]'
+          onClick={() => canCollapse && setCollapsed(c => !c)}
+          className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors${canCollapse ? ' hover:bg-[var(--primary-faint)] cursor-pointer' : ' cursor-default'}`}
           style={{ borderBottom: !collapsed ? '1px solid var(--border)' : 'none' }}
         >
           <div className='flex items-center gap-2'>
@@ -752,7 +829,7 @@ export default function ATDLRendererPage() {
                     {isDragActive ? 'Drop to parse…' : 'Drag & drop ATDL strategy file'}
                   </p>
                   <p className='text-xs mt-1' style={{ color: 'var(--text-muted)' }}>
-                    Supports .xml · .atdl · FIXatdl 1.1
+                    Supports .xml · .atdl · FIXatdl 1.1 &amp; 1.2
                   </p>
                 </div>
               ) : (
@@ -760,7 +837,7 @@ export default function ATDLRendererPage() {
                   <textarea
                     value={xmlInput}
                     onChange={e => setXmlInput(e.target.value)}
-                    placeholder='Paste FIXatdl 1.1 XML here…&#10;&#10;<Strategies xmlns="http://www.fixprotocol.org/FIXatdl-1-1/Core">&#10;  <Strategy name="VWAP" ...>'
+                    placeholder='Paste FIXatdl 1.1 or 1.2 XML here…&#10;&#10;<Strategies xmlns="http://www.fixprotocol.org/FIXatdl-1-1/Core">&#10;  <Strategy name="VWAP" ...>'
                     className='w-full h-64 p-4 rounded-xl resize-none text-xs font-mono outline-none'
                     style={{
                       background: 'var(--background)',
@@ -885,6 +962,21 @@ export default function ATDLRendererPage() {
                 )}
 
                 <div className='ml-auto flex items-center gap-2.5'>
+                  {/* Validation status shown at top */}
+                  {fixParts.length > 0 && errCount === 0 && (
+                    <span className='hidden sm:flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-lg border'
+                      style={{ borderColor: 'rgba(16,185,129,0.4)', color: '#34d399', background: 'rgba(16,185,129,0.08)' }}
+                    >
+                      <CheckCircle2 className='h-3 w-3' /> Valid · {fixParts.length} tags
+                    </span>
+                  )}
+                  {errCount > 0 && (
+                    <span className='hidden sm:flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-lg border'
+                      style={{ borderColor: 'rgba(239,68,68,0.4)', color: '#f87171', background: 'rgba(239,68,68,0.08)' }}
+                    >
+                      <AlertTriangle className='h-3 w-3' /> {errCount} error{errCount > 1 ? 's' : ''}
+                    </span>
+                  )}
                   <span className='text-[10px] font-mono' style={{ color: 'var(--text-muted)' }}>{filledCount}/{vpCount} filled</span>
                   <div className='w-20 h-1.5 rounded-full overflow-hidden' style={{ background: 'var(--border)' }}>
                     <div className='h-full rounded-full transition-all duration-500'
@@ -929,15 +1021,16 @@ export default function ATDLRendererPage() {
                   >
                     <RotateCcw className='h-3.5 w-3.5' /> Reset Fields
                   </button>
+                  {/* Mobile-only status (hidden on sm+ where it shows in selector bar) */}
                   {fixParts.length > 0 && errCount === 0 && (
-                    <span className='px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5'
+                    <span className='sm:hidden px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5'
                       style={{ borderColor: 'rgba(16,185,129,0.4)', color: '#34d399', background: 'rgba(16,185,129,0.08)' }}
                     >
-                      <CheckCircle2 className='h-3.5 w-3.5' /> Valid — {fixParts.length} tag{fixParts.length !== 1 ? 's' : ''}
+                      <CheckCircle2 className='h-3.5 w-3.5' /> Valid
                     </span>
                   )}
                   {errCount > 0 && (
-                    <span className='px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5'
+                    <span className='sm:hidden px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5'
                       style={{ borderColor: 'rgba(239,68,68,0.4)', color: '#f87171', background: 'rgba(239,68,68,0.08)' }}
                     >
                       <AlertTriangle className='h-3.5 w-3.5' /> {errCount} error{errCount > 1 ? 's' : ''}
