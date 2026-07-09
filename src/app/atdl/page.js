@@ -795,17 +795,17 @@ export default function ATDLRendererPage() {
         {/* ── Loaded file banner ── */}
         {isValid && (
           <div className='flex items-center gap-3 p-2 md:px-4 md:py-2.5 rounded-xl border'
-            style={{ borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.06)' }}
+            style={{ borderColor: 'var(--primary-faint)', background:  'var(--primary-faint)' }}
           >
             <div className='flex h-2 w-2 shrink-0'>
-              <span className='animate-ping absolute inline-flex h-2 w-2 rounded-full opacity-75' style={{ background: '#10b981' }} />
-              <span className='relative inline-flex rounded-full h-2 w-2' style={{ background: '#10b981' }} />
+              <span className='animate-ping absolute inline-flex h-2 w-2 rounded-full opacity-75' style={{ background: 'var(--primary)' }} />
+              <span className='relative inline-flex rounded-full h-2 w-2' style={{ background: 'var(--primary)' }} />
             </div>
             <button
               type='button'
               onClick={() => setShowXmlModal(true)}
               className='text-xs font-mono font-semibold underline underline-offset-2 transition-colors hover:text-white'
-              style={{ color: '#34d399' }}
+              style={{ color: 'var(--primary)' }}
             >
               {loadedFileName || 'XML'}
             </button>
