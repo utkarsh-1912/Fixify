@@ -865,7 +865,7 @@ export default function ATDLRendererPage() {
                 {/* Sub-panel quick-jump dropdown if multiple panels */}
                 {activeStrategy.groups.length > 1 && (
                   <>
-                    <span className='text-[10px] hidden md:inline' style={{ color: 'var(--border)' }}>|</span>
+                    <span className='text-[10px]' style={{ color: 'var(--border)' }}>|</span>
                     <span className='text-xs font-semibold' style={{ color: 'var(--text-muted)' }}>Panel</span>
                     <select
                       className='min-w-[140px] px-3 py-1.5 rounded-lg border text-xs font-mono outline-none cursor-pointer transition-all'
