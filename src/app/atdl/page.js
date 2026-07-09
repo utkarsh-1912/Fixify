@@ -655,7 +655,7 @@ export default function ATDLRendererPage() {
 
   return (
     <div className='min-h-screen' style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
-      <main className={`max-w-[1400px] mx-auto w-full px-4 py-6 space-y-5 transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+      <main className={`max-w-[1400px] mx-auto w-full px-2 sm:px-3 md:px-4 py-6 space-y-5 transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
 
         {/* ── Page Header ── */}
         <div className='flex flex-wrap items-center justify-between gap-3'>
@@ -754,7 +754,7 @@ export default function ATDLRendererPage() {
 
         {/* ── Loaded file banner ── */}
         {isValid && (
-          <div className='flex items-center gap-3 px-4 py-2.5 rounded-xl border'
+          <div className='flex items-center gap-3 p-2 md:px-4 md:py-2.5 rounded-xl border'
             style={{ borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.06)' }}
           >
             <div className='flex h-2 w-2 shrink-0'>
@@ -764,7 +764,7 @@ export default function ATDLRendererPage() {
             <span className='text-xs font-mono font-semibold' style={{ color: '#34d399' }}>
               {loadedFileName || 'XML'}
             </span>
-            <span className='text-xs' style={{ color: 'var(--text-muted)' }}>
+            <span className='text-xs hidden md:inline' style={{ color: 'var(--text-muted)' }}>
               — {parsed.strategies.length} {parsed.strategies.length === 1 ? 'strategy' : 'strategies'} loaded
             </span>
             <div className='ml-auto flex items-center gap-2'>
@@ -793,7 +793,7 @@ export default function ATDLRendererPage() {
             {/* Strategy + sub-strategy selector */}
             <div className='rounded-xl border overflow-hidden' style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
               <div className='px-4 py-3 flex flex-wrap items-center gap-3' style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
-                <Layers className='h-4 w-4 shrink-0' style={{ color: 'var(--primary)' }} />
+                <Layers className='h-4 w-4 shrink-0 hidden md:inline' style={{ color: 'var(--primary)' }} />
                 <span className='text-xs font-semibold' style={{ color: 'var(--text-muted)' }}>Strategy</span>
                 <select
                   value={activeStratIdx}
@@ -811,7 +811,7 @@ export default function ATDLRendererPage() {
                 {/* Sub-panel quick-jump dropdown if multiple panels */}
                 {activeStrategy.groups.length > 1 && (
                   <>
-                    <span className='text-[10px]' style={{ color: 'var(--border)' }}>|</span>
+                    <span className='text-[10px] hidden md:inline' style={{ color: 'var(--border)' }}>|</span>
                     <span className='text-xs font-semibold' style={{ color: 'var(--text-muted)' }}>Panel</span>
                     <select
                       className='min-w-[140px] px-3 py-1.5 rounded-lg border text-xs font-mono outline-none cursor-pointer transition-all'
