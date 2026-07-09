@@ -530,9 +530,9 @@ function AnalyticsPanel({ strategy, parsed, values, fixParts }) {
 function XmlContentModal({ isOpen, onClose, content, onChange, onParse, errors }) {
   if (!isOpen) return null;
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-3'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
       <div className='absolute inset-0 bg-black/80' style={{ zIndex: 10 }} onClick={onClose} />
-      <div className='relative z-20 w-full max-w-3xl rounded-xl border bg-[var(--card)] p-2 md:p-4 shadow-2xl' style={{ borderColor: 'var(--border)' }}>
+      <div className='relative z-20 w-full max-w-3xl rounded-xl border bg-[var(--card)] p-3 md:p-4 shadow-2xl' style={{ borderColor: 'var(--border)' }}>
         <div className='flex items-center justify-between gap-3 mb-4'>
           <div>
             <h2 className='text-sm font-semibold' style={{ color: 'var(--foreground)' }}>XML Content</h2>
