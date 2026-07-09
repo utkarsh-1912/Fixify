@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   UploadCloud, FileText, Play, RotateCcw, Copy, Check,
   ChevronRight, ChevronDown, Info, AlertTriangle,
   CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers,
-  Code2, UserCog, BarChart3, Trash2
+  Code2, UserCog, BarChart3, Trash2,
+  X
 } from 'lucide-react';
 
 /* ─── ATDL Parser — FIXatdl 1.1 ─── */
@@ -526,6 +527,42 @@ function AnalyticsPanel({ strategy, parsed, values, fixParts }) {
   );
 }
 
+function XmlContentModal({ isOpen, onClose, content, onChange, onParse, errors }) {
+  if (!isOpen) return null;
+  return (
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-3'>
+      <div className='absolute inset-0 bg-black/80' style={{ zIndex: 10 }} onClick={onClose} />
+      <div className='relative z-20 w-full max-w-3xl rounded-xl border bg-[var(--card)] p-2 md:p-4 shadow-2xl' style={{ borderColor: 'var(--border)' }}>
+        <div className='flex items-center justify-between gap-3 mb-4'>
+          <div>
+            <h2 className='text-sm font-semibold' style={{ color: 'var(--foreground)' }}>XML Content</h2>
+            <p className='text-[11px] text-[var(--text-muted)]'>Review or edit the current Atdl XML content.</p>
+          </div>
+          <button type='button' onClick={onClose} className='text-xs font-semibold p-1.5 rounded-lg border' style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}>
+            <X className='h-4 w-4' />
+          </button>
+        </div>
+        <textarea
+          value={content}
+          onChange={e => onChange(e.target.value)}
+          className='w-full h-[60vh] min-h-[320px] p-4 rounded-xl text-xs font-mono bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] outline-none resize-none'
+          spellCheck={false}
+        />
+        <div className='mt-2 flex flex-wrap items-center gap-3'>
+          <button type='button' onClick={() => onParse(content)} disabled={!content.trim()} className='fx-btn-primary py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed'>
+            <Play className='h-3.5 w-3.5' /> Parse &amp; Render
+          </button>
+        </div>
+        {errors.length > 0 && (
+          <div className='mt-3 p-3 rounded-lg border text-xs font-mono space-y-1' style={{ background: 'rgba(239,68,68,0.07)', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }}>
+            {errors.map((e, idx) => <p key={idx}>{e}</p>)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function ATDLRendererPage() {
   const [inputMode, setInputMode] = useState('file');
@@ -581,6 +618,8 @@ export default function ATDLRendererPage() {
     handleParse(DEMO_ATDL);
   };
 
+  const [showXmlModal, setShowXmlModal] = useState(false);
+
   const handleClear = () => {
     setXmlInput('');
     setLoadedFileName('');
@@ -589,6 +628,7 @@ export default function ATDLRendererPage() {
     setFixPreview('');
     setValues({});
     setValidationErrors({});
+    setShowXmlModal(false);
   };
 
   const handleStrategySwitch = (idx) => {
@@ -761,9 +801,14 @@ export default function ATDLRendererPage() {
               <span className='animate-ping absolute inline-flex h-2 w-2 rounded-full opacity-75' style={{ background: '#10b981' }} />
               <span className='relative inline-flex rounded-full h-2 w-2' style={{ background: '#10b981' }} />
             </div>
-            <span className='text-xs font-mono font-semibold' style={{ color: '#34d399' }}>
+            <button
+              type='button'
+              onClick={() => setShowXmlModal(true)}
+              className='text-xs font-mono font-semibold underline underline-offset-2 transition-colors hover:text-white'
+              style={{ color: '#34d399' }}
+            >
               {loadedFileName || 'XML'}
-            </span>
+            </button>
             <span className='text-xs hidden md:inline' style={{ color: 'var(--text-muted)' }}>
               — {parsed.strategies.length} {parsed.strategies.length === 1 ? 'strategy' : 'strategies'} loaded
             </span>
@@ -785,6 +830,15 @@ export default function ATDLRendererPage() {
             </div>
           </div>
         )}
+
+        <XmlContentModal
+          isOpen={showXmlModal}
+          onClose={() => setShowXmlModal(false)}
+          content={xmlInput}
+          onChange={setXmlInput}
+          onParse={(content) => { handleParse(content); setShowXmlModal(false); }}
+          errors={parseErrors}
+        />
 
         {/* ── Main Renderer ── */}
         {isValid && activeStrategy && (
