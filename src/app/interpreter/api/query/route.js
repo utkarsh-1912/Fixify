@@ -3,7 +3,9 @@ import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
 import { validateFIXMessage } from "@/lib/fixParser";
 import yahooFinance from 'yahoo-finance2';
 import fix40 from "@/data/FIX/FIX40.json";
+import fix41 from "@/data/FIX/FIX41.json";
 import fix42 from "@/data/FIX/FIX42.json";
+import fix43 from "@/data/FIX/FIX43.json";
 import fix44 from "@/data/FIX/FIX44.json";
 import fix50 from "@/data/FIX/FIX50.json";
 import fixt11 from "@/data/FIX/FIXT11.json";
@@ -11,7 +13,9 @@ import fixDescription from "@/data/fix-description.json";
 
 const FIX_SPECS = {
   "FIX.4.0": fix40,
+  "FIX.4.1": fix41,
   "FIX.4.2": fix42,
+  "FIX.4.3": fix43,
   "FIX.4.4": fix44,
   "FIX.5.0": fix50,
   "FIXT.1.1": fixt11
@@ -242,7 +246,9 @@ function analyzeSessionRouting(parsed) {
 function detectVersion(queryText) {
   const q = queryText.toUpperCase();
   if (q.includes("FIX 4.0") || q.includes("FIX.4.0") || q.includes("FIX40")) return "FIX.4.0";
+  if (q.includes("FIX 4.1") || q.includes("FIX.4.1") || q.includes("FIX41")) return "FIX.4.1";
   if (q.includes("FIX 4.2") || q.includes("FIX.4.2") || q.includes("FIX42")) return "FIX.4.2";
+  if (q.includes("FIX 4.3") || q.includes("FIX.4.3") || q.includes("FIX43")) return "FIX.4.3";
   if (q.includes("FIX 4.4") || q.includes("FIX.4.4") || q.includes("FIX44")) return "FIX.4.4";
   if (q.includes("FIX 5.0") || q.includes("FIX.5.0") || q.includes("FIX50")) return "FIX.5.0";
   if (q.includes("FIXT 1.1") || q.includes("FIXT.1.1") || q.includes("FIXT1.1") || q.includes("FIXT11")) return "FIXT.1.1";

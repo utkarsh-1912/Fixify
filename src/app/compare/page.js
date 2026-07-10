@@ -28,16 +28,18 @@ import SohVisualizer from "@/components/SohVisualizer";
 
 // Import FIX version dictionaries
 import fix40 from "@/data/FIX/FIX40.json";
+import fix41 from "@/data/FIX/FIX41.json";
 import fix42 from "@/data/FIX/FIX42.json";
+import fix43 from "@/data/FIX/FIX43.json";
 import fix44 from "@/data/FIX/FIX44.json";
 import fix50 from "@/data/FIX/FIX50.json";
 import fixt11 from "@/data/FIX/FIXT11.json";
 
 const FIX_DICTS = {
   "FIX.4.0": fix40,
-  "FIX.4.1": fix40,
+  "FIX.4.1": fix41,
   "FIX.4.2": fix42,
-  "FIX.4.3": fix44,
+  "FIX.4.3": fix43,
   "FIX.4.4": fix44,
   "FIX.5.0": fix50,
   "FIXT.1.1": fixt11

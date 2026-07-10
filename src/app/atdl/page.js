@@ -6,20 +6,23 @@ import {
   UploadCloud, FileText, Play, RotateCcw, Copy, Check,
   ChevronRight, ChevronDown, Info, AlertTriangle,
   CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers,
-  Code2, UserCog, BarChart3, Trash2,
-  X
+  Code2, UserCog, BarChart3, Trash2, Search, X,
 } from 'lucide-react';
 
-/* ─── ATDL Parser — FIXatdl 1.1 ─── */
+/* ─── ATDL Parser — FIXatdl 1.1 + 1.2 ─── */
 function parseATDL(xmlString) {
-  if (!xmlString.trim()) return { strategies: [], errors: [] };
+  if (!xmlString.trim()) return { strategies: [], errors: [], version: '' };
   let doc;
   try {
     const parser = new DOMParser();
     doc = parser.parseFromString(xmlString, 'application/xml');
     const pe = doc.querySelector('parsererror');
-    if (pe) return { strategies: [], errors: ['XML Parse Error: ' + pe.textContent.slice(0, 300)] };
-  } catch (e) { return { strategies: [], errors: ['Parse failed: ' + e.message] }; }
+    if (pe) return { strategies: [], errors: ['XML Parse Error: ' + pe.textContent.slice(0, 300)], version: '' };
+  } catch (e) { return { strategies: [], errors: ['Parse failed: ' + e.message], version: '' }; }
+
+  // Detect FIXatdl version from namespace
+  const rootNS = doc.documentElement.getAttribute('xmlns') || '';
+  const version = rootNS.includes('1-2') ? '1.2' : rootNS.includes('1-1') ? '1.1' : '1.x';
 
   const findAll = (parent, localName) => {
     const r = [];
@@ -37,6 +40,7 @@ function parseATDL(xmlString) {
   };
 
   const strategies = [];
+  const warnings = [];
   let ses = findAll(doc.documentElement, 'Strategy');
   if (ses.length === 0 && doc.documentElement.localName === 'Strategy') ses = [doc.documentElement];
 
@@ -72,14 +76,24 @@ function parseATDL(xmlString) {
       findAll(p, 'EnumPair').forEach(ep =>
         param.enumPairs.push({ enumID: ga(ep, 'enumID'), wireValue: ga(ep, 'wireValue'), uiRep: ga(ep, 'uiRep') || ga(ep, 'enumID') })
       );
+      if (findAll(p, 'Activation').length) warnings.push(`Unsupported Parameter activation/condition for '${param.name || 'unknown'}'`);
+      if (findAll(p, 'Condition').length) warnings.push(`Unsupported Parameter condition for '${param.name || 'unknown'}'`);
+      if (findAll(p, 'Integration').length) warnings.push(`Unsupported Parameter integration for '${param.name || 'unknown'}'`);
       strat.parameters.push(param);
     }
 
+    if (findAll(s, 'Integration').length) warnings.push(`Unsupported Strategy integration for '${strat.name}'`);
+    if (findAll(s, 'Activation').length || findAll(s, 'Condition').length) {
+      warnings.push(`Unsupported Strategy activation/conditional rendering for '${strat.name}'`);
+    }
+    if (findAll(s, 'SubStrategy').length) warnings.push(`Unsupported nested SubStrategy inside '${strat.name}'`);
+
     const le = findAll(s, 'StrategyLayout')[0];
     strat.groups = le
-      ? parseLayoutGroups(le, strat.parameters, findAll, ga)
+      ? parseLayoutGroups(le, strat.parameters, findAll, ga, warnings)
       : [{
           label: 'Parameters', orientation: 'vertical', subGroups: [],
+          collapsible: true, startCollapsed: false,
           controls: strat.parameters.map(p => ({
             id: p.name, paramRef: p.name, label: p.name,
             type: inferControlType(p.type, p.enumPairs),
@@ -88,13 +102,12 @@ function parseATDL(xmlString) {
         }];
     strategies.push(strat);
   }
-  return { strategies, errors: [] };
+  return { strategies, errors: [], warnings, version };
 }
 
-function parseLayoutGroups(layoutEl, parameters, findAll, ga) {
+function parseLayoutGroups(layoutEl, parameters, findAll, ga, warnings) {
   const proc = (el, depth = 0) => {
     const label = ga(el, 'title', 'label', 'name') || (depth === 0 ? 'Settings' : '');
-    // v1.2: collapsible / collapsed panel attributes
     const collapsible = ga(el, 'collapsible') !== 'false';
     const startCollapsed = ga(el, 'collapsed') === 'true';
     const controls = [];
@@ -104,7 +117,6 @@ function parseLayoutGroups(layoutEl, parameters, findAll, ga) {
         const pr = ga(c, 'parameterRef');
         const param = parameters.find(p => p.name === pr);
         const et = ga(c, 'xsi:type', 'type');
-        // v1.2: initPolicy — 'UseInitValue' | 'UseParamDef' | 'UseState'
         const initPolicy = ga(c, 'initPolicy') || 'UseInitValue';
         controls.push({
           id: ga(c, 'ID', 'id') || pr,
@@ -132,34 +144,67 @@ function parseLayoutGroups(layoutEl, parameters, findAll, ga) {
   return groups;
 }
 
-function mapCT(t) {
+function mapCT(t, paramName = '') {
   t = t.toLowerCase();
-  // v1.2 additions first (more specific)
-  if (t.includes('spinner'))               return 'spinner';   // v1.2 Spinner_t
-  if (t.includes('multiselect'))           return 'multiselect'; // v1.2 MultiSelectList_t
-  if (t.includes('hidden'))               return 'hidden';     // v1.2 HiddenField_t
-  if (t.includes('monthyear'))            return 'monthyear';  // v1.2 MonthYear_t
-  if (t.includes('localmktdate'))         return 'date';       // v1.2 LocalMktDate_t
-  // v1.1 types
+  if (t.includes('spinner'))     return 'spinner';
+  if (t.includes('multiselect')) return 'multiselect';
+  if (t.includes('hidden'))      return 'hidden';
+  if (t.includes('monthyear'))   return 'monthyear';
+  if (t.includes('localmktdate')) return 'date';
   if (t.includes('clock') || t.includes('time')) return 'time';
-  if (t.includes('date'))                 return 'date';
+  if (t.includes('date'))        return 'date';
   if (t.includes('radiobutton') || t.includes('singleselectlist')) return 'radio';
-  if (t.includes('checkbox'))             return 'checkbox';
+  if (t.includes('checkbox'))    return 'checkbox';
   if (t.includes('dropdown') || t.includes('editablelist')) return 'select';
-  if (t.includes('slider'))               return 'slider';
+  if (t.includes('slider'))      return 'slider';
   return 'text';
 }
 
-function inferControlType(pt, ep) {
-  if (ep && ep.length > 0) return ep.length <= 4 ? 'radio' : 'select';
+function inferControlType(pt, ep, paramName = '') {
+  if (ep && ep.length > 0) {
+    if (/security|region|venue|type/i.test(paramName)) return 'select';
+    return ep.length <= 4 ? 'radio' : 'select';
+  }
   const t = (pt || '').toLowerCase();
-  if (t.includes('bool'))                  return 'checkbox';
+  if (t.includes('bool'))        return 'checkbox';
   if (t.includes('utctimestamp') || (t.includes('time') && !t.includes('date'))) return 'time';
-  if (t.includes('monthyear'))             return 'monthyear';
+  if (t.includes('monthyear'))   return 'monthyear';
   if (t.includes('localmktdate') || t.includes('date')) return 'date';
   if (t.includes('multiplestringvalue') || t.includes('multiplecharvalue')) return 'multiselect';
   if (t.includes('float') || t.includes('price') || t.includes('qty') || t.includes('percent') || t.includes('int')) return 'spinner';
   return 'text';
+}
+
+function isNumericParameter(param) {
+  const t = (param?.type || '').toLowerCase();
+  const n = (param?.name || '').toLowerCase();
+  return /int|qty|quantity|price|percent|float|double|decimal/.test(t) || /qty|quantity|amount|price|percent/.test(n);
+}
+
+function isIntegerParameter(param) {
+  const t = (param?.type || '').toLowerCase();
+  const n = (param?.name || '').toLowerCase();
+  return /(^|\W)(int|qty|quantity)(\W|$)/.test(t) || /qty|quantity/.test(n);
+}
+
+function validateParameterValue(param, value) {
+  if (!param) return '';
+  const raw = String(value ?? '').trim();
+  if (raw === '') return '';
+  const minValue = param.minValue !== '' && param.minValue !== undefined ? parseFloat(param.minValue) : undefined;
+  const maxValue = param.maxValue !== '' && param.maxValue !== undefined ? parseFloat(param.maxValue) : undefined;
+  const numericField = minValue !== undefined || maxValue !== undefined || isNumericParameter(param);
+  if (numericField) {
+    if (!/^-?\d+(\.\d+)?$/.test(raw)) return 'Must be a number';
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return 'Must be a number';
+    const isInteger = isIntegerParameter(param);
+    if (isInteger && !Number.isInteger(num)) return 'Must be an integer';
+    if (minValue !== undefined && num < minValue) return 'Min: ' + param.minValue;
+    if (maxValue !== undefined && num > maxValue) return 'Max: ' + param.maxValue;
+    if (minValue === undefined && /qty|quantity/i.test(param.name) && num < 0) return 'Must be zero or positive';
+  }
+  return '';
 }
 
 function buildFIX(strategy, values) {
@@ -266,16 +311,20 @@ const DEMO_ATDL = `<?xml version="1.0" encoding="utf-8"?>
 </Strategies>`;
 
 /* ─── Control Field ─── */
-function ControlField({ control, param, value, onChange, errors }) {
+function ControlField({ control, param, value, onChange, errors, dirty }) {
   const hasError = errors?.[control.paramRef];
-  const baseInput = 'w-full px-3 py-2 rounded-lg border text-xs font-mono outline-none transition-all';
+  const isDirty = dirty?.[control.paramRef];
+  const baseInput = 'fx-input w-full text-xs';
   const inputStyle = {
-    background: 'var(--background)',
-    borderColor: hasError ? '#ef4444' : 'var(--border)',
-    color: 'var(--foreground)',
+    borderColor: hasError ? '#ef4444' : isDirty ? 'var(--primary-faint)' : undefined,
   };
   const label = control.label || control.paramRef || control.id;
   const ep = param?.enumPairs || [];
+
+  const wrapStyle = {
+    borderLeft: hasError ? '2px solid #ef4444' : isDirty ? '2px solid var(--primary)' : param?.required ? '2px solid var(--primary-border)' : '2px solid transparent',
+    paddingLeft: '10px',
+  };
 
   const renderInput = () => {
     switch (control.type) {
@@ -286,16 +335,16 @@ function ControlField({ control, param, value, onChange, errors }) {
             <button
               type='button'
               onClick={() => onChange(on ? 'N' : 'Y')}
-              className='relative w-10 h-[22px] rounded-full transition-colors duration-200 shrink-0'
+              className='relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0'
               style={{ background: on ? 'var(--primary)' : 'var(--border)' }}
             >
               <div
-                className='absolute top-[3px] w-4 h-4 rounded-full bg-white shadow transition-all duration-200'
-                style={{ left: on ? '22px' : '3px' }}
+                className='absolute top-[3px] w-[18px] h-[18px] rounded-full bg-white shadow transition-all duration-200'
+                style={{ left: on ? '23px' : '3px' }}
               />
             </button>
-            <span className='text-xs font-mono' style={{ color: on ? 'var(--foreground)' : 'var(--text-muted)' }}>
-              {on ? 'Enabled' : 'Disabled'}
+            <span className='text-xs font-mono font-semibold' style={{ color: on ? 'var(--foreground)' : 'var(--text-muted)' }}>
+              {on ? 'ON' : 'OFF'}
             </span>
           </label>
         );
@@ -328,24 +377,30 @@ function ControlField({ control, param, value, onChange, errors }) {
         );
       case 'select':
         return (
-          <select value={value || ''} onChange={x => onChange(x.target.value)} className={baseInput} style={{ ...inputStyle, cursor: 'pointer' }}>
-            <option value=''>— Select —</option>
-            {ep.map(e => <option key={e.enumID} value={e.enumID}>{e.uiRep}</option>)}
-          </select>
+          <div className='relative'>
+            <select value={value || ''} onChange={x => onChange(x.target.value)}
+              className={baseInput + ' pr-8 appearance-none cursor-pointer'}
+              style={{ ...inputStyle, background: 'var(--background)', color: 'var(--foreground)' }}
+            >
+              <option value=''>— Select —</option>
+              {ep.map(e => <option key={e.enumID} value={e.enumID}>{e.uiRep}</option>)}
+            </select>
+            <ChevronDown className='pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5' style={{ color: 'var(--text-muted)' }} />
+          </div>
         );
       case 'slider': {
-        const min = parseFloat(param?.minValue || '0');
-        const max = parseFloat(param?.maxValue || '1');
+        const min = !isNaN(parseFloat(param?.minValue)) ? parseFloat(param.minValue) : 0;
+        const max = !isNaN(parseFloat(param?.maxValue)) ? parseFloat(param.maxValue) : (param?.type?.toLowerCase().includes('percent') ? 1 : 100);
         const step = (max - min) <= 1 ? 0.01 : 1;
         const nv = value !== '' && value !== undefined ? parseFloat(value) : min;
         const pct = max > min ? Math.round(((nv - min) / (max - min)) * 100) : 0;
-        const disp = (max - min) <= 1 ? (Math.round(nv * 100) + '%') : nv;
+        const disp = (param?.type?.toLowerCase().includes('percent') ? (Math.round(nv * 100) + '%') : nv);
         return (
           <div className='space-y-2'>
             <input
               type='range' min={min} max={max} step={step} value={nv}
               onChange={x => onChange(x.target.value)}
-              className='w-full h-1.5 rounded-full appearance-none cursor-pointer'
+              className='w-full h-2 rounded-full appearance-none cursor-pointer'
               style={{ background: `linear-gradient(to right, var(--primary) ${pct}%, var(--border) ${pct}%)` }}
             />
             <div className='flex justify-between items-center'>
@@ -362,16 +417,20 @@ function ControlField({ control, param, value, onChange, errors }) {
         return <input type='time' value={value || ''} onChange={x => onChange(x.target.value)} className={baseInput} style={inputStyle} />;
       case 'date':
         return <input type='date' value={value || ''} onChange={x => onChange(x.target.value)} className={baseInput} style={inputStyle} />;
-      case 'spinner':
+      case 'spinner': {
+        const spinnerMin = param?.minValue !== '' && param?.minValue !== undefined ? param.minValue : undefined;
+        const spinnerMax = param?.maxValue !== '' && param?.maxValue !== undefined ? param.maxValue : undefined;
+        const isInteger = isIntegerParameter(param);
+        const spinnerStep = isInteger ? '1' : (param?.type?.toLowerCase().includes('percent') ? '0.01' : 'any');
         return (
           <input type='number' value={value || ''} onChange={x => onChange(x.target.value)}
-            min={param?.minValue || undefined} max={param?.maxValue || undefined}
-            step={param?.type?.toLowerCase().includes('percent') ? '0.01' : '1'}
-            placeholder={param?.defaultValue || ''} className={baseInput} style={inputStyle}
+            min={spinnerMin} max={spinnerMax}
+            step={spinnerStep} inputMode={isInteger ? 'numeric' : 'decimal'}
+            placeholder={param?.defaultValue || 'Enter value…'} className={baseInput} style={inputStyle}
           />
         );
-      case 'multiselect': {
-        // v1.2 MultiSelectList — render as a compact checkbox group
+      }
+      case 'multiselect':
         return (
           <div className='flex flex-wrap gap-2'>
             {ep.length > 0 ? ep.map(e => {
@@ -400,22 +459,24 @@ function ControlField({ control, param, value, onChange, errors }) {
             }) : <input type='text' value={value || ''} onChange={x => onChange(x.target.value)} placeholder='Space-separated values' className={baseInput} style={inputStyle} />}
           </div>
         );
-      }
       case 'monthyear': {
-        // v1.2 MonthYear_t — YYYYMM or YYYYMMW format
         const myCur = value || '';
         const myYear = myCur.length >= 4 ? myCur.slice(0, 4) : '';
         const myMonth = myCur.length >= 6 ? myCur.slice(4, 6) : '';
         return (
           <div className='flex gap-2'>
-            <select value={myMonth} onChange={x => onChange((myYear || new Date().getFullYear().toString()) + x.target.value)}
-              className={baseInput + ' flex-1'} style={{ ...inputStyle, cursor: 'pointer' }}
-            >
-              <option value=''>Month</option>
-              {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
-                <option key={m} value={m}>{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]}</option>
-              ))}
-            </select>
+            <div className='relative flex-1'>
+              <select value={myMonth} onChange={x => onChange((myYear || new Date().getFullYear().toString()) + x.target.value)}
+                className={baseInput + ' pr-8 appearance-none cursor-pointer'}
+                style={{ ...inputStyle, background: 'var(--background)', color: 'var(--foreground)' }}
+              >
+                <option value=''>Month</option>
+                {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
+                  <option key={m} value={m}>{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]}</option>
+                ))}
+              </select>
+              <ChevronDown className='pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5' style={{ color: 'var(--text-muted)' }} />
+            </div>
             <input type='number' value={myYear} min='2000' max='2099' placeholder='YYYY'
               onChange={x => onChange(x.target.value.slice(0,4) + myMonth)}
               className={baseInput + ' w-24'} style={inputStyle}
@@ -424,21 +485,20 @@ function ControlField({ control, param, value, onChange, errors }) {
         );
       }
       case 'hidden':
-        // v1.2 HiddenField_t — render as read-only badge, never shown to user in form
         return (
           <span className='text-[10px] font-mono px-2 py-1 rounded border italic'
             style={{ color: 'var(--text-muted)', borderColor: 'var(--border)', background: 'var(--background)' }}
-          >(hidden field{value ? ' — ' + value : ''})</span>
+          >(hidden{value ? ' — ' + value : ''})</span>
         );
       default:
-        return <input type='text' value={value || ''} onChange={x => onChange(x.target.value)} placeholder={param?.defaultValue || ''} className={baseInput} style={inputStyle} />;
+        return <input type='text' value={value || ''} onChange={x => onChange(x.target.value)} placeholder={param?.defaultValue || 'Enter value…'} className={baseInput} style={inputStyle} />;
     }
   };
 
   return (
-    <div className='space-y-1.5'>
+    <div className='space-y-1.5 transition-all' style={wrapStyle}>
       <div className='flex items-center gap-1.5 flex-wrap'>
-        <label className='text-[11px] font-semibold uppercase tracking-wide' style={{ color: 'var(--text-muted)' }}>
+        <label className='text-[11px] font-semibold' style={{ color: 'var(--text-muted)' }}>
           {label}{param?.required && <span className='text-red-400 ml-0.5'>*</span>}
         </label>
         {param?.fixTag && (
@@ -452,6 +512,15 @@ function ControlField({ control, param, value, onChange, errors }) {
           </span>
         )}
       </div>
+      {(param?.defaultValue || param?.minValue || param?.maxValue || param?.constValue) && (
+        <div className='text-[10px] text-[var(--text-muted)] space-y-0.5'>
+          {param?.constValue && <div>Fixed: {param.constValue}</div>}
+          {param?.defaultValue && <div>Default: {param.defaultValue}</div>}
+          {(param?.minValue || param?.maxValue) && (
+            <div>Range: {param?.minValue || '-'} to {param?.maxValue || '-'}</div>
+          )}
+        </div>
+      )}
       {renderInput()}
       {hasError && (
         <p className='text-[10px] text-red-400 flex items-center gap-1'>
@@ -463,11 +532,12 @@ function ControlField({ control, param, value, onChange, errors }) {
 }
 
 /* ─── Panel Group (recursive, collapsible) ─── */
-function PanelGroup({ group, values, onChange, errors, depth = 0 }) {
+function PanelGroup({ group, values, onChange, errors, dirty, depth = 0 }) {
   const [collapsed, setCollapsed] = useState(!!group.startCollapsed);
   const canCollapse = group.collapsible !== false;
   const hasControls = group.controls.length > 0;
   const hasSubGroups = group.subGroups?.length > 0;
+  const horizontal = group.orientation === 'horizontal';
   if (!hasControls && !hasSubGroups) return null;
   return (
     <div className='rounded-xl border overflow-hidden'
@@ -481,26 +551,30 @@ function PanelGroup({ group, values, onChange, errors, depth = 0 }) {
         >
           <div className='flex items-center gap-2'>
             {depth > 0 && <ChevronRight className='h-3 w-3' style={{ color: 'var(--primary)' }} />}
-            <span className='text-xs font-bold uppercase tracking-wider' style={{ color: 'var(--foreground)' }}>{group.label}</span>
-            <span className='text-[9px] font-mono' style={{ color: 'var(--text-muted)' }}>{group.controls.length} field{group.controls.length !== 1 ? 's' : ''}{hasSubGroups ? ` + ${group.subGroups.length} sub-panel${group.subGroups.length !== 1 ? 's' : ''}` : ''}</span>
+            <span className='text-xs font-bold' style={{ color: 'var(--foreground)' }}>{group.label}</span>
+            <span className='text-[9px] font-mono' style={{ color: 'var(--text-muted)' }}>
+              {group.controls.length} field{group.controls.length !== 1 ? 's' : ''}
+              {hasSubGroups ? ` · ${group.subGroups.length} sub-panel${group.subGroups.length !== 1 ? 's' : ''}` : ''}
+            </span>
           </div>
-          {collapsed
-            ? <ChevronRight className='h-3.5 w-3.5 shrink-0' style={{ color: 'var(--text-muted)' }} />
-            : <ChevronDown className='h-3.5 w-3.5 shrink-0' style={{ color: 'var(--text-muted)' }} />
-          }
+          <ChevronDown
+            className='h-3.5 w-3.5 shrink-0 transition-transform duration-200'
+            style={{ color: 'var(--text-muted)', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+          />
         </button>
       )}
       {!collapsed && (
-        <div className='p-4 space-y-5'>
+        <div className={`p-4 ${horizontal ? 'flex flex-wrap gap-4' : 'space-y-5'}`}>
           {group.controls.map((ctrl, i) => (
-            <ControlField key={ctrl.id || i} control={ctrl} param={ctrl.param}
-              value={values[ctrl.paramRef] ?? ctrl.param?.defaultValue ?? ctrl.initValue ?? ''}
-              onChange={val => onChange(ctrl.paramRef, val)} errors={errors}
-            />
+            <div key={ctrl.id || i} className={horizontal ? 'flex-1 min-w-[240px]' : ''}>
+              <ControlField control={ctrl} param={ctrl.param}
+                value={values[ctrl.paramRef] ?? ctrl.param?.defaultValue ?? ctrl.initValue ?? ''}
+                onChange={val => onChange(ctrl.paramRef, val)} errors={errors} dirty={dirty}
+              />
+            </div>
           ))}
-          {/* Sub-panels rendered inline below controls */}
           {group.subGroups?.map((sg, i) => (
-            <PanelGroup key={i} group={sg} values={values} onChange={onChange} errors={errors} depth={depth + 1} />
+            <PanelGroup key={i} group={sg} values={values} onChange={onChange} errors={errors} dirty={dirty} depth={depth + 1} />
           ))}
         </div>
       )}
@@ -516,96 +590,203 @@ function AnalyticsPanel({ strategy, parsed, values, fixParts }) {
   const required = params.filter(p => p.required && !p.constValue).length;
   const requiredFilled = params.filter(p => p.required && !p.constValue && values[p.name] !== undefined && values[p.name] !== '').length;
   const consts = params.filter(p => p.constValue).length;
+  const optional = params.filter(p => !p.required && !p.constValue).length;
+  const withEnums = params.filter(p => p.enumPairs?.length > 0).length;
+  const panelCount = strategy?.groups?.reduce((sum, g) => sum + 1 + (g.subGroups?.length || 0), 0) || 0;
   const fillPct = total > 0 ? Math.round((filled / total) * 100) : 0;
   const reqPct = required > 0 ? Math.round((requiredFilled / required) * 100) : 100;
 
-  // Strategy-level counts from full parsed result
   const strategyCount = parsed?.strategies?.length ?? 1;
   const totalParamsAllStrats = parsed?.strategies?.reduce((sum, s) => sum + s.parameters.length, 0) ?? params.length;
   const totalPanelsAllStrats = parsed?.strategies?.reduce((sum, s) => sum + s.groups.length, 0) ?? (strategy?.groups?.length ?? 0);
-  const optional = params.filter(p => !p.required && !p.constValue).length;
-  const withEnums = params.filter(p => p.enumPairs?.length > 0).length;
+  const activeLabel = strategy?.uiRep || strategy?.name || 'Current Strategy';
+  const statusReady = fillPct === 100 && reqPct === 100;
+
+  // SVG ring
+  const r = 28, circ = 2 * Math.PI * r;
+  const dash = circ - (fillPct / 100) * circ;
 
   return (
     <div className='rounded-xl border overflow-hidden' style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-      <div className='px-4 py-3 border-b flex items-center gap-2' style={{ borderColor: 'var(--border)' }}>
-        <BarChart3 className='h-3.5 w-3.5' style={{ color: 'var(--primary)' }} />
-        <span className='text-xs font-bold'>Analytics</span>
-      </div>
       <div className='p-4 space-y-4'>
-        <div className='space-y-2'>
-          <div className='flex justify-between'>
-            <span className='text-[10px] font-mono uppercase tracking-wider' style={{ color: 'var(--text-muted)' }}>Fill Progress</span>
-            <span className='text-[10px] font-mono font-bold' style={{ color: 'var(--foreground)' }}>{filled}/{total}</span>
+
+        <div className='rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4'>
+          <div className='flex items-start justify-between gap-3'>
+            <div className='min-w-0'>
+              <p className='text-xs font-semibold uppercase tracking-[0.18em]' style={{ color: 'var(--text-muted)' }}>Strategy</p>
+              <p className='text-sm font-bold' style={{ color: 'var(--foreground)' }}>{activeLabel}</p>
+              {strategy?.description && (
+                <p className='mt-1 text-[10px] leading-5' style={{ color: 'var(--text-muted)' }}>{strategy.description}</p>
+              )}
+            </div>
+            <span className={`rounded-full px-1.5 py-0.75 text-[10px] font-semibold uppercase whitespace-nowrap ${statusReady ? 'border border-emerald-300 bg-emerald-50 text-emerald-700' : 'border border-slate-300 bg-slate-50 text-slate-800'}`}>
+              {statusReady ? 'Ready' : 'Needs input'}
+            </span>
           </div>
-          <div className='h-1.5 rounded-full overflow-hidden' style={{ background: 'var(--border)' }}>
-            <div className='h-full rounded-full transition-all duration-500'
-              style={{ width: fillPct + '%', background: fillPct === 100 ? '#10b981' : 'var(--primary)' }} />
-          </div>
-        </div>
-        <div className='space-y-2'>
-          <div className='flex justify-between'>
-            <span className='text-[10px] font-mono uppercase tracking-wider' style={{ color: 'var(--text-muted)' }}>Required Fields</span>
-            <span className='text-[10px] font-mono font-bold' style={{ color: reqPct === 100 ? '#10b981' : '#f87171' }}>{requiredFilled}/{required}</span>
-          </div>
-          <div className='h-1.5 rounded-full overflow-hidden' style={{ background: 'var(--border)' }}>
-            <div className='h-full rounded-full transition-all duration-500'
-              style={{ width: reqPct + '%', background: reqPct === 100 ? '#10b981' : '#ef4444' }} />
+          <div className='mt-4 grid grid-cols-2 gap-2'>
+            <div className='rounded-xl border px-3 py-2' style={{ borderColor: 'var(--border)' }}>
+              <p className='text-[9px] uppercase font-semibold tracking-[0.18em]' style={{ color: 'var(--text-muted)' }}>Fields filled</p>
+              <p className='text-sm font-bold' style={{ color: 'var(--foreground)' }}>{filled}/{total}</p>
+            </div>
+            <div className='rounded-xl border px-3 py-2' style={{ borderColor: 'var(--border)' }}>
+              <p className='text-[9px] uppercase font-semibold tracking-[0.18em]' style={{ color: 'var(--text-muted)' }}>Req. complete</p>
+              <p className='text-sm font-bold' style={{ color: 'var(--foreground)' }}>{requiredFilled}/{required}</p>
+            </div>
+            <div className='rounded-xl border px-3 py-2' style={{ borderColor: 'var(--border)' }}>
+              <p className='text-[9px] uppercase font-semibold tracking-[0.18em]' style={{ color: 'var(--text-muted)' }}>Enum controls</p>
+              <p className='text-sm font-bold' style={{ color: 'var(--foreground)' }}>{withEnums}</p>
+            </div>
+            <div className='rounded-xl border px-3 py-2' style={{ borderColor: 'var(--border)' }}>
+              <p className='text-[9px] uppercase font-semibold tracking-[0.18em]' style={{ color: 'var(--text-muted)' }}>Panels</p>
+              <p className='text-sm font-bold' style={{ color: 'var(--foreground)' }}>{panelCount}</p>
+            </div>
           </div>
         </div>
 
-        {/* Current strategy stat chips */}
-        <div className='grid grid-cols-3 gap-2'>
+        <div className='flex items-center gap-4'>
+          <div className='relative shrink-0'>
+            <svg width='72' height='72' viewBox='0 0 72 72'>
+              <circle cx='36' cy='36' r={r} fill='none' stroke='var(--border)' strokeWidth='5' />
+              <circle cx='36' cy='36' r={r} fill='none'
+                stroke={fillPct === 100 ? '#10b981' : 'var(--primary)'}
+                strokeWidth='5' strokeDasharray={circ} strokeDashoffset={dash}
+                strokeLinecap='round' style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'stroke-dashoffset 0.5s ease' }}
+              />
+            </svg>
+            <div className='absolute inset-0 flex flex-col items-center justify-center'>
+              <span className='text-sm font-bold' style={{ color: fillPct === 100 ? '#10b981' : 'var(--foreground)' }}>{fillPct}%</span>
+              <span className='text-[8px] font-mono' style={{ color: 'var(--text-muted)' }}>filled</span>
+            </div>
+          </div>
+          <div className='flex-1 space-y-3'>
+            <div>
+              <div className='flex justify-between text-[10px] font-mono uppercase tracking-wider whitespace-nowrap' style={{ color: 'var(--text-muted)' }}>
+                <span>Field Fill</span>
+                <span>{filled}/{total}</span>
+              </div>
+              <div className='mt-2 h-1.5 rounded-full overflow-hidden' style={{ background: 'var(--border)' }}>
+                <div className='h-full rounded-full transition-all duration-500' style={{ width: `${fillPct}%`, background: fillPct === 100 ? '#10b981' : 'var(--primary)' }} />
+              </div>
+            </div>
+            <div>
+              <div className='flex justify-between text-[10px] font-mono uppercase tracking-wider' style={{ color: 'var(--text-muted)' }}>
+                <span>Required Complete</span>
+                <span>{requiredFilled}/{required}</span>
+              </div>
+              <div className='mt-2 h-1.5 rounded-full overflow-hidden' style={{ background: 'var(--border)' }}>
+                <div className='h-full rounded-full transition-all duration-500' style={{ width: `${reqPct}%`, background: reqPct === 100 ? '#10b981' : '#ef4444' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className='grid grid-cols-2 gap-2'>
           {[
-            { label: 'Total', value: total, color: 'var(--text-muted)' },
-            { label: 'Required', value: required, color: '#f87171' },
-            { label: 'Optional', value: optional, color: 'var(--foreground)' },
+            { label: 'Optional', value: optional, color: 'var(--text-muted)' },
+            { label: 'Constants', value: consts, color: 'var(--primary)' },
+            { label: 'Strategies', value: strategyCount, color: 'var(--foreground)' },
+            { label: 'Total Params', value: totalParamsAllStrats, color: 'var(--foreground)' },
           ].map(s => (
-            <div key={s.label} className='rounded-lg p-2 text-center border' style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
-              <div className='text-sm font-bold' style={{ color: s.color }}>{s.value}</div>
-              <div className='text-[9px] font-mono uppercase tracking-wider mt-0.5' style={{ color: 'var(--text-muted)' }}>{s.label}</div>
+            <div key={s.label} className='rounded-lg border px-3 py-3' style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
+              <p className='text-[10px] uppercase tracking-[0.18em]' style={{ color: 'var(--text-muted)' }}>{s.label}</p>
+              <p className='text-lg font-semibold' style={{ color: s.color }}>{s.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Strategy overview */}
-        <div className='space-y-1.5'>
-          <p className='text-[10px] font-mono uppercase tracking-wider' style={{ color: 'var(--text-muted)' }}>Document Overview</p>
-          <div className='rounded-lg border overflow-hidden' style={{ borderColor: 'var(--border)' }}>
-            {[
-              { label: 'Strategies', value: strategyCount },
-              { label: 'Total Parameters', value: totalParamsAllStrats },
-              { label: 'Total Panels', value: totalPanelsAllStrats },
-              { label: 'Const Parameters', value: consts },
-              { label: 'Enum Parameters', value: withEnums },
-            ].map((row, i) => (
-              <div key={row.label}
-                className='flex items-center justify-between px-3 py-1.5'
-                style={{ borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}
-              >
-                <span className='text-[10px] font-mono' style={{ color: 'var(--text-muted)' }}>{row.label}</span>
-                <span className='text-[10px] font-mono font-bold' style={{ color: 'var(--foreground)' }}>{row.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {fixParts.length > 0 && (
-          <div className='rounded-lg p-3 border' style={{ borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.06)' }}>
-            <p className='text-[10px] font-mono uppercase tracking-wider mb-1' style={{ color: '#10b981' }}>
-              FIX Output — {fixParts.length} tag{fixParts.length !== 1 ? 's' : ''}
-            </p>
-            <p className='text-[10px] font-mono break-all' style={{ color: 'var(--text-muted)' }}>
+        <div className='rounded-xl border p-3' style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
+          <p className='text-[10px] font-semibold uppercase tracking-[0.18em]' style={{ color: 'var(--text-muted)' }}>FIX Tag Summary</p>
+          {fixParts.length > 0 ? (
+            <p className='mt-2 text-[10px] font-mono break-all' style={{ color: 'var(--foreground)' }}>
               {fixParts.map(p => p.split('=')[0]).join(', ')}
             </p>
-          </div>
-        )}
+          ) : (
+            <p className='mt-2 text-[10px] text-[var(--text-muted)]'>No FIX tags yet. Fill required fields to preview output.</p>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
+/* ─── Parameter Map with search ─── */
+function ParameterMap({ parameters, values }) {
+  const [search, setSearch] = useState('');
+  const filtered = parameters.filter(p =>
+    !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.fixTag.includes(search) || p.type.toLowerCase().includes(search.toLowerCase())
+  );
+  return (
+    <div className='rounded-xl border overflow-hidden' style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+      <div className='px-4 py-3 border-b flex items-center gap-2' style={{ borderColor: 'var(--border)' }}>
+        <Hash className='h-3.5 w-3.5' style={{ color: 'var(--primary)' }} />
+        <span className='text-xs font-bold'>Parameter Map</span>
+        <span className='text-[10px] font-mono ml-auto' style={{ color: 'var(--text-muted)' }}>{parameters.length} params</span>
+      </div>
+      {/* Search */}
+      <div className='px-3 py-2 border-b' style={{ borderColor: 'var(--border)' }}>
+        <div className='relative'>
+          <Search className='absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3' style={{ color: 'var(--text-muted)' }} />
+          <input
+            type='text'
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder='Filter by name, tag, or type…'
+            className='w-full pl-7 pr-3 py-1.5 text-[10px] font-mono rounded-lg border outline-none'
+            style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className='absolute right-2 top-1/2 -translate-y-1/2'>
+              <X className='h-3 w-3' style={{ color: 'var(--text-muted)' }} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className='overflow-y-auto' style={{ maxHeight: '220px' }}>
+        <table className='w-full text-[10px] font-mono'>
+          <thead>
+            <tr style={{ background: 'var(--background)', color: 'var(--text-muted)', position: 'sticky', top: 0 }}>
+              <th className='px-3 py-2 text-left font-semibold'>Name</th>
+              <th className='px-3 py-2 text-left font-semibold'>Tag</th>
+              <th className='px-3 py-2 text-left font-semibold'>Type</th>
+              <th className='px-3 py-2 text-left font-semibold'>Value</th>
+              <th className='px-3 py-2 text-left font-semibold'>Req</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={5} className='px-3 py-4 text-center' style={{ color: 'var(--text-muted)' }}>No matches</td></tr>
+            ) : filtered.map((p, i) => {
+              const val = p.constValue || values[p.name] || '';
+              const shortType = p.type.replace('_t', '').replace('UTCTimestamp', 'Timestamp').replace('Percentage', 'Pct');
+              return (
+                <tr key={i} className='hover:bg-[var(--primary-faint)] transition-colors' style={{ borderTop: '1px solid var(--border)' }}>
+                  <td className='px-3 py-1.5 font-semibold' style={{ color: 'var(--foreground)' }}>{p.name}</td>
+                  <td className='px-3 py-1.5' style={{ color: 'var(--primary)' }}>{p.fixTag || '—'}</td>
+                  <td className='px-3 py-1.5'>
+                    <span className='px-1.5 py-0.5 rounded text-[9px] font-mono'
+                      style={{ background: 'var(--primary-faint)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}
+                    >{shortType}</span>
+                  </td>
+                  <td className='px-3 py-1.5 max-w-[60px] truncate' style={{ color: val ? '#10b981' : 'var(--border)' }} title={val || undefined}>
+                    {val || '—'}
+                  </td>
+                  <td className='px-3 py-1.5'>
+                    {p.required ? <span style={{ color: '#f87171' }}>●</span> : <span style={{ color: 'var(--border)' }}>○</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ─── XML Content Modal ─── */
 function XmlContentModal({ isOpen, onClose, content, onChange, onParse, errors }) {
   if (!isOpen) return null;
+  const lineCount = content ? content.split('\n').length : 0;
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
       <div className='absolute inset-0 bg-black/80' style={{ zIndex: 10 }} onClick={onClose} />
@@ -613,21 +794,22 @@ function XmlContentModal({ isOpen, onClose, content, onChange, onParse, errors }
         <div className='flex items-center justify-between gap-3 mb-4'>
           <div>
             <h2 className='text-sm font-semibold' style={{ color: 'var(--foreground)' }}>XML Content</h2>
-            <p className='text-[11px] text-[var(--text-muted)]'>Review or edit the current Atdl XML content.</p>
+            <p className='text-[11px] text-[var(--text-muted)]'>{lineCount} lines · Review or edit the ATDL XML</p>
           </div>
-          <button type='button' onClick={onClose} className='text-xs font-semibold p-1.5 rounded-lg border' style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}>
+          <button type='button' onClick={onClose} className='fx-btn-secondary p-1.5'>
             <X className='h-4 w-4' />
           </button>
         </div>
         <textarea
           value={content}
           onChange={e => onChange(e.target.value)}
-          className='w-full h-[60vh] min-h-[320px] p-4 rounded-xl text-xs font-mono bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] outline-none resize-none'
+          className='w-full h-[60vh] min-h-[320px] p-4 rounded-xl text-[11px] font-mono bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] outline-none resize-none'
+          style={{ letterSpacing: '-0.01em' }}
           spellCheck={false}
         />
         <div className='mt-2 flex flex-wrap items-center gap-3'>
           <button type='button' onClick={() => onParse(content)} disabled={!content.trim()} className='fx-btn-primary py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed'>
-            <Play className='h-3.5 w-3.5' /> Parse &amp; Render
+            <Play className='h-3.5 w-3.5' /> Parse & Render
           </button>
         </div>
         {errors.length > 0 && (
@@ -647,24 +829,36 @@ export default function ATDLRendererPage() {
   const [loadedFileName, setLoadedFileName] = useState('');
   const [parsed, setParsed] = useState(null);
   const [parseErrors, setParseErrors] = useState([]);
+  const [renderWarnings, setRenderWarnings] = useState([]);
   const [activeStratIdx, setActiveStratIdx] = useState(0);
   const [values, setValues] = useState({});
+  const [dirty, setDirty] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
   const [fixPreview, setFixPreview] = useState('');
   const [showPreview, setShowPreview] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showXmlModal, setShowXmlModal] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => { setIsLoaded(true); }, []);
 
   const handleParse = useCallback((xml) => {
     const src = xml !== undefined ? xml : xmlInput;
-    if (!src.trim()) { setParsed(null); setParseErrors([]); return; }
+    if (!src.trim()) { setParsed(null); setParseErrors([]); setRenderWarnings([]); return; }
     const result = parseATDL(src);
     setParsed(result);
     setParseErrors(result.errors);
+    setRenderWarnings(result.warnings || []);
     setActiveStratIdx(0);
-    setValues({});
+    const initialValues = {};
+    const first = result.strategies[0];
+    if (first) {
+      first.parameters.forEach(p => {
+        if (!p.constValue && p.defaultValue !== '') initialValues[p.name] = p.defaultValue;
+      });
+    }
+    setValues(initialValues);
+    setDirty({});
     setValidationErrors({});
     setFixPreview('');
   }, [xmlInput]);
@@ -691,11 +885,9 @@ export default function ATDLRendererPage() {
 
   const handleLoadDemo = () => {
     setXmlInput(DEMO_ATDL);
-    setLoadedFileName('demo.xml');
+    setLoadedFileName('demo.atdl');
     handleParse(DEMO_ATDL);
   };
-
-  const [showXmlModal, setShowXmlModal] = useState(false);
 
   const handleClear = () => {
     setXmlInput('');
@@ -704,13 +896,20 @@ export default function ATDLRendererPage() {
     setParseErrors([]);
     setFixPreview('');
     setValues({});
+    setDirty({});
     setValidationErrors({});
     setShowXmlModal(false);
   };
 
   const handleStrategySwitch = (idx) => {
     setActiveStratIdx(idx);
-    setValues({});
+    const strat = parsed?.strategies?.[idx];
+    const initialValues = {};
+    strat?.parameters.forEach(p => {
+      if (!p.constValue && p.defaultValue !== '') initialValues[p.name] = p.defaultValue;
+    });
+    setValues(initialValues);
+    setDirty({});
     setValidationErrors({});
     setFixPreview('');
   };
@@ -718,12 +917,21 @@ export default function ATDLRendererPage() {
   const activeStrategy = parsed?.strategies?.[activeStratIdx];
 
   const handleValueChange = (paramRef, val) => {
-    setValues(prev => {
-      const next = { ...prev, [paramRef]: val };
-      if (activeStrategy) setFixPreview(buildFIX(activeStrategy, next));
-      return next;
-    });
-    setValidationErrors(prev => { const n = { ...prev }; delete n[paramRef]; return n; });
+    const nextValues = { ...values, [paramRef]: val };
+    const nextErrors = { ...validationErrors };
+    const param = activeStrategy?.parameters.find(p => p.name === paramRef);
+    if (param) {
+      const fieldError = validateParameterValue(param, val);
+      if (fieldError) nextErrors[paramRef] = fieldError;
+      else delete nextErrors[paramRef];
+    }
+    setValues(nextValues);
+    setDirty(prev => ({ ...prev, [paramRef]: true }));
+    setValidationErrors(nextErrors);
+    if (activeStrategy) {
+      if (Object.keys(nextErrors).length === 0) setFixPreview(buildFIX(activeStrategy, nextValues));
+      else setFixPreview('');
+    }
   };
 
   const handleValidate = () => {
@@ -733,19 +941,14 @@ export default function ATDLRendererPage() {
       if (p.constValue) continue;
       const v = values[p.name];
       if (p.required && (v === undefined || v === '' || v === null)) { errs[p.name] = 'Required field'; continue; }
-      if (v !== undefined && v !== '') {
-        const num = parseFloat(v);
-        if (p.minValue !== '' && p.minValue !== undefined && !isNaN(num) && num < parseFloat(p.minValue))
-          errs[p.name] = 'Min: ' + p.minValue;
-        if (p.maxValue !== '' && p.maxValue !== undefined && !isNaN(num) && num > parseFloat(p.maxValue))
-          errs[p.name] = 'Max: ' + p.maxValue;
-      }
+      const fieldError = validateParameterValue(p, v);
+      if (fieldError) { errs[p.name] = fieldError; continue; }
     }
     setValidationErrors(errs);
     if (Object.keys(errs).length === 0) setFixPreview(buildFIX(activeStrategy, values));
   };
 
-  const handleReset = () => { setValues({}); setValidationErrors({}); setFixPreview(''); };
+  const handleReset = () => { setValues({}); setDirty({}); setValidationErrors({}); setFixPreview(''); };
 
   const handleCopy = () => {
     if (!fixPreview) return;
@@ -769,102 +972,120 @@ export default function ATDLRendererPage() {
   const filledCount = activeStrategy?.parameters?.filter(p => !p.constValue && values[p.name] !== undefined && values[p.name] !== '').length ?? 0;
   const errCount = Object.keys(validationErrors).length;
   const fixParts = fixPreview ? fixPreview.split('\u0001').filter(Boolean) : [];
+  const atdlVersion = parsed?.version || '';
 
   return (
-    <div className='min-h-screen' style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
-      <main className={`max-w-[1400px] mx-auto w-full px-2 sm:px-3 md:px-4 py-6 space-y-5 transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+    <div style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
+      <main className={`space-y-8 max-w-screen-2xl mx-auto w-full px-2 sm:px-3 md:px-4 py-6 transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
 
-        {/* ── Page Header ── */}
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div>
-            <h1 className='text-xl font-bold tracking-tight flex items-center gap-2.5'>
-              <div className='p-1.5 rounded-lg' style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}>
+        {/* ── Page Header (matches latency page pattern) ── */}
+        <div className={`fx-page-header flex flex-col md:flex-row md:items-start justify-between gap-4 ${!isValid ? 'max-w-2xl mx-auto' : ''}`}>
+          <div className={`space-y-1.5 ${!isValid ? 'text-center md:text-left w-full' : ''}`}>
+            <h1 className='text-2xl font-bold tracking-tight flex items-center justify-center md:justify-start gap-2.5' style={{ color: 'var(--foreground)' }}>
+              <div className='h-9 w-9 rounded-xl flex items-center justify-center shrink-0'
+                style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
+              >
                 <UserCog className='h-5 w-5' style={{ color: 'var(--primary)' }} />
               </div>
-              FIXatdl Renderer
+              <span>FIXatdl Renderer</span>
             </h1>
-            <p className='text-xs mt-0.5' style={{ color: 'var(--text-muted)' }}>
-              Parse FIXatdl 1.1 strategy XML · render interactive controls · generate FIX wire
+            <p className='text-sm' style={{ color: 'var(--text-muted)' }}>
+              Parse FIXatdl 1.1 &amp; 1.2 strategy XML, render interactive controls, and generate FIX wire output
             </p>
           </div>
-        </div>
-
-        {/* ── Input Card (File | Paste tabs — same as Latency page) ── */}
-        {!isValid && (
-          <div className='rounded-xl overflow-hidden' style={{ border: '1px solid var(--border)', background: 'var(--card)' }}>
-            {/* Tab header */}
-            <div className='px-5 py-3.5 flex items-center justify-between' style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
-              <div className='fx-tab-group'>
-                <button className={`fx-tab${inputMode === 'file' ? ' active' : ''}`} onClick={() => setInputMode('file')}>
-                  <UploadCloud className='h-3.5 w-3.5' />
-                  <span className='hidden sm:inline'>File / Drop</span>
-                </button>
-                <button className={`fx-tab${inputMode === 'paste' ? ' active' : ''}`} onClick={() => setInputMode('paste')}>
-                  <FileText className='h-3.5 w-3.5' />
-                  <span className='hidden sm:inline'>Paste XML</span>
-                </button>
-              </div>
-              <button onClick={handleLoadDemo} className='fx-btn-primary py-1 px-3 text-[10px]'>
-                <Sparkles className='h-3 w-3' /> Load Demo
+          {isValid && (
+            <div className='flex items-center gap-2 shrink-0'>
+              <button onClick={handleReset} className='fx-btn-secondary py-2 px-3 text-xs'>
+                <RotateCcw className='h-3.5 w-3.5' /> Reset
+              </button>
+              <button onClick={handleClear} className='fx-btn-secondary py-2 px-3 text-xs' style={{ color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' }}>
+                <Trash2 className='h-3.5 w-3.5' /> Clear
               </button>
             </div>
+          )}
+        </div>
 
-            {/* Tab body */}
-            <div className='p-6'>
-              {inputMode === 'file' ? (
-                <div
-                  {...getRootProps()}
-                  className='border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all'
-                  style={{
-                    borderColor: isDragActive ? 'var(--primary)' : 'var(--border)',
-                    background: isDragActive ? 'var(--primary-faint)' : 'var(--background)',
-                  }}
-                >
-                  <input {...getInputProps()} />
-                  <UploadCloud
-                    className='h-10 w-10 mx-auto mb-3'
-                    style={{ color: isDragActive ? 'var(--primary)' : 'var(--text-muted)' }}
-                  />
-                  <p className='text-sm font-semibold' style={{ color: 'var(--foreground)' }}>
-                    {isDragActive ? 'Drop to parse…' : 'Drag & drop ATDL strategy file'}
-                  </p>
-                  <p className='text-xs mt-1' style={{ color: 'var(--text-muted)' }}>
-                    Supports .xml · .atdl · FIXatdl 1.1 &amp; 1.2
-                  </p>
-                </div>
-              ) : (
-                <div className='space-y-3'>
-                  <textarea
-                    value={xmlInput}
-                    onChange={e => setXmlInput(e.target.value)}
-                    placeholder='Paste FIXatdl 1.1 or 1.2 XML here…&#10;&#10;<Strategies xmlns="http://www.fixprotocol.org/FIXatdl-1-1/Core">&#10;  <Strategy name="VWAP" ...>'
-                    className='w-full h-64 p-4 rounded-xl resize-none text-xs font-mono outline-none'
-                    style={{
-                      background: 'var(--background)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--foreground)',
-                    }}
-                    onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                    spellCheck={false}
-                  />
-                  <button
-                    onClick={() => handleParse()}
-                    disabled={!xmlInput.trim()}
-                    className='w-full fx-btn-primary justify-center py-2'
-                  >
-                    <Play className='h-3.5 w-3.5' /> Parse &amp; Render
+        {/* ── Input Card ── */}
+        {!isValid && (
+          <div className='max-w-2xl mx-auto space-y-4'>
+            <div className='rounded-xl overflow-hidden' style={{ border: '1px solid var(--border)', background: 'var(--card)' }}>
+              {/* Tab header */}
+              <div className='px-5 py-3.5 flex items-center justify-between'
+                style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
+              >
+                <div className='fx-tab-group'>
+                  <button className={`fx-tab${inputMode === 'file' ? ' active' : ''}`} onClick={() => setInputMode('file')}>
+                    <UploadCloud className='h-3.5 w-3.5' />
+                    <span className='hidden sm:inline'>File / Drop</span>
+                  </button>
+                  <button className={`fx-tab${inputMode === 'paste' ? ' active' : ''}`} onClick={() => setInputMode('paste')}>
+                    <FileText className='h-3.5 w-3.5' />
+                    <span className='hidden sm:inline'>Paste XML</span>
                   </button>
                 </div>
-              )}
+                <button onClick={handleLoadDemo} className='fx-btn-primary py-1 px-3 text-[10px]'>
+                  <Sparkles className='h-3 w-3' /> Load Demo
+                </button>
+              </div>
 
-              {parseErrors.length > 0 && (
-                <div className='mt-4 p-3 rounded-lg border text-xs font-mono space-y-1'
-                  style={{ background: 'rgba(239,68,68,0.07)', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }}
-                >
-                  {parseErrors.map((e, i) => <p key={i}>{e}</p>)}
-                </div>
-              )}
+              {/* Tab body */}
+              <div className='p-6'>
+                {inputMode === 'file' ? (
+                  <div
+                    {...getRootProps()}
+                    className='border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all'
+                    style={{
+                      borderColor: isDragActive ? 'var(--primary)' : 'var(--border)',
+                      background: isDragActive ? 'var(--primary-faint)' : 'var(--background)',
+                    }}
+                  >
+                    <input {...getInputProps()} />
+                    <UploadCloud
+                      className='h-10 w-10 mx-auto mb-3 transition-colors'
+                      style={{ color: isDragActive ? 'var(--primary)' : 'var(--text-muted)' }}
+                    />
+                    <p className='text-sm font-semibold' style={{ color: 'var(--foreground)' }}>
+                      {isDragActive ? 'Drop to parse…' : 'Drag & drop ATDL strategy file'}
+                    </p>
+                    <p className='text-xs mt-1' style={{ color: 'var(--text-muted)' }}>
+                      Supports .xml · .atdl · FIXatdl 1.1 &amp; 1.2
+                    </p>
+                  </div>
+                ) : (
+                  <div className='space-y-3'>
+                    <textarea
+                      value={xmlInput}
+                      onChange={e => setXmlInput(e.target.value)}
+                      placeholder={'Paste FIXatdl 1.1 or 1.2 XML here…\n\n<Strategies xmlns="http://www.fixprotocol.org/FIXatdl-1-1/Core">\n  <Strategy name="VWAP" ...>'}
+                      className='w-full h-64 p-4 rounded-xl resize-none text-xs font-mono outline-none'
+                      style={{
+                        background: 'var(--background)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--foreground)',
+                        letterSpacing: '-0.01em',
+                      }}
+                      onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                      onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                      spellCheck={false}
+                    />
+                    <button
+                      onClick={() => handleParse()}
+                      disabled={!xmlInput.trim()}
+                      className='w-full fx-btn-primary justify-center py-2 disabled:opacity-50 disabled:cursor-not-allowed'
+                    >
+                      <Play className='h-3.5 w-3.5' /> Parse &amp; Render
+                    </button>
+                  </div>
+                )}
+
+                {parseErrors.length > 0 && (
+                  <div className='mt-4 border-l-4 border-red-500 pl-3 pr-3 py-2 rounded-r-lg text-xs font-mono space-y-1'
+                    style={{ background: 'rgba(239,68,68,0.07)', color: '#f87171' }}
+                  >
+                    {parseErrors.map((e, i) => <p key={i}>{e}</p>)}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -872,39 +1093,35 @@ export default function ATDLRendererPage() {
         {/* ── Loaded file banner ── */}
         {isValid && (
           <div className='flex items-center gap-3 p-2 md:px-4 md:py-2.5 rounded-xl border'
-            style={{ borderColor: 'var(--primary-faint)', background:  'var(--primary-faint)' }}
+            style={{ borderColor: 'var(--primary-faint)', background: 'var(--primary-faint)' }}
           >
-            <div className='flex h-2 w-2 shrink-0'>
-              <span className='animate-ping absolute inline-flex h-2 w-2 rounded-full opacity-75' style={{ background: 'var(--primary)' }} />
+            <span className='relative flex h-2 w-2 shrink-0'>
+              <span className='animate-ping absolute inline-flex h-full w-full rounded-full opacity-75' style={{ background: 'var(--primary)' }} />
               <span className='relative inline-flex rounded-full h-2 w-2' style={{ background: 'var(--primary)' }} />
-            </div>
+            </span>
             <button
               type='button'
               onClick={() => setShowXmlModal(true)}
-              className='text-xs font-mono font-semibold underline underline-offset-2 transition-colors hover:text-white'
+              className='text-xs font-mono font-semibold underline underline-offset-2 transition-colors hover:opacity-70'
               style={{ color: 'var(--primary)' }}
             >
               {loadedFileName || 'XML'}
             </button>
             <span className='text-xs hidden md:inline' style={{ color: 'var(--text-muted)' }}>
-              — {parsed.strategies.length} {parsed.strategies.length === 1 ? 'strategy' : 'strategies'} loaded
+              — {parsed.strategies.length} {parsed.strategies.length === 1 ? 'strategy' : 'strategies'}
             </span>
-            <div className='ml-auto flex items-center gap-2'>
-              <button
-                onClick={handleReset}
-                className='text-[12px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-colors hover:bg-[var(--primary-faint)]'
-                style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
-              >
-                <RotateCcw className='h-3 w-3' /> Reset
-              </button>
-              <button
-                onClick={handleClear}
-                className='text-[12px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-colors hover:bg-red-500/10'
-                style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }}
-              >
-                <Trash2 className='h-3 w-3' /> Clear All
-              </button>
-            </div>
+            {atdlVersion && (
+              <span className='badge-success hidden md:inline text-[9px]'>FIXatdl {atdlVersion}</span>
+            )}
+          </div>
+        )}
+
+        {isValid && renderWarnings.length > 0 && (
+          <div className='rounded-xl border-l-4 p-4 text-xs' style={{ borderColor: 'var(--primary)', background: 'rgba(59,130,246,0.08)', color: 'var(--foreground)' }}>
+            <div className='font-semibold mb-2'>Render warnings</div>
+            <ul className='list-disc list-inside space-y-1'>
+              {renderWarnings.map((w, i) => <li key={i}>{w}</li>)}
+            </ul>
           </div>
         )}
 
@@ -921,48 +1138,48 @@ export default function ATDLRendererPage() {
         {isValid && activeStrategy && (
           <div className='space-y-4'>
 
-            {/* Strategy + sub-strategy selector */}
+            {/* Strategy selector card */}
             <div className='rounded-xl border overflow-hidden' style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-              <div className='px-4 py-3 flex flex-wrap items-center gap-3' style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
+              <div className='px-4 py-3 flex flex-wrap items-center gap-3'
+                style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
+              >
                 <Layers className='h-4 w-4 shrink-0 hidden md:inline' style={{ color: 'var(--primary)' }} />
+
                 <span className='text-xs font-semibold' style={{ color: 'var(--text-muted)' }}>Strategy</span>
                 <select
                   value={activeStratIdx}
                   onChange={e => handleStrategySwitch(Number(e.target.value))}
-                  className='flex-1 min-w-[160px] max-w-xs px-3 py-1.5 rounded-lg border text-xs font-mono outline-none transition-all cursor-pointer'
+                  className='w-full sm:flex-1 min-w-[160px] sm:max-w-xs px-3 py-2 rounded-lg border text-xs font-mono outline-none transition-all cursor-pointer'
                   style={{ background: 'var(--background)', borderColor: 'var(--primary-border)', color: 'var(--foreground)' }}
+                  aria-label='Select strategy'
+                  title='Select strategy'
                 >
                   {parsed.strategies.map((s, i) => (
-                    <option key={i} value={i}>
-                      {s.uiRep || s.name}
-                    </option>
+                    <option key={i} value={i}>{s.uiRep || s.name}</option>
                   ))}
                 </select>
+                <div className='relative w-full sm:w-auto'>
+                  <select
+                    className='w-full pl-3 pr-10 py-2 rounded-lg border text-xs font-mono outline-none cursor-pointer transition-all appearance-none'
+                    style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                    onChange={e => {
+                      const el = document.getElementById('atdl-panel-' + e.target.value);
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    defaultValue=''
+                    aria-label='Jump to panel'
+                    title='Jump to panel'
+                  >
+                    <option value=''>Jump to panel…</option>
+                    {activeStrategy.groups.map((g, i) => (
+                      <option key={i} value={i}>{g.label || 'Panel ' + (i + 1)}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3' style={{ color: 'var(--text-muted)' }} />
+                </div>
 
-                {/* Sub-panel quick-jump dropdown if multiple panels */}
-                {activeStrategy.groups.length > 1 && (
-                  <>
-                    <span className='text-[10px]' style={{ color: 'var(--border)' }}>|</span>
-                    <span className='text-xs font-semibold' style={{ color: 'var(--text-muted)' }}>Panel</span>
-                    <select
-                      className='min-w-[140px] px-3 py-1.5 rounded-lg border text-xs font-mono outline-none cursor-pointer transition-all'
-                      style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
-                      onChange={e => {
-                        const el = document.getElementById('atdl-panel-' + e.target.value);
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }}
-                      defaultValue=''
-                    >
-                      <option value=''>Jump to panel…</option>
-                      {activeStrategy.groups.map((g, i) => (
-                        <option key={i} value={i}>{g.label || 'Panel ' + (i + 1)}</option>
-                      ))}
-                    </select>
-                  </>
-                )}
-
+                {/* Right: validation status + fill bar */}
                 <div className='ml-auto flex items-center gap-2.5'>
-                  {/* Validation status shown at top */}
                   {fixParts.length > 0 && errCount === 0 && (
                     <span className='hidden sm:flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-lg border'
                       style={{ borderColor: 'rgba(16,185,129,0.4)', color: '#34d399', background: 'rgba(16,185,129,0.08)' }}
@@ -977,8 +1194,8 @@ export default function ATDLRendererPage() {
                       <AlertTriangle className='h-3 w-3' /> {errCount} error{errCount > 1 ? 's' : ''}
                     </span>
                   )}
-                  <span className='text-[10px] font-mono' style={{ color: 'var(--text-muted)' }}>{filledCount}/{vpCount} filled</span>
-                  <div className='w-20 h-1.5 rounded-full overflow-hidden' style={{ background: 'var(--border)' }}>
+                  <span className='text-[10px] font-mono' style={{ color: 'var(--text-muted)' }}>{filledCount}/{vpCount}</span>
+                  <div className='w-16 h-1.5 rounded-full overflow-hidden' style={{ background: 'var(--border)' }}>
                     <div className='h-full rounded-full transition-all duration-500'
                       style={{
                         width: vpCount > 0 ? Math.round((filledCount / vpCount) * 100) + '%' : '0%',
@@ -991,8 +1208,9 @@ export default function ATDLRendererPage() {
 
               {/* Strategy description */}
               {activeStrategy.description && (
-                <div className='px-4 py-2.5 flex items-start gap-2 text-xs' style={{ color: 'var(--text-muted)' }}>
-                  <Info className='h-3.5 w-3.5 shrink-0 mt-0.5' style={{ color: 'var(--primary)' }} />
+                <div className='px-4 py-2.5 border-l-2 mx-4 my-2 text-xs rounded-r-sm'
+                  style={{ borderColor: 'var(--primary-border)', color: 'var(--text-muted)', background: 'var(--primary-faint)' }}
+                >
                   {activeStrategy.description}
                 </div>
               )}
@@ -1005,7 +1223,7 @@ export default function ATDLRendererPage() {
               <div className='space-y-4'>
                 {activeStrategy.groups.map((group, i) => (
                   <div key={i} id={'atdl-panel-' + i}>
-                    <PanelGroup group={group} values={values} onChange={handleValueChange} errors={validationErrors} />
+                    <PanelGroup group={group} values={values} onChange={handleValueChange} errors={validationErrors} dirty={dirty} />
                   </div>
                 ))}
 
@@ -1014,14 +1232,10 @@ export default function ATDLRendererPage() {
                   <button onClick={handleValidate} className='fx-btn-primary py-2 px-4'>
                     <CheckCircle2 className='h-3.5 w-3.5' /> Validate &amp; Preview FIX
                   </button>
-                  <button
-                    onClick={handleReset}
-                    className='px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors hover:bg-[var(--primary-faint)]'
-                    style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
-                  >
+                  <button onClick={handleReset} className='fx-btn-secondary py-2 px-3 text-xs'>
                     <RotateCcw className='h-3.5 w-3.5' /> Reset Fields
                   </button>
-                  {/* Mobile-only status (hidden on sm+ where it shows in selector bar) */}
+                  {/* Mobile-only status */}
                   {fixParts.length > 0 && errCount === 0 && (
                     <span className='sm:hidden px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5'
                       style={{ borderColor: 'rgba(16,185,129,0.4)', color: '#34d399', background: 'rgba(16,185,129,0.08)' }}
@@ -1046,51 +1260,7 @@ export default function ATDLRendererPage() {
                 <AnalyticsPanel strategy={activeStrategy} parsed={parsed} values={values} fixParts={fixParts} />
 
                 {/* Parameter Map */}
-                <div className='rounded-xl border overflow-hidden' style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-                  <div className='px-4 py-3 border-b flex items-center gap-2' style={{ borderColor: 'var(--border)' }}>
-                    <Hash className='h-3.5 w-3.5' style={{ color: 'var(--primary)' }} />
-                    <span className='text-xs font-bold'>Parameter Map</span>
-                    <span className='text-[10px] font-mono ml-auto' style={{ color: 'var(--text-muted)' }}>
-                      {activeStrategy.parameters.length} params
-                    </span>
-                  </div>
-                  <div className='overflow-y-auto' style={{ maxHeight: '220px' }}>
-                    <table className='w-full text-[10px] font-mono'>
-                      <thead>
-                        <tr style={{ background: 'var(--background)', color: 'var(--text-muted)', position: 'sticky', top: 0 }}>
-                          <th className='px-3 py-2 text-left font-semibold'>Name</th>
-                          <th className='px-3 py-2 text-left font-semibold'>Tag</th>
-                          <th className='px-3 py-2 text-left font-semibold'>Type</th>
-                          <th className='px-3 py-2 text-left font-semibold'>Value</th>
-                          <th className='px-3 py-2 text-left font-semibold'>R</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeStrategy.parameters.map((p, i) => {
-                          const val = p.constValue || values[p.name] || '';
-                          const shortType = p.type.replace('_t', '').replace('UTCTimestamp', 'Timestamp').replace('Percentage', 'Pct');
-                          return (
-                            <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
-                              <td className='px-3 py-1.5 font-semibold' style={{ color: 'var(--foreground)' }}>{p.name}</td>
-                              <td className='px-3 py-1.5' style={{ color: 'var(--primary)' }}>{p.fixTag || '—'}</td>
-                              <td className='px-3 py-1.5'>
-                                <span className='px-1.5 py-0.5 rounded text-[9px] font-mono' style={{ background: 'var(--primary-faint)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
-                                  {shortType}
-                                </span>
-                              </td>
-                              <td className='px-3 py-1.5 max-w-[60px] truncate' style={{ color: val ? '#10b981' : 'var(--border)' }}>
-                                {val || '—'}
-                              </td>
-                              <td className='px-3 py-1.5'>
-                                {p.required ? <span style={{ color: '#f87171' }}>●</span> : <span style={{ color: 'var(--border)' }}>○</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <ParameterMap parameters={activeStrategy.parameters} values={values} />
 
                 {/* FIX Wire Preview */}
                 <div className='rounded-xl border overflow-hidden' style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>

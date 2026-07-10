@@ -7,14 +7,18 @@ import TagDetailsModal from '@/components/TagDetailsModal';
 import { getCustomDialect } from '@/lib/dialect';
 
 import fix40 from '@/data/FIX/FIX40.json';
+import fix41 from "@/data/FIX/FIX41.json";
 import fix42 from '@/data/FIX/FIX42.json';
+import fix43 from "@/data/FIX/FIX43.json";
 import fix44 from '@/data/FIX/FIX44.json';
 import fix50 from '@/data/FIX/FIX50.json';
 import fixt11 from '@/data/FIX/FIXT11.json';
 
 const DICT_VERSIONS = [
   { value: "FIX.4.0", label: "FIX 4.0", data: fix40 },
+  { value: "FIX.4.1", label: "FIX 4.1", data: fix41 },
   { value: "FIX.4.2", label: "FIX 4.2", data: fix42 },
+  { value: "FIX.4.3", label: "FIX 4.3", data: fix43 },
   { value: "FIX.4.4", label: "FIX 4.4", data: fix44 },
   { value: "FIX.5.0", label: "FIX 5.0", data: fix50 },
   { value: "FIXT.1.1", label: "FIXT 1.1", data: fixt11 },
