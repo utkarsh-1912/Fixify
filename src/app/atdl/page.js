@@ -214,11 +214,29 @@ function buildFIX(strategy, values) {
     if (p.constValue) { if (p.fixTag) parts.push(p.fixTag + '=' + p.constValue); continue; }
     const v = values[p.name];
     if (v === undefined || v === '' || v === null) continue;
-    let wv = String(v);
-    if (p.enumPairs.length > 0) {
-      const f = p.enumPairs.find(e => e.enumID === v);
-      if (f) wv = f.wireValue;
+
+    const mapToken = (tok) => {
+      const t = String(tok);
+      if (p.enumPairs && p.enumPairs.length > 0) {
+        const f = p.enumPairs.find(e => e.enumID === t || e.wireValue === t || e.uiRep === t);
+        return f ? (f.wireValue || t) : t;
+      }
+      return t;
+    };
+
+    let wv;
+    if (p.enumPairs && p.enumPairs.length > 0) {
+      if (Array.isArray(v)) {
+        wv = v.map(mapToken).join(' ');
+      } else if (typeof v === 'string' && /\s/.test(v)) {
+        wv = v.split(/\s+/).map(mapToken).join(' ');
+      } else {
+        wv = mapToken(v);
+      }
+    } else {
+      wv = String(v);
     }
+
     if (p.fixTag) parts.push(p.fixTag + '=' + wv);
   }
   return parts.join('\u0001');
