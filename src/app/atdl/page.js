@@ -1042,11 +1042,11 @@ export default function ATDLRendererPage() {
                 <div className='fx-tab-group'>
                   <button className={`fx-tab${inputMode === 'file' ? ' active' : ''}`} onClick={() => setInputMode('file')}>
                     <UploadCloud className='h-3.5 w-3.5' />
-                    <span className='hidden sm:inline'>File / Drop</span>
+                    <span className='hidden sm:inline'>File</span>
                   </button>
                   <button className={`fx-tab${inputMode === 'paste' ? ' active' : ''}`} onClick={() => setInputMode('paste')}>
                     <FileText className='h-3.5 w-3.5' />
-                    <span className='hidden sm:inline'>Paste XML</span>
+                    <span className='hidden sm:inline'>Paste</span>
                   </button>
                 </div>
                 <button onClick={handleLoadDemo} className='fx-btn-primary py-1 px-3 text-[10px]'>
