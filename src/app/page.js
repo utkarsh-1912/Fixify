@@ -94,6 +94,7 @@ export default function LogsProcessorPage() {
   const [sortOrder, setSortOrder] = useState('asc');
   const [delimiter, setDelimiter] = useState('|');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [parsingProgress, setParsingProgress] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [inputMode, setInputMode] = useState('file');
   const [pastedText, setPastedText] = useState('');
@@ -363,49 +364,90 @@ export default function LogsProcessorPage() {
     }
   }, [files, isLoaded]);
 
+  const parseLinesChunked = useCallback((lines, fileName, callback) => {
+    const total = lines.length;
+    const chunkSize = 2500;
+    let index = 0;
+    const results = [];
+
+    function processNextChunk() {
+      const end = Math.min(index + chunkSize, total);
+      for (let i = index; i < end; i++) {
+        const line = lines[i];
+        const validation = validateFIXMessage(line, delimiter);
+        results.push({
+          id: `${fileName}-${i}-${Date.now()}`,
+          content: line,
+          timestampObj: extractTimestamp(line, delimiter),
+          clOrdID: getTagValue(line, '11', delimiter),
+          msgType: getTagValue(line, '35', delimiter),
+          msgSeqNum: getTagValue(line, '34', delimiter),
+          validation
+        });
+      }
+      index = end;
+      setParsingProgress(Math.floor((index / total) * 100));
+
+      if (index < total) {
+        setTimeout(processNextChunk, 0);
+      } else {
+        callback(results);
+      }
+    }
+
+    processNextChunk();
+  }, [delimiter]);
+
   const onDrop = useCallback((acceptedFiles) => {
-    let completed = 0;
+    if (acceptedFiles.length === 0) return;
+    setIsProcessing(true);
+    setParsingProgress(0);
+
     const tempFiles = [];
-    acceptedFiles.forEach((file) => {
+    let fileIndex = 0;
+
+    function processNextFile() {
+      if (fileIndex >= acceptedFiles.length) {
+        setFiles((prev) => [...prev, ...tempFiles]);
+        setIsProcessing(false);
+        setParsingProgress(0);
+        return;
+      }
+
+      const file = acceptedFiles[fileIndex];
       const isLarge = file.size > 1500000;
       if (isLarge) {
         const confirmProceed = window.confirm(`Warning: The file "${file.name}" is very large (>1.5MB). FIXify will process all messages in memory, but will truncate the saved version in browser cache storage to prevent QuotaExceeded errors. Proceed?`);
         if (!confirmProceed) {
-          completed++;
+          fileIndex++;
+          processNextFile();
           return;
         }
       }
+
       const reader = new FileReader();
       reader.onload = () => {
         const textContent = reader.result;
         const lines = textContent.split(/\r?\n/).filter(Boolean);
-        const parsedLines = lines.map((line, idx) => {
-          const validation = validateFIXMessage(line, delimiter);
-          return {
-            id: `${file.name}-${idx}-${Date.now()}`,
-            content: line,
-            timestampObj: extractTimestamp(line, delimiter),
-            clOrdID: getTagValue(line, '11', delimiter),
-            msgType: getTagValue(line, '35', delimiter),
-            msgSeqNum: getTagValue(line, '34', delimiter),
-            validation
-          };
+        
+        parseLinesChunked(lines, file.name, (parsedLines) => {
+          tempFiles.push({
+            name: file.name,
+            content: textContent,
+            parsedLines,
+            size: file.size,
+            skipCache: isLarge,
+            parsedDelimiter: delimiter
+          });
+          fileIndex++;
+          processNextFile();
         });
-        tempFiles.push({ 
-          name: file.name, 
-          content: textContent, 
-          parsedLines,
-          size: file.size,
-          skipCache: isLarge
-        });
-        completed++;
-        if (completed === acceptedFiles.length) {
-          setFiles((prev) => [...prev, ...tempFiles]);
-        }
       };
       reader.readAsText(file);
-    });
-  }, [delimiter]);
+    }
+
+    processNextFile();
+  }, [delimiter, parseLinesChunked]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -422,45 +464,7 @@ export default function LogsProcessorPage() {
     setSelectedLineInfo(null);
   };
 
-  const processLogs = useCallback(() => {
-    let activeFiles = [];
-    if (inputMode === 'paste') {
-      if (!pastedText.trim()) return;
-      const lines = pastedText.split(/\r?\n/).filter(Boolean);
-      const parsedLines = lines.map((line, idx) => {
-        const validation = validateFIXMessage(line, delimiter);
-        return {
-          id: `pasted-${idx}-${Date.now()}`,
-          content: line,
-          timestampObj: extractTimestamp(line, delimiter),
-          clOrdID: getTagValue(line, '11', delimiter),
-          msgType: getTagValue(line, '35', delimiter),
-          msgSeqNum: getTagValue(line, '34', delimiter),
-          validation
-        };
-      });
-      activeFiles = [{ name: "pasted_logs.txt", content: pastedText, parsedLines }];
-    } else {
-      activeFiles = files.map(f => {
-        const lines = f.content.split(/\r?\n/).filter(Boolean);
-        const parsedLines = lines.map((line, idx) => {
-          const validation = validateFIXMessage(line, delimiter);
-          return {
-            id: `${f.name}-${idx}-${Date.now()}`,
-            content: line,
-            timestampObj: extractTimestamp(line, delimiter),
-            clOrdID: getTagValue(line, '11', delimiter),
-            msgType: getTagValue(line, '35', delimiter),
-            msgSeqNum: getTagValue(line, '34', delimiter),
-            validation
-          };
-        });
-        return { ...f, parsedLines };
-      });
-    }
-    if (activeFiles.length === 0) return;
-    setIsProcessing(true);
-
+  const completeLogProcessing = useCallback((activeFiles) => {
     let aggTotal = 0, aggValid = 0, aggChecksumErr = 0, aggLengthErr = 0;
     const aggMsgTypes = {};
     const checksumFailedSeqs = [];
@@ -469,8 +473,8 @@ export default function LogsProcessorPage() {
     const updatedFiles = activeFiles.map((fileObj) => {
       const sortedLines = [...fileObj.parsedLines];
       sortedLines.sort((a, b) => {
-        const timeA = a.timestampObj.getTime();
-        const timeB = b.timestampObj.getTime();
+        const timeA = a.timestampObj ? a.timestampObj.getTime() : 0;
+        const timeB = b.timestampObj ? b.timestampObj.getTime() : 0;
         if (timeA !== timeB) return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
         if (a.clOrdID && b.clOrdID && a.clOrdID !== b.clOrdID) return a.clOrdID.localeCompare(b.clOrdID);
         const orderA = FIX_ORDER_MAP[a.msgType] || 99;
@@ -501,7 +505,12 @@ export default function LogsProcessorPage() {
         aggMsgTypes[typeName] = (aggMsgTypes[typeName] || 0) + 1;
       });
 
-      return { ...fileObj, parsedLines: sortedLines, sortedContent: sortedLines.map((l) => l.content).join('\n') };
+      return { 
+        ...fileObj, 
+        parsedLines: sortedLines, 
+        parsedDelimiter: delimiter,
+        sortedContent: sortedLines.map((l) => l.content).join('\n') 
+      };
     });
 
     setFiles(updatedFiles);
@@ -515,7 +524,59 @@ export default function LogsProcessorPage() {
       bodyLengthFailedSeqs
     });
     setIsProcessing(false);
-  }, [files, sortOrder, inputMode, pastedText, delimiter]);
+    setParsingProgress(0);
+  }, [sortOrder, delimiter]);
+
+  const processLogs = useCallback(() => {
+    setIsProcessing(true);
+    setParsingProgress(0);
+
+    // Yield control back to browser thread to repaint loading states
+    setTimeout(() => {
+      if (inputMode === 'paste') {
+        if (!pastedText.trim()) {
+          setIsProcessing(false);
+          return;
+        }
+        const lines = pastedText.split(/\r?\n/).filter(Boolean);
+        parseLinesChunked(lines, "pasted", (parsedLines) => {
+          const activeFiles = [{ name: "pasted_logs.txt", content: pastedText, parsedLines }];
+          completeLogProcessing(activeFiles);
+        });
+      } else {
+        const filesToProcess = [...files];
+        let fileIndex = 0;
+
+        function processNextFileForLogs() {
+          if (fileIndex >= filesToProcess.length) {
+            completeLogProcessing(filesToProcess);
+            return;
+          }
+
+          const f = filesToProcess[fileIndex];
+          if (f.parsedDelimiter === delimiter && f.parsedLines && f.parsedLines.length > 0) {
+            // Already parsed with this delimiter, reuse parsedLines!
+            fileIndex++;
+            processNextFileForLogs();
+          } else {
+            // Delimiter changed or unparsed, re-parse!
+            const lines = f.content.split(/\r?\n/).filter(Boolean);
+            parseLinesChunked(lines, f.name, (parsedLines) => {
+              filesToProcess[fileIndex] = {
+                ...f,
+                parsedLines,
+                parsedDelimiter: delimiter
+              };
+              fileIndex++;
+              processNextFileForLogs();
+            });
+          }
+        }
+
+        processNextFileForLogs();
+      }
+    }, 50);
+  }, [files, inputMode, pastedText, delimiter, parseLinesChunked, completeLogProcessing]);
 
   const downloadFile = (fileObj) => {
     const content = fileObj.sortedContent || fileObj.parsedLines.map((l) => l.content).join('\n');
@@ -536,8 +597,9 @@ export default function LogsProcessorPage() {
     const seedOrderID = selectedLineInfo.validation?.tags?.['37'];
     const seedAllocID = selectedLineInfo.validation?.tags?.['70'];
     const seedIOIID = selectedLineInfo.validation?.tags?.['23'];
+    const seedIOIRefID = selectedLineInfo.validation?.tags?.['26'];
 
-    if (!seedClOrdID && !seedOrigClOrdID && !seedOrderID && !seedAllocID && !seedIOIID) return [];
+    if (!seedClOrdID && !seedOrigClOrdID && !seedOrderID && !seedAllocID && !seedIOIID && !seedIOIRefID) return [];
 
     const clOrdIDs = new Set();
     const orderIDs = new Set();
@@ -555,6 +617,7 @@ export default function LogsProcessorPage() {
     }
     if (seedAllocID) allocIDs.add(seedAllocID.toLowerCase());
     if (seedIOIID) ioiIDs.add(seedIOIID.toLowerCase());
+    if (seedIOIRefID) ioiIDs.add(seedIOIRefID.toLowerCase());
 
     let sizeChanged = true;
     let iterations = 0;
@@ -572,12 +635,13 @@ export default function LogsProcessorPage() {
           const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
           const lineAllocID = line.validation?.tags?.['70'] ? line.validation?.tags?.['70'].toLowerCase() : null;
           const lineIOIID = line.validation?.tags?.['23'] ? line.validation?.tags?.['23'].toLowerCase() : null;
+          const lineIOIRefID = line.validation?.tags?.['26'] ? line.validation?.tags?.['26'].toLowerCase() : null;
 
           const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
                                (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
           const matchesOrder = line.msgType !== 'D' && lineOrderID && orderIDs.has(lineOrderID);
           const matchesAlloc = lineAllocID && allocIDs.has(lineAllocID);
-          const matchesIOI = lineIOIID && ioiIDs.has(lineIOIID);
+          const matchesIOI = (lineIOIID && ioiIDs.has(lineIOIID)) || (lineIOIRefID && ioiIDs.has(lineIOIRefID));
           const isMatch = matchesClOrd || matchesOrder || matchesAlloc || matchesIOI;
 
           if (isMatch) {
@@ -590,6 +654,7 @@ export default function LogsProcessorPage() {
             }
             if (lineAllocID) allocIDs.add(lineAllocID);
             if (lineIOIID) ioiIDs.add(lineIOIID);
+            if (lineIOIRefID) ioiIDs.add(lineIOIRefID);
           }
         });
       });
@@ -607,12 +672,13 @@ export default function LogsProcessorPage() {
         const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
         const lineAllocID = line.validation?.tags?.['70'] ? line.validation?.tags?.['70'].toLowerCase() : null;
         const lineIOIID = line.validation?.tags?.['23'] ? line.validation?.tags?.['23'].toLowerCase() : null;
+        const lineIOIRefID = line.validation?.tags?.['26'] ? line.validation?.tags?.['26'].toLowerCase() : null;
 
         const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
                              (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
         const matchesOrder = line.msgType !== 'D' && lineOrderID && orderIDs.has(lineOrderID);
         const matchesAlloc = lineAllocID && allocIDs.has(lineAllocID);
-        const matchesIOI = lineIOIID && ioiIDs.has(lineIOIID);
+        const matchesIOI = (lineIOIID && ioiIDs.has(lineIOIID)) || (lineIOIRefID && ioiIDs.has(lineIOIRefID));
         const isMatch = matchesClOrd || matchesOrder || matchesAlloc || matchesIOI;
 
         if (isMatch) {
@@ -763,7 +829,7 @@ export default function LogsProcessorPage() {
 
     const ioiIds = Array.from(new Set(
       lifecycleMsgs
-        .map(m => m.validation?.tags?.['23'])
+        .flatMap(m => [m.validation?.tags?.['23'], m.validation?.tags?.['26']])
         .filter(id => id && id.trim() !== "")
     ));
 
@@ -1142,7 +1208,7 @@ export default function LogsProcessorPage() {
 
     const ioiIds = Array.from(new Set(
       lifecycleMsgs
-        .map(m => m.validation?.tags?.['23'])
+        .flatMap(m => [m.validation?.tags?.['23'], m.validation?.tags?.['26']])
         .filter(id => id && id.trim() !== "")
     ));
 
@@ -1606,9 +1672,31 @@ export default function LogsProcessorPage() {
 
   const renderControlsCard = () => (
     <div
-      className="rounded-xl overflow-hidden"
+      className="rounded-xl overflow-hidden relative"
       style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
     >
+      {isProcessing && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <RefreshCw className="h-6 w-6 animate-spin" style={{ color: 'var(--primary)' }} />
+            <span className="text-sm font-semibold tracking-wide text-zinc-100">PROCESSING SESSION LOGS</span>
+          </div>
+          {parsingProgress > 0 && (
+            <div className="w-64 space-y-2">
+              <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="h-1.5 rounded-full transition-all duration-150" 
+                  style={{ width: `${parsingProgress}%`, background: 'var(--primary)' }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] font-mono text-zinc-450">
+                <span style={{ color: 'var(--text-muted)' }}>PARSING MESSAGES</span>
+                <span className="text-zinc-350">{parsingProgress}%</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {/* Toolbar */}
       <div
         className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3"

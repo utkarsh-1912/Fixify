@@ -6,7 +6,7 @@ import {
   UploadCloud, FileText, Play, RotateCcw, Copy, Check,
   ChevronRight, ChevronDown, Info, AlertTriangle,
   CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers,
-  Code2, UserCog, BarChart3, Trash2, Search, X,
+  Code2, UserCog, BarChart3, Trash2, Search, X, Plus, FileCode2,
 } from 'lucide-react';
 
 /* ─── ATDL Parser — FIXatdl 1.1 + 1.2 ─── */
@@ -1139,8 +1139,243 @@ function XmlContentModal({ isOpen, onClose, content, onChange, onParse, errors, 
   );
 }
 
+/* ─── ATDL Validation Rules Telemetry & Tree Inspector ─── */
+function evaluateEditTelemetry(edit, values) {
+  if (!edit) return { passed: true, details: 'Empty edit' };
+  const { field, operator, value, field2, logicOperator, edits } = edit;
+
+  if (logicOperator) {
+    const childEdits = edits || [];
+    const childrenTelemetry = childEdits.map(e => evaluateEditTelemetry(e, values));
+    
+    let passed = true;
+    if (logicOperator === 'AND') {
+      passed = childrenTelemetry.every(c => c.passed);
+    } else if (logicOperator === 'OR') {
+      passed = childrenTelemetry.some(c => c.passed);
+    } else if (logicOperator === 'NOT') {
+      passed = childrenTelemetry[0] ? !childrenTelemetry[0].passed : true;
+    }
+
+    return {
+      logicOperator,
+      passed,
+      edits: childrenTelemetry
+    };
+  }
+
+  if (!field) return { passed: true, details: 'No field specified' };
+  const val1 = values[field];
+  const val2 = field2 ? values[field2] : value;
+
+  const exists = val1 !== undefined && val1 !== '' && val1 !== null;
+  if (operator === 'EX') {
+    return { field, operator, val1, passed: exists };
+  }
+  if (operator === 'NX') {
+    return { field, operator, val1, passed: !exists };
+  }
+
+  if (!exists) {
+    return { field, operator, val1, passed: true, isSkipped: true };
+  }
+
+  const v1 = parseFloat(val1);
+  const v2 = parseFloat(val2);
+  const isNumericComp = !isNaN(v1) && !isNaN(v2);
+
+  let passed = true;
+  switch (operator) {
+    case 'EQ': passed = isNumericComp ? v1 === v2 : String(val1) === String(val2); break;
+    case 'NE': passed = isNumericComp ? v1 !== v2 : String(val1) !== String(val2); break;
+    case 'LT': passed = isNumericComp ? v1 < v2 : String(val1) < String(val2); break;
+    case 'GT': passed = isNumericComp ? v1 > v2 : String(val1) > String(val2); break;
+    case 'LE': passed = isNumericComp ? v1 <= v2 : String(val1) <= String(val2); break;
+    case 'GE': passed = isNumericComp ? v1 >= v2 : String(val1) >= String(val2); break;
+    default: passed = true;
+  }
+
+  return {
+    field,
+    operator,
+    val1,
+    val2,
+    passed
+  };
+}
+
+function ValidationTreeInspector({ rules, values }) {
+  const [expandedRules, setExpandedRules] = useState({});
+
+  const toggleRule = (idx) => {
+    setExpandedRules(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const renderTelemetryNode = (node, depth = 0) => {
+    if (!node) return null;
+
+    if (node.logicOperator) {
+      return (
+        <div key={depth} className='ml-3 mt-1 font-mono text-[10px]'>
+          <div className='flex items-center gap-1.5'>
+            <span 
+              className='px-1 rounded text-[9px] font-bold'
+              style={{
+                background: node.passed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                color: node.passed ? '#10b981' : '#f87171'
+              }}
+            >
+              {node.logicOperator}
+            </span>
+            <span className='text-zinc-500'>({node.passed ? 'PASSED' : 'FAILED'})</span>
+          </div>
+          <div className='border-l border-zinc-800 ml-1.5 pl-2.5 mt-0.5 space-y-1' style={{ borderColor: 'var(--border)' }}>
+            {node.edits.map((child, i) => renderTelemetryNode(child, depth + '-' + i))}
+          </div>
+        </div>
+      );
+    }
+
+    const { field, operator, val1, val2, passed, isSkipped } = node;
+    let label = '';
+    if (operator === 'EX') label = `EX (${field} is present)`;
+    else if (operator === 'NX') label = `NX (${field} is empty)`;
+    else {
+      const displayVal1 = val1 !== undefined && val1 !== '' ? `'${val1}'` : 'N/A';
+      const displayVal2 = val2 !== undefined && val2 !== '' ? `'${val2}'` : 'empty';
+      label = `${field} (${displayVal1}) ${operator} ${displayVal2}`;
+    }
+
+    return (
+      <div key={field + '-' + operator} className='ml-3 mt-1 font-mono text-[9px] flex items-center gap-1.5'>
+        <span style={{ color: passed ? '#10b981' : '#f87171' }}>
+          {passed ? '✔' : '✘'}
+        </span>
+        <span style={{ color: passed ? 'var(--foreground)' : '#f87171' }}>{label}</span>
+        {isSkipped && <span className='text-zinc-500 text-[8px]'>(skipped)</span>}
+      </div>
+    );
+  };
+
+  if (!rules || rules.length === 0) {
+    return <p className='text-[10px] text-center py-6 text-zinc-500 italic'>No validation rules defined.</p>;
+  }
+
+  return (
+    <div className='space-y-2.5 max-h-[300px] overflow-y-auto pr-1'>
+      {rules.map((rule, idx) => {
+        const telemetry = evaluateEditTelemetry(rule.edit, values);
+        const isExpanded = !!expandedRules[idx];
+        return (
+          <div 
+            key={idx} 
+            className='p-2 rounded-lg border text-xs transition-all'
+            style={{ 
+              borderColor: telemetry.passed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+              background: telemetry.passed ? 'rgba(16, 185, 129, 0.02)' : 'rgba(239, 68, 68, 0.02)'
+            }}
+          >
+            <div 
+              className='flex items-start justify-between gap-2 cursor-pointer'
+              onClick={() => toggleRule(idx)}
+            >
+              <div className='flex items-start gap-1.5'>
+                <span className='mt-0.5' style={{ color: telemetry.passed ? '#10b981' : '#f87171' }}>
+                  {telemetry.passed ? <CheckCircle2 className='h-3.5 w-3.5 shrink-0' /> : <AlertTriangle className='h-3.5 w-3.5 shrink-0' />}
+                </span>
+                <span className='font-medium leading-tight' style={{ color: 'var(--foreground)' }}>
+                  {rule.errorMessage}
+                </span>
+              </div>
+              <ChevronDown 
+                className={`h-3.5 w-3.5 text-zinc-500 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+              />
+            </div>
+
+            {isExpanded && (
+              <div className='mt-2 pt-2 border-t border-zinc-800/40'>
+                <p className='text-[8px] font-mono text-zinc-500 uppercase tracking-wider mb-1'>Logical Condition Evaluation:</p>
+                {renderTelemetryNode(telemetry)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TagAnalyticsView({ analytics }) {
+  const { mapped, inactive, unrecognized } = analytics;
+  return (
+    <div className='space-y-4 text-xs'>
+      {/* Category 1: Mapped Tags */}
+      <div className='space-y-1.5'>
+        <p className='text-[9px] font-mono uppercase tracking-wider font-bold text-emerald-400'>
+          Mapped Tags ({mapped.length})
+        </p>
+        {mapped.length > 0 ? (
+          <div className='grid grid-cols-2 gap-1.5'>
+            {mapped.map(item => (
+              <div key={item.tag} className='p-1.5 rounded border border-emerald-500/10 bg-emerald-500/5 font-mono text-[10px] flex items-center justify-between'>
+                <span className='font-bold text-emerald-400'>{item.tag}</span>
+                <span className='text-zinc-450 truncate max-w-[80px]' style={{ color: 'var(--text-muted)' }} title={item.param}>{item.param}</span>
+                <span className='text-zinc-500'>={item.value}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className='text-[10px] text-zinc-500 italic'>No mapped tags in message</p>
+        )}
+      </div>
+
+      {/* Category 2: Inactive / Hidden Tags */}
+      <div className='space-y-1.5'>
+        <p className='text-[9px] font-mono uppercase tracking-wider font-bold text-amber-400'>
+          Inactive / Hidden Tags ({inactive.length})
+        </p>
+        {inactive.length > 0 ? (
+          <div className='grid grid-cols-2 gap-1.5'>
+            {inactive.map(item => (
+              <div key={item.tag} className='p-1.5 rounded border border-amber-500/10 bg-amber-500/5 font-mono text-[10px] flex items-center justify-between' title='Parameter control is currently hidden or disabled due to StateRules'>
+                <span className='font-bold text-amber-400'>{item.tag}</span>
+                <span className='text-zinc-455 truncate max-w-[80px]' style={{ color: 'var(--text-muted)' }}>{item.param}</span>
+                <span className='text-zinc-500'>={item.value}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className='text-[10px] text-zinc-500 italic'>No inactive tags detected</p>
+        )}
+      </div>
+
+      {/* Category 3: Unrecognized Tags */}
+      <div className='space-y-1.5'>
+        <p className='text-[9px] font-mono uppercase tracking-wider font-bold text-red-400'>
+          Unrecognized Tags ({unrecognized.length})
+        </p>
+        {unrecognized.length > 0 ? (
+          <div className='grid grid-cols-2 gap-1.5'>
+            {unrecognized.map(item => (
+              <div key={item.tag} className='p-1.5 rounded border border-red-500/10 bg-red-500/5 font-mono text-[10px] flex items-center justify-between' title='This tag does not map to any parameter defined in the ATDL schema'>
+                <span className='font-bold text-red-400'>{item.tag}</span>
+                <span className='text-zinc-500'>={item.value}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className='text-[10px] text-zinc-500 italic'>No unrecognized tags</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function ATDLRendererPage() {
+  const [tabs, setTabs] = useState([]);
+  const [activeTabId, setActiveTabId] = useState('');
+
   const [inputMode, setInputMode] = useState('file');
   const [xmlInput, setXmlInput] = useState('');
   const [loadedFileName, setLoadedFileName] = useState('');
@@ -1164,6 +1399,7 @@ export default function ATDLRendererPage() {
   const [selectedSecurityType, setSelectedSecurityType] = useState('All');
   const [rawFixInput, setRawFixInput] = useState('');
   const [activeSidebarTab, setActiveSidebarTab] = useState('preview');
+  const [activeTelemetryTab, setActiveTelemetryTab] = useState('validation');
   const [paramMapSearch, setParamMapSearch] = useState('');
 
   useEffect(() => { setIsLoaded(true); }, []);
@@ -1173,6 +1409,137 @@ export default function ATDLRendererPage() {
     if (delim === '|') return '|';
     if (delim === '^A') return '\u0001';
     return '\u0001';
+  };
+
+  const loadTabToWorkspace = useCallback((tab) => {
+    if (!tab) return;
+    setXmlInput(tab.xmlInput || '');
+    setLoadedFileName(tab.loadedFileName || '');
+    setParsed(tab.parsed || null);
+    setParseErrors(tab.parseErrors || []);
+    setRenderWarnings(tab.renderWarnings || []);
+    setActiveStratIdx(tab.activeStratIdx || 0);
+    setValues(tab.values || {});
+    setDirty(tab.dirty || {});
+    setValidationErrors(tab.validationErrors || {});
+    setFixPreview(tab.fixPreview || '');
+    setSelectedSubStrategy(tab.selectedSubStrategy || '');
+    setSelectedRegion(tab.selectedRegion || 'All');
+    setSelectedSecurityType(tab.selectedSecurityType || 'All');
+    setRawFixInput(tab.rawFixInput || '');
+  }, []);
+
+  const handleTabSwitch = (targetTabId) => {
+    if (targetTabId === activeTabId) return;
+
+    // Save current active workspace state to the current tab
+    if (activeTabId) {
+      setTabs(prev => prev.map(t => {
+        if (t.id === activeTabId) {
+          return {
+            ...t,
+            xmlInput,
+            loadedFileName,
+            parsed,
+            parseErrors,
+            renderWarnings,
+            activeStratIdx,
+            values,
+            dirty,
+            validationErrors,
+            fixPreview,
+            selectedSubStrategy,
+            selectedRegion,
+            selectedSecurityType,
+            rawFixInput
+          };
+        }
+        return t;
+      }));
+    }
+
+    const targetTab = tabs.find(t => t.id === targetTabId);
+    if (targetTab) {
+      loadTabToWorkspace(targetTab);
+      setActiveTabId(targetTabId);
+    }
+  };
+
+  const createNewTab = (name, xmlContent) => {
+    const newTabId = `tab-${Date.now()}`;
+    const newTab = {
+      id: newTabId,
+      name: name,
+      xmlInput: xmlContent,
+      loadedFileName: name,
+      parsed: null,
+      parseErrors: [],
+      renderWarnings: [],
+      activeStratIdx: 0,
+      values: {},
+      dirty: {},
+      validationErrors: {},
+      fixPreview: '',
+      selectedSubStrategy: '',
+      selectedRegion: 'All',
+      selectedSecurityType: 'All',
+      rawFixInput: ''
+    };
+
+    if (activeTabId) {
+      setTabs(prev => prev.map(t => {
+        if (t.id === activeTabId) {
+          return {
+            ...t,
+            xmlInput,
+            loadedFileName,
+            parsed,
+            parseErrors,
+            renderWarnings,
+            activeStratIdx,
+            values,
+            dirty,
+            validationErrors,
+            fixPreview,
+            selectedSubStrategy,
+            selectedRegion,
+            selectedSecurityType,
+            rawFixInput
+          };
+        }
+        return t;
+      }));
+    }
+
+    setTabs(prev => [...prev, newTab]);
+    loadTabToWorkspace(newTab);
+    setActiveTabId(newTabId);
+
+    // Run parsing for the new tab
+    const result = parseATDL(xmlContent);
+    setParsed(result);
+    setParseErrors(result.errors);
+    setRenderWarnings(result.warnings || []);
+    setSelectedRegion('All');
+    setSelectedSecurityType('All');
+    setActiveStratIdx(0);
+  };
+
+  const handleTabClose = (tabIdToClose, e) => {
+    if (e) e.stopPropagation();
+    const remainingTabs = tabs.filter(t => t.id !== tabIdToClose);
+    setTabs(remainingTabs);
+
+    if (activeTabId === tabIdToClose) {
+      if (remainingTabs.length > 0) {
+        const firstTab = remainingTabs[0];
+        loadTabToWorkspace(firstTab);
+        setActiveTabId(firstTab.id);
+      } else {
+        handleClear();
+        setActiveTabId('');
+      }
+    }
   };
 
   const handleParse = useCallback((xml) => {
@@ -1185,12 +1552,19 @@ export default function ATDLRendererPage() {
     setSelectedRegion('All');
     setSelectedSecurityType('All');
     setActiveStratIdx(0);
-  }, [xmlInput]);
+
+    if (activeTabId) {
+      setTabs(prev => prev.map(t => {
+        if (t.id === activeTabId) {
+          return { ...t, xmlInput: src };
+        }
+        return t;
+      }));
+    }
+  }, [xmlInput, activeTabId]);
 
   const handleFileLoaded = (content, fileName) => {
-    setXmlInput(content);
-    setLoadedFileName(fileName);
-    handleParse(content);
+    createNewTab(fileName, content);
   };
 
   const onDrop = useCallback((acceptedFiles) => {
@@ -1208,9 +1582,7 @@ export default function ATDLRendererPage() {
   });
 
   const handleLoadDemo = () => {
-    setXmlInput(DEMO_ATDL);
-    setLoadedFileName('demo.atdl');
-    handleParse(DEMO_ATDL);
+    createNewTab('demo.atdl', DEMO_ATDL);
   };
 
   const handleClear = () => {
@@ -1227,6 +1599,8 @@ export default function ATDLRendererPage() {
     setSelectedSecurityType('All');
     setRawFixInput('');
     setShowXmlModal(false);
+    setTabs([]);
+    setActiveTabId('');
   };
 
   // Collect unique regions and security types
@@ -1436,7 +1810,81 @@ export default function ATDLRendererPage() {
     URL.revokeObjectURL(url);
   };
 
-  const isValid = parsed?.strategies?.length > 0 && parseErrors.length === 0;
+  const getTagAnalytics = () => {
+    const mapped = [];
+    const inactive = [];
+    const unrecognized = [];
+
+    if (!activeStrategy) return { mapped, inactive, unrecognized };
+
+    // Get list of tags parsed from raw FIX input or currently generated fields
+    const parsedTags = {};
+    if (rawFixInput.trim()) {
+      const delim = getDelimiterChar(fixDelimiter);
+      const cleanInput = rawFixInput.indexOf('8=') > -1 ? rawFixInput.substring(rawFixInput.indexOf('8=')) : rawFixInput;
+      const normalized = delim !== '\x01' ? cleanInput.split(delim).join('\x01') : cleanInput;
+      const pairs = normalized.split('\x01').filter(Boolean);
+      pairs.forEach(p => {
+        const eq = p.indexOf('=');
+        if (eq > -1) {
+          parsedTags[p.slice(0, eq).trim()] = p.slice(eq + 1);
+        }
+      });
+    }
+
+    // Also include currently generated tags from values
+    const generatedTags = {};
+    if (fixPreview) {
+      const delim = getDelimiterChar(fixDelimiter);
+      const pairs = fixPreview.split(delim).filter(Boolean);
+      pairs.forEach(p => {
+        const eq = p.indexOf('=');
+        if (eq > -1) {
+          generatedTags[p.slice(0, eq).trim()] = p.slice(eq + 1);
+        }
+      });
+    }
+
+    const allSourceTags = { ...parsedTags, ...generatedTags };
+
+    // Go through each parameter in strategy schema
+    const paramTags = new Set();
+    activeStrategy.parameters.forEach(p => {
+      if (!p.fixTag) return;
+      paramTags.add(p.fixTag);
+
+      // Check if control is hidden/disabled
+      const control = activeStrategy.groups
+        .flatMap(g => g.controls || [])
+        .find(c => c.paramRef === p.name);
+
+      let isControlActive = true;
+      if (control) {
+        const controlState = evaluateControlState(control, values);
+        isControlActive = controlState.visible !== false && controlState.enabled !== false;
+      }
+
+      if (allSourceTags[p.fixTag] !== undefined) {
+        if (isControlActive) {
+          mapped.push({ tag: p.fixTag, param: p.name, value: allSourceTags[p.fixTag] });
+        } else {
+          inactive.push({ tag: p.fixTag, param: p.name, value: allSourceTags[p.fixTag] });
+        }
+      }
+    });
+
+    // Any tag in rawFixInput/fixPreview that doesn't correspond to any parameter is unrecognized
+    Object.keys(allSourceTags).forEach(tag => {
+      if (['8', '9', '10', '35', '34', '49', '56', '52'].includes(tag)) return;
+      if (!paramTags.has(tag)) {
+        unrecognized.push({ tag, value: allSourceTags[tag] });
+      }
+    });
+
+    return { mapped, inactive, unrecognized };
+  };
+
+  const isValid = activeTabId && parsed?.strategies?.length > 0 && parseErrors.length === 0;
   const vpCount = activeStrategy?.parameters?.filter(p => !p.constValue).length ?? 0;
   const filledCount = activeStrategy?.parameters?.filter(p => !p.constValue && values[p.name] !== undefined && values[p.name] !== '').length ?? 0;
   const errCount = Object.keys(validationErrors).length;
@@ -1473,6 +1921,76 @@ export default function ATDLRendererPage() {
             </div>
           )}
         </div>
+
+        {/* Workspace Tab Bar */}
+        {tabs.length > 0 && (
+          <div className='flex flex-wrap items-center gap-1.5 border-b pb-2' style={{ borderColor: 'var(--border)' }}>
+            {tabs.map((tab) => {
+              const isActive = tab.id === activeTabId;
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => handleTabSwitch(tab.id)}
+                  className='flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium cursor-pointer transition-all border'
+                  style={{
+                    background: isActive ? 'var(--primary-faint)' : 'var(--card)',
+                    borderColor: isActive ? 'var(--primary)' : 'var(--border)',
+                    color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+                    boxShadow: isActive ? '0 0 12px rgba(139, 92, 246, 0.08)' : 'none'
+                  }}
+                >
+                  <FileCode2 className='h-3.5 w-3.5' />
+                  <span>{tab.name}</span>
+                  <button
+                    type='button'
+                    onClick={(e) => handleTabClose(tab.id, e)}
+                    className='hover:bg-zinc-800 rounded p-0.5 text-zinc-400 hover:text-zinc-200 transition-colors bg-transparent border-none'
+                  >
+                    <X className='h-2.5 w-2.5' />
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              onClick={() => {
+                if (activeTabId) {
+                  // Save current tab's active workspace state
+                  setTabs(prev => prev.map(t => {
+                    if (t.id === activeTabId) {
+                      return {
+                        ...t,
+                        xmlInput,
+                        loadedFileName,
+                        parsed,
+                        parseErrors,
+                        renderWarnings,
+                        activeStratIdx,
+                        values,
+                        dirty,
+                        validationErrors,
+                        fixPreview,
+                        selectedSubStrategy,
+                        selectedRegion,
+                        selectedSecurityType,
+                        rawFixInput
+                      };
+                    }
+                    return t;
+                  }));
+                }
+                // Enter new strategy/tab upload mode
+                setParsed(null);
+                setLoadedFileName('');
+                setActiveTabId('');
+              }}
+              className='px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border cursor-pointer hover:bg-zinc-800 transition-colors'
+              style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              title='Open another strategy'
+            >
+              <Plus className='h-3.5 w-3.5' />
+            </button>
+          </div>
+        )}
 
         {/* ── Input Card ── */}
         {!isValid && (
@@ -1899,6 +2417,43 @@ export default function ATDLRendererPage() {
                         values={values}
                         search={paramMapSearch}
                         setSearch={setParamMapSearch}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Card 3: Advanced Developer Telemetry (Validation Rule Debugger & Tag Coverage Analytics) */}
+                <div className='rounded-xl border overflow-hidden bg-[var(--card)] border-[var(--border)]'>
+                  <div className='px-3.5 py-2 flex items-center justify-between border-b border-[var(--border)] bg-[var(--background)]'>
+                    {/* Left: Tab selection */}
+                    <div className='flex border border-[var(--border)] rounded overflow-hidden shrink-0'>
+                      <button
+                        type='button'
+                        onClick={() => setActiveTelemetryTab('validation')}
+                        className={`px-3 py-1 flex items-center gap-1.5 text-[10px] font-bold border-none cursor-pointer outline-none transition-colors ${activeTelemetryTab === 'validation' ? 'bg-[var(--primary)] text-[var(--background)]' : 'bg-transparent text-[var(--text-muted)] hover:bg-[var(--primary-faint)]'}`}
+                      >
+                        <UserCog className='h-3 w-3' /> Rule Debugger
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => setActiveTelemetryTab('coverage')}
+                        className={`px-3 py-1 flex items-center gap-1.5 text-[10px] font-bold border-none cursor-pointer outline-none transition-colors ${activeTelemetryTab === 'coverage' ? 'bg-[var(--primary)] text-[var(--background)]' : 'bg-transparent text-[var(--text-muted)] hover:bg-[var(--primary-faint)]'}`}
+                      >
+                        <BarChart3 className='h-3 w-3' /> Tag Analytics
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tab Body */}
+                  <div className='p-3 max-h-[350px] overflow-y-auto'>
+                    {activeTelemetryTab === 'validation' ? (
+                      <ValidationTreeInspector
+                        rules={activeStrategy.validationRules}
+                        values={values}
+                      />
+                    ) : (
+                      <TagAnalyticsView
+                        analytics={getTagAnalytics()}
                       />
                     )}
                   </div>

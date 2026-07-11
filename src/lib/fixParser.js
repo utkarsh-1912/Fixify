@@ -72,23 +72,31 @@ export const FIX_ORDER_MAP = {
   '1': 46, // TestRequest
 };
 
+const regexCache = {};
+
 /**
  * Extracts the value of a specific tag from a FIX message line.
  * It looks for tag= preceded by a delimiter (SOH or pipe) or start of line.
  */
 export const getTagValue = (line, tag, customDelimiter) => {
-  let delimPattern = '\\x01|\\|';
-  let delim = customDelimiter || '';
-  if (delim === 'SOH' || delim === '\\x01' || delim === '\\u0001') {
-    delimPattern = '\\x01|\\u0001|\\^A';
-  } else if (delim === '|') {
-    delimPattern = '\\|';
-  } else if (delim && delim !== 'Auto') {
-    delimPattern = delim.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-  } else {
-    delimPattern = '\\x01|\\u0001|\\||\\^A';
+  const cacheKey = `${tag}-${customDelimiter || 'default'}`;
+  let regex = regexCache[cacheKey];
+  if (!regex) {
+    let delimPattern = '\\x01|\\|';
+    let delim = customDelimiter || '';
+    if (delim === 'SOH' || delim === '\\x01' || delim === '\\u0001') {
+      delimPattern = '\\x01|\\u0001|\\^A';
+    } else if (delim === '|') {
+      delimPattern = '\\|';
+    } else if (delim && delim !== 'Auto') {
+      delimPattern = delim.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    } else {
+      delimPattern = '\\x01|\\u0001|\\||\\^A';
+    }
+    regex = new RegExp(`(?:^|${delimPattern})${tag}=([^${delimPattern}]+)`);
+    regexCache[cacheKey] = regex;
   }
-  const match = line.match(new RegExp(`(?:^|${delimPattern})${tag}=([^${delimPattern}]+)`));
+  const match = line.match(regex);
   return match ? match[1] : '';
 };
 
