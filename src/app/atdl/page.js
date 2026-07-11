@@ -631,11 +631,19 @@ function AnalyticsPanel({ strategy, parsed, values, fixParts }) {
         <div className='rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4'>
           <div className='flex items-start justify-between gap-3'>
             <div className='min-w-0'>
-              <p className='text-xs font-semibold uppercase tracking-[0.18em]' style={{ color: 'var(--text-muted)' }}>Strategy</p>
-              <p className='text-sm font-bold' style={{ color: 'var(--foreground)' }}>{activeLabel}</p>
-              {strategy?.description && (
-                <p className='mt-1 text-[10px] leading-5' style={{ color: 'var(--text-muted)' }}>{strategy.description}</p>
-              )}
+              <p className='text-xs font-semibold uppercase tracking-[0.12em]' style={{ color: 'var(--text-muted)' }}>Strategy</p>
+              <div className='flex items-center gap-2'>
+                {strategy?.description && (
+                  <span className='group relative inline-flex items-center justify-center rounded-full overflow-visible text-[var(--text-muted)]'>
+                    <Info className='h-3 w-3' />
+                    <span className='pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 text-[10px] text-[var(--text-muted)] shadow-lg group-hover:flex'>
+                      <span className='text-[10px] leading-5'>{strategy.description}</span>
+                      <span className='absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rotate-45 bg-[var(--card)] border border-[var(--border)] border-b-0 border-l-0 z-50' />
+                    </span>
+                  </span>
+                )}
+                <p className='text-sm font-bold' style={{ color: 'var(--foreground)' }}>{activeLabel}</p>
+              </div>
             </div>
             <span className={`rounded-full px-1.5 py-0.75 text-[10px] font-semibold uppercase whitespace-nowrap ${statusReady ? 'border border-emerald-300 bg-emerald-50 text-emerald-700' : 'border border-slate-300 bg-slate-50 text-slate-800'}`}>
               {statusReady ? 'Ready' : 'Needs input'}
@@ -1223,15 +1231,6 @@ export default function ATDLRendererPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Strategy description */}
-              {activeStrategy.description && (
-                <div className='px-4 py-2.5 border-l-2 mx-4 my-2 text-xs rounded-r-sm'
-                  style={{ borderColor: 'var(--primary-border)', color: 'var(--text-muted)', background: 'var(--primary-faint)' }}
-                >
-                  {activeStrategy.description}
-                </div>
-              )}
             </div>
 
             {/* Two-column layout */}
