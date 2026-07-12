@@ -922,7 +922,7 @@ export default function LogsProcessorPage() {
             {ioiIds.length > 0 && (
               <div className="flex items-center gap-1">
                 <span style={{ color: 'var(--text-muted)' }}>IOIid (Tag 23):</span>
-                <span className="font-bold text-zinc-350">{ioiIds.join(', ')}</span>
+                <span className="font-bold text-zinc-350">{ioiIds[0]}</span>
               </div>
             )}
           </div>
@@ -1043,6 +1043,24 @@ export default function LogsProcessorPage() {
               resolvedStatus = getValueMeaning('39', ordStatus);
             } else if (execType !== undefined) {
               resolvedStatus = getValueMeaning('150', execType);
+            }
+
+            // Fallback status/type resolutions for other message categories
+            if (!resolvedStatus) {
+              if (msg.msgType === '6') {
+                const ioiTransType = msg.validation?.tags?.['28'];
+                if (ioiTransType !== undefined) {
+                  resolvedStatus = getValueMeaning('28', ioiTransType);
+                }
+              } else if (msg.msgType === 'J' || msg.msgType === 'P' || msg.msgType === 'AK') {
+                const allocStatus = msg.validation?.tags?.['87'];
+                const allocTransType = msg.validation?.tags?.['71'];
+                if (allocStatus !== undefined) {
+                  resolvedStatus = getValueMeaning('87', allocStatus);
+                } else if (allocTransType !== undefined) {
+                  resolvedStatus = getValueMeaning('71', allocTransType);
+                }
+              }
             }
             
             if (resolvedStatus) {
@@ -1341,7 +1359,7 @@ export default function LogsProcessorPage() {
               {ioiIds.length > 0 && (
                 <div className="flex items-center gap-1">
                   <span style={{ color: 'var(--text-muted)' }}>IOIid:</span>
-                  <span className="font-bold text-zinc-350">{ioiIds.join(', ')}</span>
+                  <span className="font-bold text-zinc-350">{ioiIds[0]}</span>
                 </div>
               )}
             </div>
@@ -1520,6 +1538,8 @@ export default function LogsProcessorPage() {
 
               const execType = msg.validation?.tags?.['150'];
               const ordStatus = msg.validation?.tags?.['39'];
+              const ioiTransType = msg.validation?.tags?.['28'];
+              const allocStatus = msg.validation?.tags?.['87'];
               let infoParts = [];
               if (execType) {
                 const execTypeMeaning = getValueMeaning('150', execType);
@@ -1531,6 +1551,18 @@ export default function LogsProcessorPage() {
                 const ordStatusMeaning = getValueMeaning('39', ordStatus);
                 if (ordStatusMeaning && ordStatusMeaning !== ordStatus) {
                   infoParts.push(`Status: ${ordStatusMeaning}`);
+                }
+              }
+              if (ioiTransType) {
+                const ioiTransMeaning = getValueMeaning('28', ioiTransType);
+                if (ioiTransMeaning && ioiTransMeaning !== ioiTransType) {
+                  infoParts.push(`Trans: ${ioiTransMeaning}`);
+                }
+              }
+              if (allocStatus) {
+                const allocStatusMeaning = getValueMeaning('87', allocStatus);
+                if (allocStatusMeaning && allocStatusMeaning !== allocStatus) {
+                  infoParts.push(`AllocStatus: ${allocStatusMeaning}`);
                 }
               }
               const infoStr = infoParts.join(', ');
