@@ -266,20 +266,20 @@ function isIntegerParameter(param) {
   return /(^|\W)(int|qty|quantity)(\W|$)/.test(t) || /qty|quantity/.test(n);
 }
 
-function evaluateEdit(edit, values) {
+function evaluateEdit(edit, values, isStateRule = false) {
   if (!edit) return true;
   const { field, operator, value, field2, logicOperator, edits } = edit;
 
   if (logicOperator) {
     const childEdits = edits || [];
     if (logicOperator === 'AND') {
-      return childEdits.every(e => evaluateEdit(e, values));
+      return childEdits.every(e => evaluateEdit(e, values, isStateRule));
     }
     if (logicOperator === 'OR') {
-      return childEdits.some(e => evaluateEdit(e, values));
+      return childEdits.some(e => evaluateEdit(e, values, isStateRule));
     }
     if (logicOperator === 'NOT') {
-      return !evaluateEdit(childEdits[0], values);
+      return !evaluateEdit(childEdits[0], values, isStateRule);
     }
   }
 
@@ -291,7 +291,19 @@ function evaluateEdit(edit, values) {
   if (operator === 'EX') return exists;
   if (operator === 'NX') return !exists;
 
-  if (!exists) return true; // Skip checking comparisons for empty fields unless required check exists
+  if (!exists) {
+    // For state rules, if a field doesn't exist, comparisons fail (return false)
+    // For validation rules, if optional field doesn't exist, we return true to pass validation
+    return !isStateRule;
+  }
+
+  // Also check if field2 exists if field2 is specified
+  if (field2) {
+    const val2Exists = values[field2] !== undefined && values[field2] !== '' && values[field2] !== null;
+    if (!val2Exists) {
+      return !isStateRule;
+    }
+  }
 
   const v1 = parseFloat(val1);
   const v2 = parseFloat(val2);
@@ -315,7 +327,7 @@ function evaluateControlState(control, values) {
 
   if (control.stateRules && control.stateRules.length > 0) {
     for (const rule of control.stateRules) {
-      const match = evaluateEdit(rule.edit, values);
+      const match = evaluateEdit(rule.edit, values, true);
       if (match) {
         if (rule.enabled !== undefined) enabled = rule.enabled;
         if (rule.visible !== undefined) visible = rule.visible;
@@ -325,6 +337,72 @@ function evaluateControlState(control, values) {
   }
 
   return { enabled, visible, overriddenValue };
+}
+
+function getEffectiveValues(strategy, rawValues) {
+  if (!strategy) return rawValues;
+  const effective = { ...rawValues };
+  
+  let changed = true;
+  let iterations = 0;
+  
+  const walk = (g, currentValues) => {
+    if (g.controls) {
+      g.controls.forEach(c => {
+        if (!c.paramRef) return;
+        const { enabled, visible, overriddenValue } = evaluateControlState(c, currentValues);
+        
+        // If overridden, set to overridden value
+        if (overriddenValue !== undefined) {
+          const resolvedOverridden = getEnumID(c.param, overriddenValue);
+          if (currentValues[c.paramRef] !== resolvedOverridden) {
+            currentValues[c.paramRef] = resolvedOverridden;
+            changed = true;
+          }
+        }
+      });
+    }
+    if (g.subGroups) {
+      g.subGroups.forEach(sg => walk(sg, currentValues));
+    }
+  };
+
+  while (changed && iterations < 5) {
+    changed = false;
+    iterations++;
+    if (strategy.groups) {
+      strategy.groups.forEach(g => walk(g, effective));
+    }
+  }
+  
+  return effective;
+}
+
+function getActiveParameters(strategy, values) {
+  const activeSet = new Set();
+  const walk = (g) => {
+    if (g.controls) {
+      g.controls.forEach(c => {
+        if (c.paramRef) {
+          const { visible, enabled } = evaluateControlState(c, values);
+          if (visible && enabled) {
+            activeSet.add(c.paramRef);
+          }
+        }
+      });
+    }
+    if (g.subGroups) {
+      g.subGroups.forEach(walk);
+    }
+  };
+  if (strategy?.groups) {
+    strategy.groups.forEach(walk);
+  } else {
+    if (strategy?.parameters) {
+      strategy.parameters.forEach(p => activeSet.add(p.name));
+    }
+  }
+  return activeSet;
 }
 
 function getEnumID(param, val) {
@@ -573,6 +651,12 @@ const DEMO_ATDL = `<?xml version="1.0" encoding="utf-8"?>
 
 /* ─── Control Field ─── */
 function ControlField({ control, param, value, onChange, errors, dirty, disabled }) {
+  const [localVal, setLocalVal] = useState(value || '');
+
+  useEffect(() => {
+    setLocalVal(value || '');
+  }, [value]);
+
   const hasError = errors?.[control.paramRef];
   const isDirty = dirty?.[control.paramRef];
   const baseInput = 'fx-input w-full text-xs';
@@ -701,19 +785,51 @@ function ControlField({ control, param, value, onChange, errors, dirty, disabled
         );
       }
       case 'time':
-        return <input type='time' value={value || ''} onChange={x => onChange(x.target.value)} disabled={disabled} className={baseInput} style={inputStyle} />;
+        return (
+          <input 
+            type='time' 
+            value={localVal} 
+            onChange={x => setLocalVal(x.target.value)} 
+            onBlur={() => { if (localVal !== value) onChange(localVal); }}
+            onKeyDown={e => { if (e.key === 'Enter') { if (localVal !== value) onChange(localVal); } }}
+            disabled={disabled} 
+            className={baseInput} 
+            style={inputStyle} 
+          />
+        );
       case 'date':
-        return <input type='date' value={value || ''} onChange={x => onChange(x.target.value)} disabled={disabled} className={baseInput} style={inputStyle} />;
+        return (
+          <input 
+            type='date' 
+            value={localVal} 
+            onChange={x => setLocalVal(x.target.value)} 
+            onBlur={() => { if (localVal !== value) onChange(localVal); }}
+            onKeyDown={e => { if (e.key === 'Enter') { if (localVal !== value) onChange(localVal); } }}
+            disabled={disabled} 
+            className={baseInput} 
+            style={inputStyle} 
+          />
+        );
       case 'spinner': {
         const spinnerMin = param?.minValue !== '' && param?.minValue !== undefined ? param.minValue : undefined;
         const spinnerMax = param?.maxValue !== '' && param?.maxValue !== undefined ? param.maxValue : undefined;
         const isInteger = isIntegerParameter(param);
         const spinnerStep = isInteger ? '1' : (param?.type?.toLowerCase().includes('percent') ? '0.01' : 'any');
         return (
-          <input type='number' value={value || ''} onChange={x => onChange(x.target.value)} disabled={disabled}
-            min={spinnerMin} max={spinnerMax}
-            step={spinnerStep} inputMode={isInteger ? 'numeric' : 'decimal'}
-            placeholder={param?.defaultValue || 'Enter value…'} className={baseInput} style={inputStyle}
+          <input 
+            type='number' 
+            value={localVal} 
+            onChange={x => setLocalVal(x.target.value)} 
+            onBlur={() => { if (localVal !== value) onChange(localVal); }}
+            onKeyDown={e => { if (e.key === 'Enter') { if (localVal !== value) onChange(localVal); } }}
+            disabled={disabled}
+            min={spinnerMin} 
+            max={spinnerMax}
+            step={spinnerStep} 
+            inputMode={isInteger ? 'numeric' : 'decimal'}
+            placeholder={param?.defaultValue || 'Enter value…'} 
+            className={baseInput} 
+            style={inputStyle}
           />
         );
       }
@@ -743,7 +859,19 @@ function ControlField({ control, param, value, onChange, errors, dirty, disabled
                   {e.uiRep}
                 </label>
               );
-            }) : <input type='text' value={value || ''} onChange={x => onChange(x.target.value)} disabled={disabled} placeholder='Space-separated values' className={baseInput} style={inputStyle} />}
+            }) : (
+              <input 
+                type='text' 
+                value={localVal} 
+                onChange={x => setLocalVal(x.target.value)} 
+                onBlur={() => { if (localVal !== value) onChange(localVal); }}
+                onKeyDown={e => { if (e.key === 'Enter') { if (localVal !== value) onChange(localVal); } }}
+                disabled={disabled} 
+                placeholder='Space-separated values' 
+                className={baseInput} 
+                style={inputStyle} 
+              />
+            )}
           </div>
         );
       case 'monthyear': {
@@ -778,7 +906,19 @@ function ControlField({ control, param, value, onChange, errors, dirty, disabled
           >(hidden{value ? ' — ' + value : ''})</span>
         );
       default:
-        return <input type='text' value={value || ''} onChange={x => onChange(x.target.value)} disabled={disabled} placeholder={param?.defaultValue || 'Enter value…'} className={baseInput} style={inputStyle} />;
+        return (
+          <input 
+            type='text' 
+            value={localVal} 
+            onChange={x => setLocalVal(x.target.value)} 
+            onBlur={() => { if (localVal !== value) onChange(localVal); }}
+            onKeyDown={e => { if (e.key === 'Enter') { if (localVal !== value) onChange(localVal); } }}
+            disabled={disabled} 
+            placeholder={param?.defaultValue || 'Enter value…'} 
+            className={baseInput} 
+            style={inputStyle} 
+          />
+        );
     }
   };
 
@@ -1639,6 +1779,10 @@ export default function ATDLRendererPage() {
 
   const activeStrategy = filteredStrategies[activeStratIdx];
 
+  const effectiveValues = useMemo(() => {
+    return getEffectiveValues(activeStrategy, values);
+  }, [activeStrategy, values]);
+
   // Auto-init strategy values when filters or strategies change
   useEffect(() => {
     setActiveStratIdx(0);
@@ -1685,7 +1829,8 @@ export default function ATDLRendererPage() {
 
     if (activeStrategy) {
       const delimChar = getDelimiterChar(fixDelimiter);
-      setFixPreview(buildFIX(activeStrategy, nextValues, delimChar, selectedSubStrategy));
+      const nextEffective = getEffectiveValues(activeStrategy, nextValues);
+      setFixPreview(buildFIX(activeStrategy, nextEffective, delimChar, selectedSubStrategy));
     }
   };
 
@@ -1693,16 +1838,18 @@ export default function ATDLRendererPage() {
   useEffect(() => {
     if (activeStrategy) {
       const delimChar = getDelimiterChar(fixDelimiter);
-      setFixPreview(buildFIX(activeStrategy, values, delimChar, selectedSubStrategy));
+      setFixPreview(buildFIX(activeStrategy, effectiveValues, delimChar, selectedSubStrategy));
     }
-  }, [selectedSubStrategy, fixDelimiter, values, activeStrategy]);
+  }, [selectedSubStrategy, fixDelimiter, effectiveValues, activeStrategy]);
 
   const handleValidate = () => {
     if (!activeStrategy) return;
     const errs = {};
+    const activeParams = getActiveParameters(activeStrategy, effectiveValues);
     for (const p of activeStrategy.parameters) {
       if (p.constValue) continue;
-      const v = values[p.name];
+      if (!activeParams.has(p.name)) continue;
+      const v = effectiveValues[p.name];
       if (p.required && (v === undefined || v === '' || v === null)) { errs[p.name] = 'Required field'; continue; }
       const fieldError = validateParameterValue(p, v);
       if (fieldError) { errs[p.name] = fieldError; continue; }
@@ -1711,7 +1858,7 @@ export default function ATDLRendererPage() {
     // Evaluate StrategyEdit validation rules
     if (activeStrategy.validationRules && activeStrategy.validationRules.length > 0) {
       activeStrategy.validationRules.forEach((rule, idx) => {
-        const passed = evaluateEdit(rule.edit, values);
+        const passed = evaluateEdit(rule.edit, effectiveValues);
         if (!passed) {
           errs[`_strategy_edit_${idx}`] = rule.errorMessage || 'Validation rule failed';
         }
@@ -1721,7 +1868,7 @@ export default function ATDLRendererPage() {
     setValidationErrors(errs);
     if (Object.keys(errs).length === 0) {
       const delimChar = getDelimiterChar(fixDelimiter);
-      setFixPreview(buildFIX(activeStrategy, values, delimChar, selectedSubStrategy));
+      setFixPreview(buildFIX(activeStrategy, effectiveValues, delimChar, selectedSubStrategy));
     } else {
       setFixPreview('');
     }
@@ -1766,17 +1913,20 @@ export default function ATDLRendererPage() {
       return next;
     });
 
+    const newEffective = getEffectiveValues(activeStrategy, newValues);
+    const activeParams = getActiveParameters(activeStrategy, newEffective);
     const errs = {};
     for (const p of activeStrategy.parameters) {
       if (p.constValue) continue;
-      const v = newValues[p.name];
+      if (!activeParams.has(p.name)) continue;
+      const v = newEffective[p.name];
       if (p.required && (v === undefined || v === '' || v === null)) { errs[p.name] = 'Required field'; continue; }
       const fieldError = validateParameterValue(p, v);
       if (fieldError) { errs[p.name] = fieldError; continue; }
     }
     setValidationErrors(errs);
     const delimChar = getDelimiterChar(fixDelimiter);
-    setFixPreview(buildFIX(activeStrategy, newValues, delimChar, selectedSubStrategy));
+    setFixPreview(buildFIX(activeStrategy, newEffective, delimChar, selectedSubStrategy));
   };
 
   const handleReset = () => {
@@ -1860,7 +2010,7 @@ export default function ATDLRendererPage() {
 
       let isControlActive = true;
       if (control) {
-        const controlState = evaluateControlState(control, values);
+        const controlState = evaluateControlState(control, effectiveValues);
         isControlActive = controlState.visible !== false && controlState.enabled !== false;
       }
 
@@ -2252,7 +2402,7 @@ export default function ATDLRendererPage() {
 
                 {activeStrategy.groups.map((group, i) => (
                   <div key={i} id={'atdl-panel-' + i}>
-                    <PanelGroup group={group} values={values} onChange={handleValueChange} errors={validationErrors} dirty={dirty} />
+                    <PanelGroup group={group} values={effectiveValues} onChange={handleValueChange} errors={validationErrors} dirty={dirty} />
                   </div>
                 ))}
 
@@ -2414,7 +2564,7 @@ export default function ATDLRendererPage() {
                     ) : (
                       <ParameterMapTable
                         parameters={activeStrategy.parameters}
-                        values={values}
+                        values={effectiveValues}
                         search={paramMapSearch}
                         setSearch={setParamMapSearch}
                       />
@@ -2449,7 +2599,7 @@ export default function ATDLRendererPage() {
                     {activeTelemetryTab === 'validation' ? (
                       <ValidationTreeInspector
                         rules={activeStrategy.validationRules}
-                        values={values}
+                        values={effectiveValues}
                       />
                     ) : (
                       <TagAnalyticsView

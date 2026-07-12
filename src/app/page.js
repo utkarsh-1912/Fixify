@@ -730,6 +730,8 @@ export default function LogsProcessorPage() {
           } else if (!execType && ordStatus && ['0', '4', '8'].includes(ordStatus)) {
             isTransition = true;
           }
+        } else if (msgType === '6') {
+          isTransition = true;
         }
         
         if (isTransition) {
@@ -750,6 +752,9 @@ export default function LogsProcessorPage() {
             id: m.id,
             clOrd,
             origClOrd,
+            ioiID: m.validation?.tags?.['23'],
+            ioiRefID: m.validation?.tags?.['26'],
+            ioiTransType: m.validation?.tags?.['28'],
             msgType,
             msgTypeName,
             timestamp,
@@ -2613,17 +2618,44 @@ function ClOrdIdChainModal({ isOpen, onClose, chain: sessionsData }) {
                               <span style={{ color: 'var(--text-muted)' }}>Seq: {step.seq}</span>
                             </div>
                             <div className="text-xs font-mono p-2.5 rounded-lg border space-y-1" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-                              {step.origClOrd && (
-                                <div className="flex justify-between gap-2">
-                                  <span style={{ color: 'var(--text-muted)' }}>OrigClOrdID (41):</span>
-                                  <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)', opacity: 0.8 }}>{step.origClOrd}</span>
-                                </div>
-                              )}
-                              {step.clOrd && (
-                                <div className="flex justify-between gap-2">
-                                  <span style={{ color: 'var(--text-muted)' }}>ClOrdID (11):</span>
-                                  <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)' }}>{step.clOrd}</span>
-                                </div>
+                              {step.msgType === '6' ? (
+                                <>
+                                  {step.ioiRefID && (
+                                    <div className="flex justify-between gap-2">
+                                      <span style={{ color: 'var(--text-muted)' }}>IOIRefID (26):</span>
+                                      <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)', opacity: 0.8 }}>{step.ioiRefID}</span>
+                                    </div>
+                                  )}
+                                  {step.ioiID && (
+                                    <div className="flex justify-between gap-2">
+                                      <span style={{ color: 'var(--text-muted)' }}>IOIid (23):</span>
+                                      <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)' }}>{step.ioiID}</span>
+                                    </div>
+                                  )}
+                                  {step.ioiTransType && (
+                                    <div className="flex justify-between gap-2">
+                                      <span style={{ color: 'var(--text-muted)' }}>IOITransType (28):</span>
+                                      <span className="font-bold select-all break-all text-right" style={{ color: 'var(--primary)' }}>
+                                        {step.ioiTransType === 'N' ? 'New (N)' : step.ioiTransType === 'R' ? 'Replace (R)' : step.ioiTransType === 'C' ? 'Cancel (C)' : step.ioiTransType}
+                                      </span>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {step.origClOrd && (
+                                    <div className="flex justify-between gap-2">
+                                      <span style={{ color: 'var(--text-muted)' }}>OrigClOrdID (41):</span>
+                                      <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)', opacity: 0.8 }}>{step.origClOrd}</span>
+                                    </div>
+                                  )}
+                                  {step.clOrd && (
+                                    <div className="flex justify-between gap-2">
+                                      <span style={{ color: 'var(--text-muted)' }}>ClOrdID (11):</span>
+                                      <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)' }}>{step.clOrd}</span>
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
                             <div className="text-[9px] text-right font-mono text-zinc-500">
