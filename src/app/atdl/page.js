@@ -65,13 +65,37 @@ function parseATDL(xmlString) {
   if (ses.length === 0 && doc.documentElement.localName === 'Strategy') ses = [doc.documentElement];
 
   for (const s of ses) {
+    let regionsVal = ga(s, 'regions', 'Regions');
+    if (!regionsVal) {
+      const regionsEl = findAll(s, 'Regions')[0];
+      if (regionsEl) {
+        regionsVal = findAll(regionsEl, 'Region')
+          .filter(r => (r.getAttribute('inclusion') || 'Include') !== 'Exclude')
+          .map(r => r.getAttribute('name'))
+          .filter(Boolean)
+          .join(' ');
+      }
+    }
+
+    let securityTypesVal = ga(s, 'securityTypes', 'SecurityTypes');
+    if (!securityTypesVal) {
+      const secTypesEl = findAll(s, 'SecurityTypes')[0];
+      if (secTypesEl) {
+        securityTypesVal = findAll(secTypesEl, 'SecurityType')
+          .filter(st => (st.getAttribute('inclusion') || 'Include') !== 'Exclude')
+          .map(st => st.getAttribute('name'))
+          .filter(Boolean)
+          .join(' ');
+      }
+    }
+
     const strat = {
       name: ga(s, 'name', 'Name'),
       version: ga(s, 'version', 'Version'),
       providerID: ga(s, 'providerID', 'ProviderID'),
       uiRep: ga(s, 'uiRep', 'UIRep') || ga(s, 'name', 'Name'),
-      regions: ga(s, 'regions', 'Regions'),
-      securityTypes: ga(s, 'securityTypes', 'SecurityTypes'),
+      regions: regionsVal,
+      securityTypes: securityTypesVal,
       description: '',
       parameters: [],
       groups: [],

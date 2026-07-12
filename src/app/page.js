@@ -920,9 +920,17 @@ export default function LogsProcessorPage() {
             {allocIds.length > 0 && ioiIds.length > 0 && <span className="text-zinc-800">|</span>}
 
             {ioiIds.length > 0 && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <span style={{ color: 'var(--text-muted)' }}>IOIid (Tag 23):</span>
                 <span className="font-bold text-zinc-350">{ioiIds[0]}</span>
+                <button
+                  onClick={() => setIsClOrdChainModalOpen(true)}
+                  className="p-1 rounded transition-all flex items-center justify-center hover:bg-zinc-800/20"
+                  style={{ color: 'var(--primary)' }}
+                  title="View IOIid Chain"
+                >
+                  <Info className="h-3.5 w-3.5 inline cursor-pointer" />
+                </button>
               </div>
             )}
           </div>
@@ -1357,9 +1365,17 @@ export default function LogsProcessorPage() {
               {allocIds.length > 0 && ioiIds.length > 0 && <span className="text-zinc-800">|</span>}
 
               {ioiIds.length > 0 && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <span style={{ color: 'var(--text-muted)' }}>IOIid:</span>
                   <span className="font-bold text-zinc-350">{ioiIds[0]}</span>
+                  <button
+                    onClick={() => setIsClOrdChainModalOpen(true)}
+                    className="p-1 rounded transition-all flex items-center justify-center hover:bg-zinc-800/20"
+                    style={{ color: 'var(--primary)' }}
+                    title="View IOIid Chain"
+                  >
+                    <Info className="h-3.5 w-3.5 inline cursor-pointer" />
+                  </button>
                 </div>
               )}
             </div>
