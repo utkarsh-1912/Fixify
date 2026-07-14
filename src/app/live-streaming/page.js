@@ -49,6 +49,13 @@ export default function LiveStreamingPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmCountdown, setConfirmCountdown] = useState(10);
   const [showPayload, setShowPayload] = useState(false);
+
+  // Alert Rules Engine configuration states
+  const [latencyThreshold, setLatencyThreshold] = useState("20");
+  const [regexPattern, setRegexPattern] = useState("35=8|35=3");
+  const [isAlertSoundEnabled, setIsAlertSoundEnabled] = useState(false);
+  const [isAlertNotifyEnabled, setIsAlertNotifyEnabled] = useState(false);
+  const [activeAlerts, setActiveAlerts] = useState([]);
   
   // 5-minute activity check — wall-clock timer (not message-count based)
   const ACTIVITY_CHECK_MS = 5 * 60 * 1000; // 300 000 ms
@@ -162,6 +169,69 @@ export default function LiveStreamingPage() {
       expectedSeqNumRef.current = seqNum + 1;
     }
 
+    // Evaluate alert rules
+    let alertTriggered = false;
+    let alertReason = "";
+
+    // 1. Latency check
+    if (latencyThreshold && !isNaN(parseFloat(latencyThreshold))) {
+      if (latency > parseFloat(latencyThreshold)) {
+        alertTriggered = true;
+        alertReason = `Latency ${latency}ms exceeded threshold of ${latencyThreshold}ms`;
+      }
+    }
+
+    // 2. Regex check
+    if (regexPattern && regexPattern.trim()) {
+      try {
+        const rx = new RegExp(regexPattern, "i");
+        if (rx.test(rawMsg)) {
+          alertTriggered = true;
+          alertReason = alertReason ? `${alertReason} & Message matched regex "${regexPattern}"` : `Message matched regex "${regexPattern}"`;
+        }
+      } catch (e) {}
+    }
+
+    if (alertTriggered) {
+      const alertItem = {
+        id: `alert-${Date.now()}-${Math.random()}`,
+        time: new Date().toLocaleTimeString(),
+        seqNum,
+        msgType,
+        reason: alertReason,
+        raw: rawMsg
+      };
+      setActiveAlerts(prev => [alertItem, ...prev.slice(0, 19)]);
+
+      // Audio notification (beep)
+      if (isAlertSoundEnabled && typeof window !== 'undefined') {
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.1);
+        } catch (e) {}
+      }
+
+      // Browser Desktop Notification
+      if (isAlertNotifyEnabled && typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification("FIXify Alert Warning", {
+            body: `SeqNum: ${seqNum} | ${alertReason}`,
+            icon: "/favicon.ico"
+          });
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission();
+        }
+      }
+    }
+
     const logItem = {
       time: new Date().toLocaleTimeString(),
       seqNum,
@@ -169,13 +239,15 @@ export default function LiveStreamingPage() {
       msgName,
       latency,
       isGap,
+      isAlert: alertTriggered,
+      alertReason,
       raw: rawMsg
     };
 
     setFeedLogs(prev => [...prev.slice(-29), logItem]);
     setTimelinePoints(prev => {
       const lastX = prev.length > 0 ? prev[prev.length - 1].x : 0;
-      return [...prev.slice(-29), { x: lastX + 1, y: latency, isGap, msgType }];
+      return [...prev.slice(-29), { x: lastX + 1, y: latency, isGap, msgType, isAlert: alertTriggered }];
     });
     setStats(prev => {
       const count = prev.receivedCount + 1;
@@ -459,114 +531,194 @@ export default function LiveStreamingPage() {
             Monitor dynamic real-time simulated FIX session traffic and observe processing sequence gaps.
           </p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+      </div>      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         
-        {/* Connection Control Console */}
-        <div
-          className="p-5 rounded-2xl border space-y-4 lg:col-span-1 h-fit"
-          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
-        >
-          {/* Connection Mode Toggle */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">Connection Mode:</span>
-            <div className="grid grid-cols-2 gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
-              <button
-                disabled={isRunning}
-                onClick={() => setConnectionMode("simulated")}
-                className={`py-1 text-[10px] font-mono font-bold rounded-md transition-all cursor-pointer ${
-                  connectionMode === "simulated" 
-                    ? "bg-[var(--primary)] text-zinc-950 font-bold" 
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Simulation
-              </button>
-              <button
-                disabled={isRunning}
-                onClick={() => setConnectionMode("websocket")}
-                className={`py-1 text-[10px] font-mono font-bold rounded-md transition-all cursor-pointer ${
-                  connectionMode === "websocket" 
-                    ? "bg-[var(--primary)] text-zinc-950 font-bold" 
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                WebSocket
-              </button>
-            </div>
-          </div>
-
-          {connectionMode === "simulated" ? (
-            /* Presets Profile Selector */
+        {/* Left Side Control Panels: Settings & Alerts */}
+        <div className="lg:col-span-1 space-y-5 h-fit">
+          {/* Connection Control Console */}
+          <div
+            className="p-5 rounded-2xl border space-y-4"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+          >
+            {/* Connection Mode Toggle */}
             <div className="space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">Session Profile:</span>
-              <select
-                value={profile}
-                onChange={(e) => setProfile(e.target.value)}
-                disabled={isRunning}
-                className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-700 text-zinc-350"
-              >
-                <option value="order-gateway">Order Routing (Balanced)</option>
-                <option value="market-data">Market Data Feed (Fast)</option>
-                <option value="drop-copy">Drop Copy Allocation (Spiky)</option>
-              </select>
-            </div>
-          ) : (
-            /* WebSocket Connection Config */
-            <div className="space-y-2 animate-fade-in">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">WebSocket URL:</span>
-              <input
-                type="text"
-                value={wsUrl}
-                onChange={(e) => setWsUrl(e.target.value)}
-                disabled={isRunning}
-                className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-750 text-zinc-300"
-                placeholder="ws://localhost:8080"
-              />
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2 pt-2">
-            {!isRunning ? (
-              <button
-                onClick={startFeed}
-                className="fx-btn-primary w-full justify-center py-2"
-              >
-                <Play className="h-4 w-4" /> Start Feed
-              </button>
-            ) : (
-              <div className="flex gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">Connection Mode:</span>
+              <div className="grid grid-cols-2 gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
                 <button
-                  onClick={togglePause}
-                  className="fx-btn-secondary flex-1 justify-center py-2 text-xs font-semibold"
+                  disabled={isRunning}
+                  onClick={() => setConnectionMode("simulated")}
+                  className={`py-1 text-[10px] font-mono font-bold rounded-md transition-all cursor-pointer ${
+                    connectionMode === "simulated" 
+                      ? "bg-[var(--primary)] text-zinc-950 font-bold" 
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
                 >
-                  {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />} {isPaused ? "Resume" : "Pause"}
+                  Simulation
                 </button>
                 <button
-                  onClick={stopFeed}
-                  className="fx-btn-secondary flex-1 justify-center py-2 border-red-900/30 text-red-400 bg-red-950/10 hover:bg-red-950/20 text-xs font-semibold"
+                  disabled={isRunning}
+                  onClick={() => setConnectionMode("websocket")}
+                  className={`py-1 text-[10px] font-mono font-bold rounded-md transition-all cursor-pointer ${
+                    connectionMode === "websocket" 
+                      ? "bg-[var(--primary)] text-zinc-950 font-bold" 
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
                 >
-                  <Square className="h-4 w-4" /> Stop
+                  WebSocket
                 </button>
               </div>
+            </div>
+
+            {connectionMode === "simulated" ? (
+              /* Presets Profile Selector */
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">Session Profile:</span>
+                <select
+                  value={profile}
+                  onChange={(e) => setProfile(e.target.value)}
+                  disabled={isRunning}
+                  className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-700 text-zinc-350"
+                >
+                  <option value="order-gateway">Order Routing (Balanced)</option>
+                  <option value="market-data">Market Data Feed (Fast)</option>
+                  <option value="drop-copy">Drop Copy Allocation (Spiky)</option>
+                </select>
+              </div>
+            ) : (
+              /* WebSocket Connection Config */
+              <div className="space-y-2 animate-fade-in">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">WebSocket URL:</span>
+                <input
+                  type="text"
+                  value={wsUrl}
+                  onChange={(e) => setWsUrl(e.target.value)}
+                  disabled={isRunning}
+                  className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-750 text-zinc-300"
+                  placeholder="ws://localhost:8080"
+                />
+              </div>
             )}
-            <button
-              onClick={handleReset}
-              className="fx-btn-secondary w-full justify-center py-2 border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-semibold"
-            >
-              <RotateCcw className="h-4 w-4" /> Reset Session
-            </button>
+
+            <div className="flex flex-col gap-2 pt-2">
+              {!isRunning ? (
+                <button
+                  onClick={startFeed}
+                  className="fx-btn-primary w-full justify-center py-2"
+                >
+                  <Play className="h-4 w-4" /> Start Feed
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={togglePause}
+                    className="fx-btn-secondary flex-1 justify-center py-2 text-xs font-semibold"
+                  >
+                    {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />} {isPaused ? "Resume" : "Pause"}
+                  </button>
+                  <button
+                    onClick={stopFeed}
+                    className="fx-btn-secondary flex-1 justify-center py-2 border-red-900/30 text-red-400 bg-red-950/10 hover:bg-red-950/20 text-xs font-semibold"
+                  >
+                    <Square className="h-4 w-4" /> Stop
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={handleReset}
+                className="fx-btn-secondary w-full justify-center py-2 border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-semibold"
+              >
+                <RotateCcw className="h-4 w-4" /> Reset Session
+              </button>
+            </div>
+
+            {/* Stats Summary */}
+            <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block font-mono">Telemetry Data:</span>
+              <div className="space-y-1.5 text-xs font-mono text-zinc-400">
+                <div className="flex justify-between"><span>Received count:</span> <span className="font-bold text-zinc-200">{stats.receivedCount}</span></div>
+                <div className="flex justify-between"><span>Sequence gaps:</span> <span className="font-bold text-red-400">{stats.gapDetections}</span></div>
+                <div className="flex justify-between"><span>Avg latency:</span> <span className="font-bold text-[var(--primary)]">{stats.avgLatency} ms</span></div>
+              </div>
+            </div>
           </div>
 
-          {/* Stats Summary */}
-          <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block font-mono">Telemetry Data:</span>
-            <div className="space-y-1.5 text-xs font-mono text-zinc-400">
-              <div className="flex justify-between"><span>Received count:</span> <span className="font-bold text-zinc-200">{stats.receivedCount}</span></div>
-              <div className="flex justify-between"><span>Sequence gaps:</span> <span className="font-bold text-red-400">{stats.gapDetections}</span></div>
-              <div className="flex justify-between"><span>Avg latency:</span> <span className="font-bold text-[var(--primary)]">{stats.avgLatency} ms</span></div>
+          {/* Alert Rules Engine Card */}
+          <div
+            className="p-5 rounded-2xl border space-y-4"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block font-mono">Alert Rules Engine:</span>
+            
+            {/* Latency Threshold */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold text-zinc-400 font-mono block">Latency Threshold (ms):</label>
+              <input
+                type="number"
+                value={latencyThreshold}
+                onChange={(e) => setLatencyThreshold(e.target.value)}
+                className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-750 text-zinc-300"
+                placeholder="e.g. 25"
+              />
             </div>
+
+            {/* Regex Pattern Match */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold text-zinc-400 font-mono block">Message Regex Pattern:</label>
+              <input
+                type="text"
+                value={regexPattern}
+                onChange={(e) => setRegexPattern(e.target.value)}
+                className="w-full text-xs font-mono bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:border-zinc-750 text-zinc-300"
+                placeholder="e.g. 39=8"
+              />
+            </div>
+
+            {/* Toggles */}
+            <div className="space-y-2.5 pt-2 border-t border-zinc-900">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-mono text-zinc-400">Audio Warning:</span>
+                <input
+                  type="checkbox"
+                  checked={isAlertSoundEnabled}
+                  onChange={(e) => setIsAlertSoundEnabled(e.target.checked)}
+                  className="rounded border-zinc-800 bg-zinc-950 accent-[var(--primary)] text-[var(--primary)] focus:ring-0 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-mono text-zinc-400">Desktop Notifications:</span>
+                <input
+                  type="checkbox"
+                  checked={isAlertNotifyEnabled}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsAlertNotifyEnabled(checked);
+                    if (checked && typeof window !== 'undefined' && 'Notification' in window) {
+                      Notification.requestPermission();
+                    }
+                  }}
+                  className="rounded border-zinc-800 bg-zinc-950 accent-[var(--primary)] text-[var(--primary)] focus:ring-0 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Recent Alerts List */}
+            {activeAlerts.length > 0 && (
+              <div className="space-y-2 pt-3 border-t border-zinc-900">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 block font-mono">Recent Alerts ({activeAlerts.length}):</span>
+                <div className="max-h-24 overflow-y-auto space-y-1.5 scrollbar-thin">
+                  {activeAlerts.map((alert) => (
+                    <div key={alert.id} className="p-1.5 bg-red-950/10 border border-red-900/30 rounded text-[8px] font-mono text-red-300 space-y-0.5">
+                      <div className="flex justify-between text-zinc-500">
+                        <span>{alert.time}</span>
+                        <span>Seq #{alert.seqNum}</span>
+                      </div>
+                      <p className="truncate text-zinc-350">{alert.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -648,13 +800,18 @@ export default function LiveStreamingPage() {
                   <div 
                     key={idx} 
                     onClick={() => { setSelectedLogMsg(log); setShowPayload(false); }}
-                    className="space-y-0.5 border-b pb-1 last:border-0 hover:bg-zinc-950/30 p-1.5 rounded-lg transition-all cursor-pointer border-transparent" 
+                    className={`space-y-0.5 border-b pb-1 last:border-0 hover:bg-zinc-950/30 p-1.5 rounded-lg transition-all cursor-pointer border-transparent ${log.isAlert ? 'bg-red-950/15 border-l-2 border-l-red-500' : ''}`} 
                     style={{ borderColor: 'var(--border-subtle)' }}
                     title="Click to view message tags details modal"
                   >
                     <div className="flex items-center justify-between text-zinc-500 text-[9px]">
                       <span>{log.time}</span>
                       <div className="flex gap-2">
+                        {log.isAlert && (
+                          <span className="text-[8px] px-1 bg-red-950 text-red-500 border border-red-900/40 rounded font-bold uppercase tracking-wider animate-pulse flex items-center gap-0.5" title={log.alertReason}>
+                            <AlertCircle className="h-2.5 w-2.5" /> Alert Rule
+                          </span>
+                        )}
                         {log.isGap && (
                           <span className="text-[8px] px-1 bg-red-950 text-red-500 border border-red-900/40 rounded font-bold uppercase tracking-wider animate-pulse flex items-center gap-0.5">
                             <ShieldAlert className="h-2.5 w-2.5" /> Gap Alert

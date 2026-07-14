@@ -1292,7 +1292,7 @@ export default function RoomChatPage({ params }) {
 
         {/* ─── INPUT AREA ─── */}
         <div
-          className="flex gap-2 sm:gap-3 items-end p-2 sm:p-3 sm:rounded-2xl relative shrink-0"
+          className="flex gap-1.5 sm:gap-2 items-end p-1 sm:p-2 sm:rounded-2xl relative shrink-0"
           style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: isMobile ? "0 0 16px 16px" : undefined }}
         >
           {/* Sound Toggle Button */}

@@ -30,6 +30,7 @@ import {
   GitBranch,
   LineChart,
   UserCog,
+  Cpu,
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 
@@ -61,6 +62,7 @@ export default function Navbar() {
     { href: '/multi-algo',   label: 'Multi-Algo Studio', icon: LineChart, short: 'Algos', desc: 'Scan markets with SMA, RSI, MACD, and Bollinger Bands, overlay interactive charts, and paper trade.', inMenu: false },
     { href: '/correlation', label: 'Multi-Hop Tracker', icon: Network, short: 'Correlation', desc: 'Correlate transaction flows across multiple system layers and trace transit delays.', inMenu: false },
     { href: '/atdl', label: 'ATDL Renderer', icon: UserCog, short: 'ATDL', desc: 'Parse FIXatdl 1.1 strategy XML, render interactive parameter controls, and generate wire preview.', inMenu: false },
+    { href: '/binary-decoder', label: 'Binary FAST/SBE Decoder', icon: Cpu, short: 'Binary', desc: 'Decode CME/Nasdaq FAST streams and SBE binary messages into standard tag-value maps.', inMenu: false },
   ];
 
   // Apply saved settings and track page visits on mount/pathchange
