@@ -26,7 +26,9 @@ import {
   Hash,
   X,
   Menu,
-  MoreVertical
+  MoreVertical,
+  Share2,
+  FileJson
 } from "lucide-react";
 import { encryptMessage, decryptMessage } from "@/lib/cipher";
 import SohVisualizer from "@/components/SohVisualizer";
@@ -101,6 +103,13 @@ export default function RoomChatPage({ params }) {
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+
+  // Workspace state sharing states
+  const [showStateShareModal, setShowStateShareModal] = useState(false);
+  const [shareDialect, setShareDialect] = useState(true);
+  const [shareTasks, setShareTasks] = useState(true);
+  const [shareWhiteboard, setShareWhiteboard] = useState(false);
+  const [appliedStates, setAppliedStates] = useState({});
 
   // Track mobile vs desktop
   const [isMobile, setIsMobile] = useState(false);
@@ -380,6 +389,80 @@ export default function RoomChatPage({ params }) {
       addRecentRoom(roomId);
     }
     setIsJoined(true);
+  };
+
+  // Share Workspace State function
+  const handleShareState = async () => {
+    const payload = {};
+    if (shareDialect) {
+      payload.dialect = localStorage.getItem('fixify-custom-dialect') || null;
+    }
+    if (shareTasks) {
+      payload.tasks = localStorage.getItem('fixify-kanban-tasks') || null;
+    }
+    if (shareWhiteboard) {
+      payload.whiteboard = localStorage.getItem('fixify-whiteboard-data') || null;
+    }
+
+    const payloadStr = `[WORKSTATE]:${JSON.stringify(payload)}`;
+    const encryptedText = encryptMessage(payloadStr, secretKey);
+    const msg = {
+      id: uuid(),
+      sender: username,
+      senderId: userId,
+      text: encryptedText,
+      timestamp: new Date().toISOString(),
+      reactions: {},
+      isPinned: false,
+      roomId
+    };
+
+    // Optimistic UI updates
+    setMessages((prev) => {
+      const updated = [...prev, msg];
+      saveCache(roomId, updated);
+      return updated;
+    });
+    playSound("sent");
+    setShowStateShareModal(false);
+
+    try {
+      await fetch("/chat/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send",
+          roomId,
+          message: msg
+        })
+      });
+      fetchMessages();
+    } catch (err) {
+      console.error("Failed to share workspace state:", err);
+    }
+  };
+
+  // Import Workspace State function
+  const handleImportState = (msgId, workstateData) => {
+    try {
+      const data = JSON.parse(workstateData);
+      let count = 0;
+      if (data.dialect) {
+        localStorage.setItem('fixify-custom-dialect', data.dialect);
+        count++;
+      }
+      if (data.tasks) {
+        localStorage.setItem('fixify-kanban-tasks', data.tasks);
+        count++;
+      }
+      if (data.whiteboard) {
+        localStorage.setItem('fixify-whiteboard-data', data.whiteboard);
+        count++;
+      }
+      setAppliedStates(prev => ({ ...prev, [msgId]: true }));
+    } catch (e) {
+      alert("Failed to import workspace state: " + e.message);
+    }
   };
 
   // Send message function
@@ -1158,10 +1241,61 @@ export default function RoomChatPage({ params }) {
                       borderTopRightRadius: isSelf ? "4px" : undefined,
                       borderTopLeftRadius: !isSelf ? "4px" : undefined,
                       fontFamily: "var(--font-mono)",
-                      fontWeight: isSelf ? 600 : 400,
                     }}
                   >
-                    {(/^8=FIX\./i.test(decryptedText.trim()) || decryptedText.includes('\x01') || decryptedText.includes('\u0001') || (decryptedText.includes('|') && decryptedText.includes('8=FIX'))) ? (
+                    {decryptedText.startsWith("[WORKSTATE]:") ? (() => {
+                      try {
+                        const parsedState = JSON.parse(decryptedText.substring(12));
+                        const isApplied = appliedStates[m.id];
+                        return (
+                          <div className="space-y-3.5 p-1 font-sans text-xs min-w-[200px]">
+                            <div className="flex items-center gap-2 pb-2 border-b border-zinc-800">
+                              <FileJson className="h-4.5 w-4.5 text-[var(--primary)] shrink-0" style={{ color: isSelf ? "var(--background)" : "var(--primary)" }} />
+                              <div>
+                                <h4 className="font-bold text-[11px] tracking-wide uppercase" style={{ color: isSelf ? "var(--background)" : "var(--foreground)" }}>Workspace State Share</h4>
+                                <p className="text-[9px]" style={{ color: isSelf ? "rgba(0,0,0,0.5)" : "var(--text-muted)" }}>Encrypted workspace bundle</p>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-1 text-[10px] text-zinc-400">
+                              {parsedState.dialect && (
+                                <div className="flex items-center gap-1.5 font-sans" style={{ color: isSelf ? "var(--background)" : "inherit" }}>
+                                  <span className="text-emerald-450 font-bold">✓</span> Custom XML Dialect Config
+                                </div>
+                              )}
+                              {parsedState.tasks && (
+                                <div className="flex items-center gap-1.5 font-sans" style={{ color: isSelf ? "var(--background)" : "inherit" }}>
+                                  <span className="text-emerald-450 font-bold">✓</span> Kanban Board Task Checklist
+                                </div>
+                              )}
+                              {parsedState.whiteboard && (
+                                <div className="flex items-center gap-1.5 font-sans" style={{ color: isSelf ? "var(--background)" : "inherit" }}>
+                                  <span className="text-emerald-450 font-bold">✓</span> Whiteboard/Canvas Drawing State
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              disabled={isApplied}
+                              onClick={() => handleImportState(m.id, decryptedText.substring(12))}
+                              className={`w-full py-1.5 px-3 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${isApplied ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isSelf ? 'bg-zinc-950/40 text-[var(--background)] hover:bg-zinc-950/60 border border-zinc-950/20' : 'bg-[var(--primary-faint)] text-[var(--primary)] border border-[var(--primary-border)] hover:bg-[var(--primary-faint)]/80'}`}
+                            >
+                              {isApplied ? (
+                                <>
+                                  <CheckCircle className="h-3 w-3" /> Imported & Synced
+                                </>
+                              ) : (
+                                <>
+                                  <RotateCcw className="h-3 w-3" /> Apply Workspace State
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      } catch (e) {
+                        return <p className="text-[11px] sm:text-xs text-red-400 font-mono">Malformed Workstate Share Envelope</p>;
+                      }
+                    })() : (/^8=FIX\./i.test(decryptedText.trim()) || decryptedText.includes('\x01') || decryptedText.includes('\u0001') || (decryptedText.includes('|') && decryptedText.includes('8=FIX'))) ? (
                       <div className="space-y-1.5 mt-1 select-all">
                         <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider mb-1 font-mono">FIX Message (SOH Visualizer):</div>
                         <SohVisualizer content={decryptedText} />
@@ -1317,6 +1451,81 @@ export default function RoomChatPage({ params }) {
             >
               <Smile className="h-5 w-5" />
             </button>
+          </div>
+
+          {/* Workspace State Sync Popover Button */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => {
+                setShowStateShareModal(!showStateShareModal);
+              }}
+              className="p-1.5 sm:p-2 rounded-xl transition-all hover:bg-zinc-850/40 text-zinc-400 hover:text-zinc-100"
+              title="Share Workspace State"
+            >
+              <Share2 className="h-5 w-5" />
+            </button>
+
+            {showStateShareModal && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setShowStateShareModal(false)}
+                />
+                <div
+                  className={[
+                    "z-40 flex flex-col gap-3 shadow-2xl p-4 w-72 rounded-2xl animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans text-xs",
+                    isMobile
+                      ? "fixed bottom-16 left-4 right-4"
+                      : "absolute bottom-full mb-3 left-0"
+                  ].join(" ")}
+                  style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+                >
+                  <div className="border-b border-zinc-800 pb-2">
+                    <h4 className="font-bold text-[11px] tracking-wide uppercase text-zinc-200">Share Workspace State</h4>
+                    <p className="text-[9px] text-[var(--text-muted)]">Encapsulates configs into encrypted envelope</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-[10px] text-zinc-350 font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={shareDialect}
+                        onChange={(e) => setShareDialect(e.target.checked)}
+                        className="rounded border-zinc-700 bg-zinc-900 text-[var(--primary)] focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5"
+                      />
+                      Custom XML Dialect Config
+                    </label>
+
+                    <label className="flex items-center gap-2 text-[10px] text-zinc-350 font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={shareTasks}
+                        onChange={(e) => setShareTasks(e.target.checked)}
+                        className="rounded border-zinc-700 bg-zinc-900 text-[var(--primary)] focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5"
+                      />
+                      Kanban Board Task Checklist
+                    </label>
+
+                    <label className="flex items-center gap-2 text-[10px] text-zinc-350 font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={shareWhiteboard}
+                        onChange={(e) => setShareWhiteboard(e.target.checked)}
+                        className="rounded border-zinc-700 bg-zinc-900 text-[var(--primary)] focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5"
+                      />
+                      Whiteboard/Canvas Sketch Data
+                    </label>
+                  </div>
+
+                  <button
+                    onClick={handleShareState}
+                    className="w-full py-2 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-zinc-950 font-bold rounded-lg text-[10px] tracking-wider uppercase transition-colors cursor-pointer"
+                  >
+                    Send Encrypted State
+                  </button>
+                </div>
+              </>
+            )}
 
             {/* Emoji Picker — Bottom sheet on mobile, Popover on desktop */}
             {isEmojiPickerOpen && (

@@ -41,8 +41,9 @@ function parseATDL(xmlString) {
   } catch (e) { return { strategies: [], errors: ['Parse failed: ' + e.message], version: '' }; }
 
   // Detect FIXatdl version from namespace
-  const rootNS = doc.documentElement.getAttribute('xmlns') || '';
+  const rootNS = doc.documentElement ? (doc.documentElement.getAttribute('xmlns') || '') : '';
   const version = rootNS.includes('1-2') ? '1.2' : rootNS.includes('1-1') ? '1.1' : '1.x';
+  const strategyIdentifierTag = doc.documentElement ? (doc.documentElement.getAttribute('strategyIdentifierTag') || '7620') : '7620';
 
   const findAll = (parent, localName) => {
     const r = [];
@@ -175,7 +176,7 @@ function parseATDL(xmlString) {
         }];
     strategies.push(strat);
   }
-  return { strategies, errors: [], warnings, version };
+  return { strategies, errors: [], warnings, version, strategyIdentifierTag };
 }
 
 function parseLayoutGroups(layoutEl, parameters = [], findAll, ga, warnings) {
@@ -432,11 +433,19 @@ function getActiveParameters(strategy, values) {
 function getEnumID(param, val) {
   if (!param || !param.enumPairs || param.enumPairs.length === 0) return val;
   const t = String(val);
-  const f = param.enumPairs.find(e =>
+  let f = param.enumPairs.find(e =>
     (e.enumID && e.enumID === t) ||
     (e.wireValue && e.wireValue === t) ||
     (e.uiRep && e.uiRep === t)
   );
+  if (!f) {
+    const tLower = t.toLowerCase();
+    f = param.enumPairs.find(e =>
+      (e.enumID && e.enumID.toLowerCase() === tLower) ||
+      (e.wireValue && e.wireValue.toLowerCase() === tLower) ||
+      (e.uiRep && e.uiRep.toLowerCase() === tLower)
+    );
+  }
   return f ? f.enumID : val;
 }
 
@@ -954,6 +963,20 @@ function ControlField({ control, param, value, onChange, errors, dirty, disabled
     param?.constValue !== undefined && param?.constValue !== null && param?.constValue !== '' ? `Fixed: ${param.constValue}` : '',
   ].filter(Boolean).join(' | ');
 
+  const isNumeric = isNumericParameter(param);
+  const badges = [];
+  if (isNumeric) {
+    if (param?.defaultValue !== undefined && param?.defaultValue !== null && param.defaultValue !== '') {
+      badges.push({ label: 'Def: ' + param.defaultValue, value: param.defaultValue });
+    }
+    if (param?.minValue !== undefined && param?.minValue !== null && param.minValue !== '') {
+      badges.push({ label: 'Min: ' + param.minValue, value: param.minValue });
+    }
+    if (param?.maxValue !== undefined && param?.maxValue !== null && param.maxValue !== '') {
+      badges.push({ label: 'Max: ' + param.maxValue, value: param.maxValue });
+    }
+  }
+
   return (
     <div className='space-y-1.5 transition-all' style={wrapStyle}>
       <div className='flex items-center gap-1.5 flex-wrap'>
@@ -1029,6 +1052,24 @@ function ControlField({ control, param, value, onChange, errors, dirty, disabled
         )}
       </div>
       {renderInput()}
+      {badges.length > 0 && (
+        <div className='flex flex-wrap gap-1 mt-1'>
+          {badges.map((badge, bIdx) => (
+            <button
+              key={bIdx}
+              type='button'
+              disabled={disabled}
+              onClick={() => {
+                onChange(badge.value);
+                setLocalVal(badge.value);
+              }}
+              className='text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-855/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-all cursor-pointer'
+            >
+              {badge.label}
+            </button>
+          ))}
+        </div>
+      )}
       {hasError && (
         <p className='text-[10px] text-red-400 flex items-center gap-1'>
           <AlertTriangle className='h-3 w-3' />{errors[control.paramRef]}
