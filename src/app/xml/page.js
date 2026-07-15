@@ -146,7 +146,7 @@ export default function XMLFormatterPage() {
   const [showSearch, setShowSearch] = useState(false);
 
   // Schema Auditor states
-  const [rightPanelTab, setRightPanelTab] = useState("formatted"); // "formatted" | "audit"
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [auditErrors, setAuditErrors] = useState([]);
   const [auditWarnings, setAuditWarnings] = useState([]);
   const [auditPassed, setAuditPassed] = useState(false);
@@ -328,7 +328,7 @@ export default function XMLFormatterPage() {
       const parserError = xmlDoc.getElementsByTagName("parsererror");
       if (parserError.length > 0) {
         setAuditErrors([`Invalid XML syntax: ${parserError[0].textContent}`]);
-        setRightPanelTab("audit");
+        setIsAuditModalOpen(true);
         return;
       }
 
@@ -450,10 +450,10 @@ export default function XMLFormatterPage() {
       setAuditErrors(errors);
       setAuditWarnings(warnings);
       setAuditPassed(errors.length === 0);
-      setRightPanelTab("audit");
+      setIsAuditModalOpen(true);
     } catch (e) {
       setAuditErrors([`Auditor Exception: ${e.message}`]);
-      setRightPanelTab("audit");
+      setIsAuditModalOpen(true);
     }
   };
 
@@ -690,14 +690,6 @@ export default function XMLFormatterPage() {
               </button>
 
               <button 
-                onClick={executeAudit} 
-                disabled={!input.trim()} 
-                className="fx-btn-secondary py-1 px-2.5 text-[10px] flex items-center gap-1 border-teal-900/30 text-teal-400 bg-teal-950/10 hover:bg-teal-950/20 disabled:opacity-45"
-              >
-                <ShieldCheck className="h-3 w-3" /> <span>Audit Schema</span>
-              </button>
-
-              <button 
                 onClick={executeFormat} 
                 disabled={!input.trim()} 
                 className="fx-btn-primary py-1 px-3 text-[10px] flex items-center gap-1 disabled:opacity-45"
@@ -717,14 +709,6 @@ export default function XMLFormatterPage() {
                 <Sparkles className="h-3 w-3" />
               </button>
               
-              <button 
-                onClick={executeAudit} 
-                disabled={!input.trim()} 
-                className="fx-btn-secondary p-1.5 text-[10px] border-teal-900/30 text-teal-400 bg-teal-950/10 hover:bg-teal-950/20 disabled:opacity-40"
-                title="Audit Schema"
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-              </button>
 
               <button 
                 onClick={executeMinify} 
@@ -773,34 +757,12 @@ export default function XMLFormatterPage() {
         <div style={rightPanelStyle}>
           <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-900 bg-zinc-955/20 shrink-0 select-none">
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setRightPanelTab("formatted")}
-                className={`flex items-center gap-1.5 text-xs font-semibold pb-0.5 transition-all outline-none border-b-2 ${
-                  rightPanelTab === "formatted"
-                    ? "border-[var(--primary)] text-zinc-100"
-                    : "border-transparent text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Braces className="h-3.5 w-3.5" />
-                <span>Formatted Output</span>
-              </button>
-              
-              <button
-                onClick={() => setRightPanelTab("audit")}
-                className={`flex items-center gap-1.5 text-xs font-semibold pb-0.5 transition-all outline-none border-b-2 ${
-                  rightPanelTab === "audit"
-                    ? "border-teal-400 text-zinc-100"
-                    : "border-transparent text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <ShieldCheck className="h-3.5 w-3.5 text-teal-450" />
-                <span>Schema Auditor</span>
-                {auditErrors.length > 0 && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                )}
-              </button>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-100">
+                <Braces className="h-3.5 w-3.5 text-[var(--primary)]" />
+                Formatted Output
+              </span>
 
-              {hasSanitization && rightPanelTab === "formatted" && (
+              {hasSanitization && (
                 <span 
                   className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] bg-amber-500/10 text-amber-500 font-sans border border-amber-500/20"
                   title={`Sanitized ${sanitizerLog.sohCount} SOH delimiters and ${sanitizerLog.ctrlCount} control codes.`}
@@ -811,7 +773,7 @@ export default function XMLFormatterPage() {
             </div>
             
             {/* Unified Download & Copy Icon Tray */}
-            {formatted && rightPanelTab === "formatted" && (
+            {formatted && (
               <div className="flex items-center bg-zinc-900/60 p-0.5 rounded-lg border border-zinc-800">
                 <button 
                   onClick={() => {
@@ -821,13 +783,34 @@ export default function XMLFormatterPage() {
                     setShowSearch(!showSearch);
                   }} 
                   title="Search XML"
-                  className={`p-1.5 rounded transition-all outline-none ${
+                  className={`p-1.5 rounded transition-all outline-none${
                     showSearch 
                       ? "bg-[var(--primary-faint)] text-[var(--primary)]" 
                       : "hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
                   <Search className="h-3.5 w-3.5" />
+                </button>
+                <button 
+                  onClick={executeAudit} 
+                  disabled={!input.trim()}
+                  title="Audit Schema"
+                  className="p-1.5 rounded hover:bg-zinc-850 transition-all outline-none border-l border-zinc-800/80 flex items-center justify-center"
+                >
+                  <div className="relative">
+                    <ShieldCheck className={`h-3.5 w-3.5 ${
+                      auditErrors.length > 0 
+                        ? "text-red-500" 
+                        : auditWarnings.length > 0 
+                          ? "text-amber-500" 
+                          : auditPassed 
+                            ? "text-emerald-500" 
+                            : "text-zinc-400 hover:text-zinc-200"
+                    }`} />
+                    {auditErrors.length > 0 && (
+                      <span className="absolute -top-1 -right-1 h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                    )}
+                  </div>
                 </button>
                 <button 
                   onClick={handleDownload} 
@@ -851,112 +834,143 @@ export default function XMLFormatterPage() {
             )}
           </div>
 
-          {rightPanelTab === "formatted" ? (
-            <div className="flex-1 flex flex-col min-h-0 bg-[var(--background)]">
-              {/* Filter Search Bar */}
-              {showSearch && formatted && (
-                <div className="px-4 py-2 border-b flex items-center gap-2 bg-zinc-950/20 border-zinc-900 shrink-0 select-none animate-in slide-in-from-top-2 duration-200">
-                  <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (totalMatches > 0) {
-                          if (e.shiftKey) {
-                            setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches);
-                          } else {
-                            setActiveSearchIndex(prev => (prev + 1) % totalMatches);
-                          }
-                        }
-                      } else if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        if (totalMatches > 0) {
+          <div className="flex-1 flex flex-col min-h-0 bg-[var(--background)]">
+            {/* Filter Search Bar */}
+            {showSearch && formatted && (
+              <div className="px-4 py-2 border-b flex items-center gap-2 bg-zinc-950/20 border-zinc-900 shrink-0 select-none animate-in slide-in-from-top-2 duration-200">
+                <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (totalMatches > 0) {
+                        if (e.shiftKey) {
+                          setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches);
+                        } else {
                           setActiveSearchIndex(prev => (prev + 1) % totalMatches);
                         }
-                      } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        if (totalMatches > 0) {
-                          setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches);
-                        }
                       }
-                    }}
-                    placeholder="Filter nodes / values..."
-                    className="flex-1 bg-transparent border-none text-[10px] font-mono outline-none text-zinc-300 placeholder-zinc-605 font-sans"
-                  />
-                  
-                  {searchQuery.trim() && totalMatches > 0 && (
-                    <span className="text-[10px] text-zinc-400 font-mono shrink-0 select-none px-1">
-                      {activeSearchIndex + 1} of {totalMatches}
-                    </span>
-                  )}
-                  
-                  {searchQuery.trim() && totalMatches === 0 && (
-                    <span className="text-[10px] text-red-400 font-mono shrink-0 select-none px-1">
-                      0 matches
-                    </span>
-                  )}
-
-                  {searchQuery.trim() && totalMatches > 0 && (
-                    <div className="flex items-center border-l border-zinc-800 pl-1 shrink-0 gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches)}
-                        className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
-                        title="Previous match"
-                      >
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveSearchIndex(prev => (prev + 1) % totalMatches)}
-                        className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
-                        title="Next match"
-                      >
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-
-                  {searchQuery ? (
-                    <button onClick={() => setSearchQuery("")} className="text-zinc-500 hover:text-zinc-350 shrink-0">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  ) : (
-                    <button onClick={() => setShowSearch(false)} className="text-zinc-500 hover:text-zinc-350 shrink-0">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Print Window */}
-              <div
-                ref={printWindowRef}
-                className="flex-1 p-4 overflow-auto text-xs font-mono whitespace-pre leading-relaxed w-full min-h-0"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                {formatted ? (
-                  <div dangerouslySetInnerHTML={{ __html: highlightXml(formatted) }} />
-                ) : (
-                  <span className="italic font-sans text-xs select-none" style={{ color: 'var(--text-faint)' }}>
-                    Formatted XML output will appear here…
+                    } else if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      if (totalMatches > 0) {
+                        setActiveSearchIndex(prev => (prev + 1) % totalMatches);
+                      }
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      if (totalMatches > 0) {
+                        setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches);
+                      }
+                    }
+                  }}
+                  placeholder="Filter nodes / values..."
+                  className="flex-1 bg-transparent border-none text-[10px] font-mono outline-none text-zinc-300 placeholder-zinc-650 font-sans"
+                />
+                
+                {searchQuery.trim() && totalMatches > 0 && (
+                  <span className="text-[10px] text-zinc-400 font-mono shrink-0 select-none px-1">
+                    {activeSearchIndex + 1} of {totalMatches}
                   </span>
                 )}
+                
+                {searchQuery.trim() && totalMatches === 0 && (
+                  <span className="text-[10px] text-red-400 font-mono shrink-0 select-none px-1">
+                    0 matches
+                  </span>
+                )}
+
+                {searchQuery.trim() && totalMatches > 0 && (
+                  <div className="flex items-center border-l border-zinc-800 pl-1 shrink-0 gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveSearchIndex(prev => (prev - 1 + totalMatches) % totalMatches)}
+                      className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                      title="Previous match"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveSearchIndex(prev => (prev + 1) % totalMatches)}
+                      className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                      title="Next match"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {searchQuery ? (
+                  <button onClick={() => setSearchQuery("")} className="text-zinc-500 hover:text-zinc-350 shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <button onClick={() => setShowSearch(false)} className="text-zinc-500 hover:text-zinc-350 shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
+            )}
+
+            {/* Print Window */}
+            <div
+              ref={printWindowRef}
+              className="flex-1 p-4 overflow-auto text-xs font-mono whitespace-pre leading-relaxed w-full min-h-0"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {formatted ? (
+                <div dangerouslySetInnerHTML={{ __html: highlightXml(formatted) }} />
+              ) : (
+                <span className="italic font-sans text-xs select-none" style={{ color: 'var(--text-faint)' }}>
+                  Formatted XML output will appear here…
+                </span>
+              )}
             </div>
-          ) : (
-            <div className="flex-1 p-5 overflow-auto bg-[var(--background)] space-y-4 select-text">
-              {/* General Audit Status */}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Schema Audit Modal */}
+      {isAuditModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setIsAuditModalOpen(false)}
+        >
+          <div 
+            className="relative w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 font-sans"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+          >
+            {/* Header */}
+            <div 
+              className="p-4 flex justify-between items-center shrink-0"
+              style={{ borderBottom: '1px solid var(--border)', background: 'var(--background)' }}
+            >
+              <div className="flex items-center gap-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span>Schema Auditor Results</span>
+              </div>
+              <button
+                onClick={() => setIsAuditModalOpen(false)}
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-sm transition-all hover:bg-zinc-800/10 dark:hover:bg-zinc-800/50"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-5 select-text">
               {!input.trim() ? (
                 <div className="h-full flex items-center justify-center text-zinc-600 italic font-sans text-xs">
-                  Please import or input XML schema, then click "Audit Schema" to view results.
+                  Please import or input XML schema to view results.
                 </div>
               ) : (
-                <div className="space-y-4 font-sans">
+                <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     {auditErrors.length > 0 ? (
                       <div className="h-10 w-10 rounded-xl bg-red-950/20 border border-red-900/40 flex items-center justify-center shrink-0">
@@ -972,10 +986,10 @@ export default function XMLFormatterPage() {
                       </div>
                     )}
                     <div>
-                      <h4 className="text-xs font-bold text-zinc-200">
+                      <h4 className="text-xs font-bold" style={{ color: 'var(--foreground)' }}>
                         {auditErrors.length > 0 ? "Schema Audit Failed" : auditWarnings.length > 0 ? "Audit Passed with Warnings" : "Schema Audit Passed"}
                       </h4>
-                      <p className="text-[10px] text-zinc-400">
+                      <p className="text-[10px] text-zinc-400 font-sans">
                         {auditErrors.length > 0 ? `${auditErrors.length} critical issues detected.` : auditWarnings.length > 0 ? `${auditWarnings.length} warnings to review.` : "No structural or semantic issues found."}
                       </p>
                     </div>
@@ -987,7 +1001,7 @@ export default function XMLFormatterPage() {
                       <span className="text-[9px] font-bold uppercase tracking-wider text-red-500 block font-mono">Critical Errors ({auditErrors.length})</span>
                       <div className="space-y-1.5">
                         {auditErrors.map((err, i) => (
-                          <div key={i} className="p-2.5 bg-red-950/15 border border-red-900/30 rounded-lg text-xs text-red-300 flex items-start gap-2">
+                          <div key={i} className="p-2.5 bg-red-950/15 border border-red-900/30 rounded-lg text-xs text-red-350 flex items-start gap-2">
                             <XCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
                             <span className="font-mono text-[10px]">{err}</span>
                           </div>
@@ -1002,7 +1016,7 @@ export default function XMLFormatterPage() {
                       <span className="text-[9px] font-bold uppercase tracking-wider text-amber-500 block font-mono">Warnings ({auditWarnings.length})</span>
                       <div className="space-y-1.5">
                         {auditWarnings.map((warn, i) => (
-                          <div key={i} className="p-2.5 bg-amber-950/15 border border-amber-900/30 rounded-lg text-xs text-amber-300 flex items-start gap-2">
+                          <div key={i} className="p-2.5 bg-amber-950/15 border border-amber-900/30 rounded-lg text-xs text-amber-350 flex items-start gap-2">
                             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
                             <span className="font-mono text-[10px]">{warn}</span>
                           </div>
@@ -1017,7 +1031,7 @@ export default function XMLFormatterPage() {
                         <Check className="h-6 w-6 text-teal-400" />
                       </div>
                       <h4 className="text-xs font-bold text-zinc-200">All Semantic Rules Conformant</h4>
-                      <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">
+                      <p className="text-[10px] text-zinc-400 mt-1 max-w-xs leading-normal">
                         Your QuickFIX or FIXatdl Strategy XML document matches all checked schema limits and semantic references.
                       </p>
                     </div>
@@ -1025,10 +1039,22 @@ export default function XMLFormatterPage() {
                 </div>
               )}
             </div>
-          )}
-        </div>
 
-      </div>
+            {/* Footer */}
+            <div 
+              className="px-6 py-4 flex justify-end items-center shrink-0 animate-in fade-in"
+              style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}
+            >
+              <button
+                onClick={() => setIsAuditModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold rounded bg-[var(--primary)] text-zinc-950 hover:bg-[var(--primary-hover)] transition-all font-sans"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
