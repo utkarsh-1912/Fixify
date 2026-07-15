@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronsLeft,
   ChevronsRight,
+  ArrowRight,
   X
 } from "lucide-react";
 import { validateFIXMessage, getTagValue } from "@/lib/fixParser";
