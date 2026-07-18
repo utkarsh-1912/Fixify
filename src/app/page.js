@@ -1378,7 +1378,7 @@ export default function LogsProcessorPage() {
               {allocIds.length > 0 && (
                 <div className="flex items-center gap-1.5">
                   <span style={{ color: 'var(--text-muted)' }}>AllocID (70/72):</span>
-                  <span className="font-bold text-zinc-350">{allocIds.join(', ')}</span>
+                  <span className="font-bold text-zinc-350">{allocIds[0]}</span>
                   <button
                     onClick={() => setIsClOrdChainModalOpen(true)}
                     className="p-1 rounded transition-all flex items-center justify-center hover:bg-zinc-800/20"
