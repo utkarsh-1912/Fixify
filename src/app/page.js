@@ -596,10 +596,11 @@ export default function LogsProcessorPage() {
     const seedOrigClOrdID = selectedLineInfo.validation?.tags?.['41'];
     const seedOrderID = selectedLineInfo.validation?.tags?.['37'];
     const seedAllocID = selectedLineInfo.validation?.tags?.['70'];
+    const seedRefAllocID = selectedLineInfo.validation?.tags?.['72'];
     const seedIOIID = selectedLineInfo.validation?.tags?.['23'];
     const seedIOIRefID = selectedLineInfo.validation?.tags?.['26'];
 
-    if (!seedClOrdID && !seedOrigClOrdID && !seedOrderID && !seedAllocID && !seedIOIID && !seedIOIRefID) return [];
+    if (!seedClOrdID && !seedOrigClOrdID && !seedOrderID && !seedAllocID && !seedRefAllocID && !seedIOIID && !seedIOIRefID) return [];
 
     const clOrdIDs = new Set();
     const orderIDs = new Set();
@@ -616,6 +617,7 @@ export default function LogsProcessorPage() {
       if (seedOrigClOrdID) clOrdIDs.add(seedOrigClOrdID.toLowerCase());
     }
     if (seedAllocID) allocIDs.add(seedAllocID.toLowerCase());
+    if (seedRefAllocID) allocIDs.add(seedRefAllocID.toLowerCase());
     if (seedIOIID) ioiIDs.add(seedIOIID.toLowerCase());
     if (seedIOIRefID) ioiIDs.add(seedIOIRefID.toLowerCase());
 
@@ -634,13 +636,15 @@ export default function LogsProcessorPage() {
           const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : null;
           const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
           const lineAllocID = line.validation?.tags?.['70'] ? line.validation?.tags?.['70'].toLowerCase() : null;
+          const lineRefAllocID = line.validation?.tags?.['72'] ? line.validation?.tags?.['72'].toLowerCase() : null;
           const lineIOIID = line.validation?.tags?.['23'] ? line.validation?.tags?.['23'].toLowerCase() : null;
           const lineIOIRefID = line.validation?.tags?.['26'] ? line.validation?.tags?.['26'].toLowerCase() : null;
 
           const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
                                (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
           const matchesOrder = line.msgType !== 'D' && lineOrderID && orderIDs.has(lineOrderID);
-          const matchesAlloc = lineAllocID && allocIDs.has(lineAllocID);
+          const matchesAlloc = (lineAllocID && allocIDs.has(lineAllocID)) ||
+                               (lineRefAllocID && allocIDs.has(lineRefAllocID));
           const matchesIOI = (lineIOIID && ioiIDs.has(lineIOIID)) || (lineIOIRefID && ioiIDs.has(lineIOIRefID));
           const isMatch = matchesClOrd || matchesOrder || matchesAlloc || matchesIOI;
 
@@ -653,6 +657,7 @@ export default function LogsProcessorPage() {
               clOrdIDs.add(lineOrigClOrdID);
             }
             if (lineAllocID) allocIDs.add(lineAllocID);
+            if (lineRefAllocID) allocIDs.add(lineRefAllocID);
             if (lineIOIID) ioiIDs.add(lineIOIID);
             if (lineIOIRefID) ioiIDs.add(lineIOIRefID);
           }
@@ -671,13 +676,15 @@ export default function LogsProcessorPage() {
         const lineOrigClOrdID = line.validation?.tags?.['41'] ? line.validation?.tags?.['41'].toLowerCase() : null;
         const lineOrderID = line.validation?.tags?.['37'] ? line.validation?.tags?.['37'].toLowerCase() : null;
         const lineAllocID = line.validation?.tags?.['70'] ? line.validation?.tags?.['70'].toLowerCase() : null;
+        const lineRefAllocID = line.validation?.tags?.['72'] ? line.validation?.tags?.['72'].toLowerCase() : null;
         const lineIOIID = line.validation?.tags?.['23'] ? line.validation?.tags?.['23'].toLowerCase() : null;
         const lineIOIRefID = line.validation?.tags?.['26'] ? line.validation?.tags?.['26'].toLowerCase() : null;
 
         const matchesClOrd = (lineClOrdID && clOrdIDs.has(lineClOrdID)) || 
                              (lineOrigClOrdID && clOrdIDs.has(lineOrigClOrdID));
         const matchesOrder = line.msgType !== 'D' && lineOrderID && orderIDs.has(lineOrderID);
-        const matchesAlloc = lineAllocID && allocIDs.has(lineAllocID);
+        const matchesAlloc = (lineAllocID && allocIDs.has(lineAllocID)) ||
+                             (lineRefAllocID && allocIDs.has(lineRefAllocID));
         const matchesIOI = (lineIOIID && ioiIDs.has(lineIOIID)) || (lineIOIRefID && ioiIDs.has(lineIOIRefID));
         const isMatch = matchesClOrd || matchesOrder || matchesAlloc || matchesIOI;
 
@@ -732,6 +739,8 @@ export default function LogsProcessorPage() {
           }
         } else if (msgType === '6') {
           isTransition = true;
+        } else if (msgType === 'J' || msgType === 'AS' || m.validation?.tags?.['70'] || m.validation?.tags?.['72']) {
+          isTransition = true;
         }
         
         if (isTransition) {
@@ -752,6 +761,8 @@ export default function LogsProcessorPage() {
             id: m.id,
             clOrd,
             origClOrd,
+            allocID: m.validation?.tags?.['70'],
+            refAllocID: m.validation?.tags?.['72'],
             ioiID: m.validation?.tags?.['23'],
             ioiRefID: m.validation?.tags?.['26'],
             ioiTransType: m.validation?.tags?.['28'],
@@ -828,7 +839,7 @@ export default function LogsProcessorPage() {
 
     const allocIds = Array.from(new Set(
       lifecycleMsgs
-        .map(m => m.validation?.tags?.['70'])
+        .flatMap(m => [m.validation?.tags?.['70'], m.validation?.tags?.['72']])
         .filter(id => id && id.trim() !== "")
     ));
 
@@ -912,9 +923,17 @@ export default function LogsProcessorPage() {
             {orderIds.length > 0 && (allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
 
             {allocIds.length > 0 && (
-              <div className="flex items-center gap-1">
-                <span style={{ color: 'var(--text-muted)' }}>AllocID (Tag 70):</span>
+              <div className="flex items-center gap-1.5">
+                <span style={{ color: 'var(--text-muted)' }}>AllocID (70/72):</span>
                 <span className="font-bold text-zinc-350">{allocIds.join(', ')}</span>
+                <button
+                  onClick={() => setIsClOrdChainModalOpen(true)}
+                  className="p-1 rounded transition-all flex items-center justify-center hover:bg-zinc-800/20"
+                  style={{ color: 'var(--primary)' }}
+                  title="View AllocID Chain"
+                >
+                  <Info className="h-3.5 w-3.5 inline cursor-pointer" />
+                </button>
               </div>
             )}
             {allocIds.length > 0 && ioiIds.length > 0 && <span className="text-zinc-800">|</span>}
@@ -1233,7 +1252,7 @@ export default function LogsProcessorPage() {
 
     const allocIds = Array.from(new Set(
       lifecycleMsgs
-        .map(m => m.validation?.tags?.['70'])
+        .flatMap(m => [m.validation?.tags?.['70'], m.validation?.tags?.['72']])
         .filter(id => id && id.trim() !== "")
     ));
 
@@ -1357,9 +1376,17 @@ export default function LogsProcessorPage() {
               {orderIds.length > 0 && (allocIds.length > 0 || ioiIds.length > 0) && <span className="text-zinc-800">|</span>}
 
               {allocIds.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <span style={{ color: 'var(--text-muted)' }}>AllocID:</span>
+                <div className="flex items-center gap-1.5">
+                  <span style={{ color: 'var(--text-muted)' }}>AllocID (70/72):</span>
                   <span className="font-bold text-zinc-350">{allocIds.join(', ')}</span>
+                  <button
+                    onClick={() => setIsClOrdChainModalOpen(true)}
+                    className="p-1 rounded transition-all flex items-center justify-center hover:bg-zinc-800/20"
+                    style={{ color: 'var(--primary)' }}
+                    title="View AllocID Chain"
+                  >
+                    <Info className="h-3.5 w-3.5 inline cursor-pointer" />
+                  </button>
                 </div>
               )}
               {allocIds.length > 0 && ioiIds.length > 0 && <span className="text-zinc-800">|</span>}
@@ -2290,8 +2317,8 @@ export default function LogsProcessorPage() {
           </div>
 
           {/* Tab Selector */}
-          {(selectedLineInfo.clOrdID || selectedLineInfo.validation?.tags?.['37'] || selectedLineInfo.validation?.tags?.['70'] || selectedLineInfo.validation?.tags?.['23']) && (
-            <div className="flex border-b border-zinc-850 shrink-0 bg-zinc-950/20">
+          {(selectedLineInfo.clOrdID || selectedLineInfo.validation?.tags?.['37'] || selectedLineInfo.validation?.tags?.['70'] || selectedLineInfo.validation?.tags?.['72'] || selectedLineInfo.validation?.tags?.['23'] || selectedLineInfo.validation?.tags?.['26']) && (
+            <div className="flex border-b border-zinc-850 shrink-0 bg-zinc-955/20">
               <button
                 className={`flex-1 py-3 text-[10px] sm:text-xs font-semibold font-mono border-b-2 transition-all ${inspectorTab === 'details' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-350'}`}
                 onClick={() => setInspectorTab('details')}
@@ -2351,7 +2378,9 @@ export default function LogsProcessorPage() {
                   } else {
                     const tags = selectedLineInfo.validation?.tags || {};
                     if (tags['70']) fallbackIds.push({ label: "AllocID (Tag 70)", value: tags['70'] });
+                    if (tags['72']) fallbackIds.push({ label: "RefAllocID (Tag 72)", value: tags['72'] });
                     if (tags['23']) fallbackIds.push({ label: "IOIid (Tag 23)", value: tags['23'] });
+                    if (tags['26']) fallbackIds.push({ label: "IOIRefID (Tag 26)", value: tags['26'] });
                     if (tags['37']) fallbackIds.push({ label: "OrderID (Tag 37)", value: tags['37'] });
                     if (tags['117']) fallbackIds.push({ label: "QuoteID (Tag 117)", value: tags['117'] });
                     if (tags['17']) fallbackIds.push({ label: "ExecID (Tag 17)", value: tags['17'] });
@@ -2686,6 +2715,21 @@ function ClOrdIdChainModal({ isOpen, onClose, chain: sessionsData }) {
                                       <span className="font-bold select-all break-all text-right" style={{ color: 'var(--primary)' }}>
                                         {step.ioiTransType === 'N' ? 'New (N)' : step.ioiTransType === 'R' ? 'Replace (R)' : step.ioiTransType === 'C' ? 'Cancel (C)' : step.ioiTransType}
                                       </span>
+                                    </div>
+                                  )}
+                                </>
+                              ) : step.msgType === 'J' || step.msgType === 'AS' || step.allocID || step.refAllocID ? (
+                                <>
+                                  {step.refAllocID && (
+                                    <div className="flex justify-between gap-2">
+                                      <span style={{ color: 'var(--text-muted)' }}>RefAllocID (72):</span>
+                                      <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)', opacity: 0.8 }}>{step.refAllocID}</span>
+                                    </div>
+                                  )}
+                                  {step.allocID && (
+                                    <div className="flex justify-between gap-2">
+                                      <span style={{ color: 'var(--text-muted)' }}>AllocID (70):</span>
+                                      <span className="font-semibold select-all break-all text-right" style={{ color: 'var(--foreground)' }}>{step.allocID}</span>
                                     </div>
                                   )}
                                 </>
