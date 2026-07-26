@@ -1042,7 +1042,7 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
     <div className="max-w-screen-2xl mx-auto px-4 space-y-6">
       
       {/* Title */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-[var(--foreground)] flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-[var(--primary)]" />
