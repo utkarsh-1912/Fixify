@@ -1032,6 +1032,34 @@ export default function MultiHopCorrelationPage() {
     setManualLinks([]);
   };
 
+  const handleQuickLoad = () => {
+    let workspaceLogs = "";
+    if (typeof window !== "undefined") {
+      const pasted = localStorage.getItem("fixify-logs-pastedText");
+      if (pasted && pasted.trim()) {
+        workspaceLogs = pasted;
+      } else {
+        const filesJson = localStorage.getItem("fixify-logs-files");
+        if (filesJson) {
+          try {
+            const files = JSON.parse(filesJson);
+            if (Array.isArray(files) && files.length > 0) {
+              workspaceLogs = files.map(f => f.content || "").join("\n");
+            }
+          } catch (e) {}
+        }
+      }
+    }
+    if (workspaceLogs && workspaceLogs.trim()) {
+      setRawLogs(workspaceLogs);
+      setActiveInputTab('text');
+    } else {
+      setRawLogs(DEFAULT_LOGS);
+      setSelectedChainId(null);
+      setInspectedMessage(null);
+    }
+  };
+
   const handleSelectChain = (c) => {
     setSelectedChainId(prev => prev === c.id ? null : c.id);
   };
@@ -1066,31 +1094,24 @@ export default function MultiHopCorrelationPage() {
 
     return (
       <div className="fx-card space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-        {workspaceLines > 0 && (
-          <button
-            onClick={() => {
-              setRawLogs(workspaceLogs);
-              setActiveInputTab('text');
-            }}
-            className="w-full text-left p-3 rounded-lg border text-xs flex items-center justify-between transition-all hover:opacity-90 animate-in slide-in-from-top-1 duration-200"
-            style={{ background: 'var(--primary-faint)', borderColor: 'var(--primary-border)', color: 'var(--primary)' }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="font-semibold"> Load active logs from main workspace ({workspaceLines} lines)</span>
-            </div>
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--primary-border)', background: 'var(--background)' }}>Import</span>
-          </button>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="fx-section-label">Log Input Source</span>
-        <div className="fx-tab-group">
-          <button onClick={() => setActiveInputTab('upload')} className={`fx-tab ${activeInputTab === 'upload' ? 'active' : ''}`}>
-            <UploadCloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">File</span>
-          </button>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <span className="fx-section-label">Log Input Source</span>
+            {!rawLogs.trim() && (
+              <button
+                onClick={handleQuickLoad}
+                className="fx-btn-primary py-1 px-2.5 text-[10px] flex items-center gap-1 cursor-pointer"
+                title="Quick load workspace logs or demo logs"
+              >
+                <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                <span>Quick Load</span>
+              </button>
+            )}
+          </div>
+          <div className="fx-tab-group">
+            <button onClick={() => setActiveInputTab('upload')} className={`fx-tab ${activeInputTab === 'upload' ? 'active' : ''}`}>
+              <UploadCloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">File</span>
+            </button>
           <button onClick={() => setActiveInputTab('text')} className={`fx-tab ${activeInputTab === 'text' ? 'active' : ''}`}>
             <ClipboardList className="h-3.5 w-3.5" /><span className="hidden sm:inline">Paste</span>
           </button>
@@ -1197,14 +1218,7 @@ export default function MultiHopCorrelationPage() {
               )}
             </button>
           )}
-          {rawLogs.trim().length === 0 && (
-            <button
-              onClick={() => { setRawLogs(DEFAULT_LOGS); setSelectedChainId(null); setInspectedMessage(null); }}
-              className="fx-btn-secondary py-1.5 px-3 text-xs font-semibold"
-            >
-              Load Demo
-            </button>
-          )}
+
           {rawLogs.trim().length > 0 && (
             <button
               onClick={handleClearAll}

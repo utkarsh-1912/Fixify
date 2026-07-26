@@ -28,7 +28,8 @@ import {
   Menu,
   MoreVertical,
   Share2,
-  FileJson
+  FileJson,
+  RotateCcw
 } from "lucide-react";
 import { encryptMessage, decryptMessage } from "@/lib/cipher";
 import SohVisualizer from "@/components/SohVisualizer";
@@ -308,6 +309,19 @@ export default function RoomChatPage({ params }) {
         setIsPollingActive(true);
       } else {
         setIsPollingActive(false);
+      }
+
+      // Retrieve all active rooms dynamically from database/presence
+      const roomsRes = await fetch("/chat/api/messages");
+      if (roomsRes.ok) {
+        const roomsData = await roomsRes.json();
+        if (roomsData.rooms) {
+          setRecentRooms((prev) => {
+            const merged = Array.from(new Set([roomId, ...prev, ...roomsData.rooms])).slice(0, 15);
+            localStorage.setItem('fixify-chat-recentRooms', JSON.stringify(merged));
+            return merged;
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to fetch messages:", err);

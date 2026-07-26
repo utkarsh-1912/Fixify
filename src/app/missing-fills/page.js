@@ -17,7 +17,8 @@ import {
   ChevronRight,
   ChevronDown,
   TrendingUp,
-  HelpCircle
+  HelpCircle,
+  Sparkles
 } from "lucide-react";
 import { validateFIXMessage, getValueMeaning, getTagName } from "@/lib/fixParser";
 import SohVisualizer from "@/components/SohVisualizer";
@@ -269,6 +270,8 @@ export default function MissingFillsPage() {
 
   const [fixRawText, setFixRawText] = useState("");
   const [fixFileName, setFixFileName] = useState("");
+  const [workspaceLogs, setWorkspaceLogs] = useState("");
+  const [workspaceLines, setWorkspaceLines] = useState(0);
   
   const [matchedResults, setMatchedResults] = useState([]);
   const [fixFillsList, setFixFillsList] = useState([]);
@@ -370,6 +373,24 @@ export default function MissingFillsPage() {
   // Load cached settings and raw data on initial mount
   useEffect(() => {
     try {
+      let logs = "";
+      const pasted = localStorage.getItem("fixify-logs-pastedText");
+      if (pasted && pasted.trim()) {
+        logs = pasted;
+      } else {
+        const filesJson = localStorage.getItem("fixify-logs-files");
+        if (filesJson) {
+          try {
+            const files = JSON.parse(filesJson);
+            if (Array.isArray(files) && files.length > 0) {
+              logs = files.map(f => f.content || "").join("\n");
+            }
+          } catch (e) {}
+        }
+      }
+      setWorkspaceLogs(logs);
+      setWorkspaceLines(logs ? logs.split("\n").filter(l => l.trim()).length : 0);
+
       const cachedBlotterRaw = localStorage.getItem("fixify_blotter_raw");
       const cachedBlotterName = localStorage.getItem("fixify_blotter_name");
       const cachedMappings = localStorage.getItem("fixify_column_mappings");
@@ -486,6 +507,66 @@ export default function MissingFillsPage() {
     };
     reader.readAsText(file);
   }, []);
+
+  const handleLoadDemo = () => {
+    const demoBlotter = `OrderID,ClientOrdID,ExecID,Symbol,Side,OrderQty,Price,CumQty,AvgPx,OrderStatus,ExecType
+ORD_1001,CLORD_1001,EXEC_1001,AAPL,Buy,500,180.50,500,180.50,Filled,Filled
+ORD_1002,CLORD_1002,EXEC_1002,MSFT,Sell,200,420.00,100,420.00,PartiallyFilled,PartiallyFilled
+ORD_1003,CLORD_1003,EXEC_1003,GOOG,Buy,300,175.20,300,175.20,Filled,Filled
+ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
+    
+    const demoFix = `8=FIX.4.4|9=145|35=8|34=2|49=SERVER|56=CLIENT|11=CLORD_1001|37=ORD_1001|17=EXEC_1001|150=2|39=2|55=AAPL|54=1|38=500|44=180.50|32=500|31=180.50|151=0|60=20260716-12:00:00|10=088|
+8=FIX.4.4|9=145|35=8|34=3|49=SERVER|56=CLIENT|11=CLORD_1002|37=ORD_1002|17=EXEC_1002|150=1|39=1|55=MSFT|54=2|38=200|44=420.00|32=100|31=420.00|151=100|60=20260716-12:00:05|10=092|`;
+
+    setBlotterRawText(demoBlotter);
+    const parsed = parseCSV(demoBlotter);
+    setBlotterRows(parsed.rows);
+    setBlotterHeaders(parsed.headers);
+    setBlotterDelimiter(parsed.delimiter);
+    setBlotterFileName("Demo Blotter Data");
+
+    setFixRawText(demoFix);
+    setFixFileName("Demo Execution Reports");
+    setFixInputMode("paste");
+  };
+
+  const handleQuickLoad = () => {
+    let workspaceLogs = "";
+    if (typeof window !== "undefined") {
+      const pasted = localStorage.getItem("fixify-logs-pastedText");
+      if (pasted && pasted.trim()) {
+        workspaceLogs = pasted;
+      } else {
+        const filesJson = localStorage.getItem("fixify-logs-files");
+        if (filesJson) {
+          try {
+            const files = JSON.parse(filesJson);
+            if (Array.isArray(files) && files.length > 0) {
+              workspaceLogs = files.map(f => f.content || "").join("\n");
+            }
+          } catch (e) {}
+        }
+      }
+    }
+    if (workspaceLogs && workspaceLogs.trim()) {
+      setFixRawText(workspaceLogs);
+      setFixFileName("Imported Main Workspace Logs");
+      setFixInputMode("paste");
+      const demoBlotter = `OrderID,ClientOrdID,ExecID,Symbol,Side,OrderQty,Price,CumQty,AvgPx,OrderStatus,ExecType
+ORD_1001,CLORD_1001,EXEC_1001,AAPL,Buy,500,180.50,500,180.50,Filled,Filled
+ORD_1002,CLORD_1002,EXEC_1002,MSFT,Sell,200,420.00,100,420.00,PartiallyFilled,PartiallyFilled
+ORD_1003,CLORD_1003,EXEC_1003,GOOG,Buy,300,175.20,300,175.20,Filled,Filled
+ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
+      setBlotterRawText(demoBlotter);
+      const parsed = parseCSV(demoBlotter);
+      setBlotterRows(parsed.rows);
+      setBlotterHeaders(parsed.headers);
+      setBlotterDelimiter(parsed.delimiter);
+      setBlotterFileName("Matching Blotter Data");
+    } else {
+      handleLoadDemo();
+    }
+  };
 
   // Reset all
   const handleClear = () => {
@@ -972,31 +1053,44 @@ export default function MissingFillsPage() {
           </p>
         </div>
         
-        {matchedResults.length > 0 && (
-          <div className="flex items-center gap-2">
-            {filteredResults.length > 0 && (
-              <button
-                onClick={handleExportCSV}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export {activeTab === 'all' ? 'All' : activeTab === 'missing' ? 'Missing' : activeTab === 'unmapped' ? 'Unmapped' : 'Matched'} CSV
-              </button>
-            )}
+        <div className="flex items-center gap-2">
+          {matchedResults.length === 0 && (
             <button
-              onClick={handleClear}
-              className="px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors hover:bg-[var(--primary-faint)]"
-              style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              onClick={handleQuickLoad}
+              className="px-3 py-1.5 bg-[var(--primary)] hover:opacity-90 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-all"
             >
-              Reset
+              <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+              Quick Load
             </button>
-          </div>
-        )}
+          )}
+          {matchedResults.length > 0 && (
+            <>
+              {filteredResults.length > 0 && (
+                <button
+                  onClick={handleExportCSV}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export {activeTab === 'all' ? 'All' : activeTab === 'missing' ? 'Missing' : activeTab === 'unmapped' ? 'Unmapped' : 'Matched'} CSV
+                </button>
+              )}
+              <button
+                onClick={handleClear}
+                className="px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors hover:bg-[var(--primary-faint)]"
+                style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              >
+                Reset
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {matchedResults.length === 0 ? (
-        /* Data Imports Grid */
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          
+          {/* Data Imports Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Column 1: Blotter Data */}
           <div className="flex flex-col rounded-xl border p-5 space-y-4" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
@@ -1093,7 +1187,10 @@ export default function MissingFillsPage() {
                   <div 
                     {...getBlotterRootProps()} 
                     className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-2 flex-1 min-h-[160px] bg-zinc-900/10 hover:opacity-90`}
-                    style={{ borderColor: 'var(--border)' }}
+                    style={{
+                      borderColor: isBlotterDragActive ? 'var(--primary)' : 'var(--border)',
+                      background: isBlotterDragActive ? 'var(--primary-faint)' : 'transparent',
+                    }}
                   >
                     <input {...getBlotterInputProps()} />
                     <UploadCloud className="h-8 w-8 text-zinc-500" style={{ color: 'var(--text-muted)' }} />
@@ -1264,7 +1361,10 @@ export default function MissingFillsPage() {
                   <div 
                     {...getFixRootProps()} 
                     className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-2 flex-1 min-h-[160px] bg-zinc-900/10 hover:opacity-90`}
-                    style={{ borderColor: 'var(--border)' }}
+                    style={{
+                      borderColor: isFixDragActive ? 'var(--primary)' : 'var(--border)',
+                      background: isFixDragActive ? 'var(--primary-faint)' : 'transparent',
+                    }}
                   >
                     <input {...getFixInputProps()} />
                     <UploadCloud className="h-8 w-8 text-zinc-500" style={{ color: 'var(--text-muted)' }} />
@@ -1309,6 +1409,7 @@ export default function MissingFillsPage() {
             )}
           </div>
         </div>
+      </div>
       ) : (
         /* Results Section */
         <div className="space-y-6">

@@ -1834,9 +1834,9 @@ export default function BinaryDecoderPage() {
                 <p className="font-bold text-[var(--foreground)]">Usage Guidelines:</p>
                 <ul className="list-disc pl-4 space-y-1 text-[var(--text-muted)] text-[11px] leading-relaxed">
                   <li><strong>Select Preset:</strong> Choose a preset (e.g., CME SBE or OPRA FAST) to automatically load demo schemas and payloads.</li>
-                  <li><strong>Custom Payloads:</strong> Paste any raw Hex bytes in the "Paste Hex" input field, choose the protocol type, edit your XML schema, and click <strong>Decode Binary Payload</strong>.</li>
+                  <li><strong>Custom Payloads:</strong> Paste any raw Hex bytes in the &quot;Paste Hex&quot; input field, choose the protocol type, edit your XML schema, and click <strong>Decode Binary Payload</strong>.</li>
                   <li><strong>Hex Dump Inspector:</strong> Hover over fields in the decoded table to view their byte boundaries highlighted in the grid. Double-click any byte cell to edit it directly.</li>
-                  <li><strong>Payload Compiler:</strong> Edit values in the "Payload Compiler" tab and click "Compile to HEX" to re-encode standard tag-value segments or binary frames.</li>
+                  <li><strong>Payload Compiler:</strong> Edit values in the &quot;Payload Compiler&quot; tab and click &quot;Compile to HEX&quot; to re-encode standard tag-value segments or binary frames.</li>
                 </ul>
               </div>
             </div>

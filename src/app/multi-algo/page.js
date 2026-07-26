@@ -1549,7 +1549,7 @@ export default function MultiAlgoStudio() {
             {paperTrades.length === 0 ? (
               <div className="p-8 text-center text-[var(--text-muted)] text-xs space-y-1.5">
                 <p className="font-semibold text-zinc-400">No active paper positions in database</p>
-                <p className="text-[10px]">Use the "Simulate" tools in the cockpit details to open simulated long/short trades.</p>
+                <p className="text-[10px]">Use the &quot;Simulate&quot; tools in the cockpit details to open simulated long/short trades.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">

@@ -815,14 +815,14 @@ export default function XMLFormatterPage() {
                 <button 
                   onClick={handleDownload} 
                   title="Download XML"
-                  className="p-1.5 rounded hover:bg-zinc-850 text-zinc-400 hover:text-zinc-202 transition-all outline-none border-l border-zinc-800/80"
+                  className="p-1.5 rounded hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200 transition-all outline-none border-l border-zinc-800/80"
                 >
                   <Download className="h-3.5 w-3.5" />
                 </button>
                 <button 
                   onClick={handleCopy} 
                   title="Copy XML"
-                  className="p-1.5 rounded hover:bg-zinc-855 text-zinc-400 hover:text-zinc-205 transition-all outline-none border-l border-zinc-800/80"
+                  className="p-1.5 rounded hover:bg-zinc-855 text-zinc-400 hover:text-zinc-200 transition-all outline-none border-l border-zinc-800/80"
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-[var(--primary)]" />

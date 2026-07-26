@@ -788,6 +788,34 @@ export default function SecurityAuditorPage() {
     triggerAudit(DEMO_LOGS, activeRules, enforceExchange, exchangeVenue);
   };
 
+  const handleQuickLoad = () => {
+    let workspaceLogs = "";
+    if (typeof window !== "undefined") {
+      const pasted = localStorage.getItem("fixify-logs-pastedText");
+      if (pasted && pasted.trim()) {
+        workspaceLogs = pasted;
+      } else {
+        const filesJson = localStorage.getItem("fixify-logs-files");
+        if (filesJson) {
+          try {
+            const files = JSON.parse(filesJson);
+            if (Array.isArray(files) && files.length > 0) {
+              workspaceLogs = files.map(f => f.content || "").join("\n");
+            }
+          } catch (e) {}
+        }
+      }
+    }
+    if (workspaceLogs && workspaceLogs.trim()) {
+      setRawLogs(workspaceLogs);
+      setFileName('');
+      setInputMode('paste');
+      triggerAudit(workspaceLogs, activeRules, enforceExchange, exchangeVenue);
+    } else {
+      handleLoadDemo();
+    }
+  };
+
   const handleClear = () => {
     setRawLogs('');
     setFileName('');
@@ -900,7 +928,16 @@ export default function SecurityAuditorPage() {
         </div>
 
         <div className="flex items-center gap-2">
-
+          {!rawLogs.trim() && (
+            <button
+              onClick={handleQuickLoad}
+              className="fx-btn-primary py-1.5 px-3 flex items-center gap-1.5 cursor-pointer"
+              title="Quick load active session logs or demo logs"
+            >
+              <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+              <span>Quick Load</span>
+            </button>
+          )}
           {/* Audit button */}
           <button
             onClick={handleRunAudit}
@@ -916,46 +953,7 @@ export default function SecurityAuditorPage() {
 
       {/* Input area */}
       <div className="p-5 space-y-4">
-        {(() => {
-          let workspaceLogs = "";
-          if (typeof window !== "undefined") {
-            const pasted = localStorage.getItem("fixify-logs-pastedText");
-            if (pasted && pasted.trim()) {
-              workspaceLogs = pasted;
-            } else {
-              const filesJson = localStorage.getItem("fixify-logs-files");
-              if (filesJson) {
-                try {
-                  const files = JSON.parse(filesJson);
-                  if (Array.isArray(files) && files.length > 0) {
-                    workspaceLogs = files.map(f => f.content || "").join("\n");
-                  }
-                } catch (e) {}
-              }
-            }
-          }
-          const workspaceLines = workspaceLogs ? workspaceLogs.split("\n").filter(l => l.trim()).length : 0;
-          if (workspaceLines === 0) return null;
-          return (
-            <button
-              onClick={() => {
-                setRawLogs(workspaceLogs);
-                setInputMode('paste');
-              }}
-              className="w-full text-left p-3 rounded-lg border text-xs flex items-center justify-between transition-all hover:opacity-90 animate-in slide-in-from-top-1 duration-200"
-              style={{ background: 'var(--primary-faint)', borderColor: 'var(--primary-border)', color: 'var(--primary)' }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="font-semibold"> Load active logs from main workspace ({workspaceLines} lines)</span>
-              </div>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--primary-border)', background: 'var(--background)' }}>Import</span>
-            </button>
-          );
-        })()}
+
 
         {inputMode === "file" ? (
           <div
@@ -1026,14 +1024,7 @@ export default function SecurityAuditorPage() {
           </div>
         )}
 
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={handleLoadDemo}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10"
-          >
-            <Zap className="h-3.5 w-3.5 animate-pulse" /> Load Demo Logs
-          </button>
-        </div>
+
       </div>
     </div>
   );

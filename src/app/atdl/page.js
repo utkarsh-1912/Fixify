@@ -1200,8 +1200,8 @@ function ParameterMapTable({ parameters, values, search, setSearch }) {
 
 /* ─── XML Content Modal ─── */
 function XmlContentModal({ isOpen, onClose, content, onChange, onParse, errors, parsed }) {
-  if (!isOpen) return null;
   const [activeTab, setActiveTab] = React.useState('editor');
+  if (!isOpen) return null;
   const lineCount = content ? content.split('\n').length : 0;
 
   return (

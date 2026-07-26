@@ -521,6 +521,33 @@ export default function LatencyDashboard() {
     processLatencyLogs(SAMPLE_LATENCY_LOGS);
   };
 
+  const handleQuickLoad = () => {
+    let workspaceLogs = "";
+    if (typeof window !== "undefined") {
+      const pasted = localStorage.getItem("fixify-logs-pastedText");
+      if (pasted && pasted.trim()) {
+        workspaceLogs = pasted;
+      } else {
+        const filesJson = localStorage.getItem("fixify-logs-files");
+        if (filesJson) {
+          try {
+            const files = JSON.parse(filesJson);
+            if (Array.isArray(files) && files.length > 0) {
+              workspaceLogs = files.map(f => f.content || "").join("\n");
+            }
+          } catch (e) {}
+        }
+      }
+    }
+    if (workspaceLogs && workspaceLogs.trim()) {
+      setPastedText(workspaceLogs);
+      setInputMode("paste");
+      processLatencyLogs(workspaceLogs);
+    } else {
+      loadSampleData();
+    }
+  };
+
   const clearAll = () => {
     setFiles([]);
     setPastedText("");
@@ -1120,52 +1147,17 @@ export default function LatencyDashboard() {
                   <FileText className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Paste logs</span>
                 </button>
               </div>
-              <button onClick={loadSampleData} className="fx-btn-primary py-1 px-3 text-[10px]">
-                Load Sample logs
+              <button
+                onClick={handleQuickLoad}
+                className="fx-btn-primary py-1 px-3 text-[10px] flex items-center gap-1.5 cursor-pointer"
+                title="Quick load active session logs or demo sample logs"
+              >
+                <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                <span>Quick Load</span>
               </button>
             </div>
 
             <div className="p-6">
-              {(() => {
-                let workspaceLogs = "";
-                if (typeof window !== "undefined") {
-                  const pasted = localStorage.getItem("fixify-logs-pastedText");
-                  if (pasted && pasted.trim()) {
-                    workspaceLogs = pasted;
-                  } else {
-                    const filesJson = localStorage.getItem("fixify-logs-files");
-                    if (filesJson) {
-                      try {
-                        const files = JSON.parse(filesJson);
-                        if (Array.isArray(files) && files.length > 0) {
-                          workspaceLogs = files.map(f => f.content || "").join("\n");
-                        }
-                      } catch (e) {}
-                    }
-                  }
-                }
-                const workspaceLines = workspaceLogs ? workspaceLogs.split("\n").filter(l => l.trim()).length : 0;
-                if (workspaceLines === 0) return null;
-                return (
-                  <button
-                    onClick={() => {
-                      setPastedText(workspaceLogs);
-                      setInputMode("paste");
-                    }}
-                    className="w-full text-left p-3 rounded-lg border text-xs flex items-center justify-between transition-all hover:opacity-90 mb-4 animate-in slide-in-from-top-1 duration-200"
-                    style={{ background: 'var(--primary-faint)', borderColor: 'var(--primary-border)', color: 'var(--primary)' }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                      </span>
-                      <span className="font-semibold"> Load active logs from main workspace ({workspaceLines} lines)</span>
-                    </div>
-                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--primary-border)', background: 'var(--background)' }}>Import</span>
-                  </button>
-                );
-              })()}
 
               {inputMode === "file" ? (
                 <div

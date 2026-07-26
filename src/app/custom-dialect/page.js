@@ -353,11 +353,11 @@ export default function CustomDialectPage() {
               <div className="space-y-2">
                 <p className="font-bold text-[var(--foreground)]">How to use:</p>
                 <ul className="list-disc pl-4 space-y-1 text-[var(--text-muted)] text-[11px] leading-relaxed">
-                  <li><strong>Upload File:</strong> Click "Choose Schema File" to import a standard <code>.xml</code> QuickFIX dictionary file containing field definitions and enum values.</li>
-                  <li><strong>Paste Schema:</strong> Switch to the "Paste" tab to directly paste raw XML dictionary text and click "Load XML Dialect".</li>
+                  <li><strong>Upload File:</strong> Click &quot;Choose Schema File&quot; to import a standard <code>.xml</code> QuickFIX dictionary file containing field definitions and enum values.</li>
+                  <li><strong>Paste Schema:</strong> Switch to the &quot;Paste&quot; tab to directly paste raw XML dictionary text and click &quot;Load XML Dialect&quot;.</li>
                   <li><strong>Active Indicator:</strong> A successful load will display the parsed dialect version and count of fields. The dialect becomes active globally.</li>
                   <li><strong>Tag Dictionary Explorer:</strong> Browse, filter, and inspect the parsed custom tags, types, and enum descriptions in the table.</li>
-                  <li><strong>Revert:</strong> Click "Remove" inside the active card to erase custom configurations and fall back to standard FIX protocol tags.</li>
+                  <li><strong>Revert:</strong> Click &quot;Remove&quot; inside the active card to erase custom configurations and fall back to standard FIX protocol tags.</li>
                 </ul>
               </div>
             </div>

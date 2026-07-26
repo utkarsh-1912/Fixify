@@ -15,7 +15,10 @@ export async function GET(request) {
   const username = searchParams.get("username");
 
   if (!roomId) {
-    const activeRooms = Object.keys(global.chatMessagesDb || {});
+    const activeRooms = Array.from(new Set([
+      ...Object.keys(global.chatMessagesDb || {}),
+      ...Object.keys(global.chatAnalyticsDb || {})
+    ]));
     return NextResponse.json({ rooms: activeRooms });
   }
 

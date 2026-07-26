@@ -13,6 +13,7 @@ import {
   CornerDownLeft,
   BookOpen,
   Maximize2,
+  Minimize2,
   Columns,
   Layout,
   ChevronRight,
@@ -157,6 +158,7 @@ export default function CodeRunnerPage() {
   const [descriptionText, setDescriptionText] = useState(defaultDescription);
   const [activeModal, setActiveModal] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
 
   // Per-language slot — everything stored together, keyed by lang name
   // shape: { python: { mode, code, stdin, description }, cpp: {...}, java: {...} }
@@ -392,7 +394,7 @@ export default function CodeRunnerPage() {
     border: '1px solid var(--border)',
     borderRadius: '0.75rem',
     overflow: 'hidden',
-    height: '66vh',
+    height: isFocusMode ? 'calc(100vh - 75px)' : '66vh',
     position: 'relative'
   } : {
     display: 'flex',
@@ -400,94 +402,127 @@ export default function CodeRunnerPage() {
     gap: '12px'
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="fx-page-header flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2.5" style={{ color: 'var(--foreground)' }}>
-            <div
-              className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
+  const renderToolbar = () => (
+    <div className="flex flex-wrap items-center gap-4 w-full justify-between sm:justify-start">
+      <div className="flex flex-wrap items-center gap-4">
+        {/* Layout panes selector */}
+        <div className="flex items-center gap-2">
+          <span className="fx-section-label md:hidden">Layout:</span>
+          <div className="fx-tab-group">
+            <button
+              type="button"
+              className={`fx-tab${layoutPaneCount === 3 ? ' active' : ''} px-2 py-1`}
+              onClick={switchToThreePaneLayout}
+              title="3 Panes Layout"
             >
-              <Terminal className="h-5 w-5" style={{ color: 'var(--primary)' }} />
-            </div>
-            Code Sandbox
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Write FIX parser templates in Python, C++, or Java and execute with stdin streams.
-          </p>
-        </div>
-
-        <div className="fx-toolbar">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Layout panes selector */}
-            <div className="flex items-center gap-2">
-              <span className="fx-section-label md:hidden">Layout:</span>
-              <div className="fx-tab-group">
-                <button
-                  type="button"
-                  className={`fx-tab${layoutPaneCount === 3 ? ' active' : ''} px-2.5 py-1.5`}
-                  onClick={switchToThreePaneLayout}
-                  title="3 Panes Layout"
-                >
-                  <Columns className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className={`fx-tab${layoutPaneCount === 4 ? ' active' : ''} px-2.5 py-1.5`}
-                  onClick={switchToFourPaneLayout}
-                  title="4 Panes Layout"
-                >
-                  <Layout className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Language selector */}
-            <div className="flex items-center gap-2 md:border-l border-[var(--border)] md:pl-4">
-              <span className="fx-section-label">Language:</span>
-              <select
-                value={lang}
-                onChange={(e) => {
-                  const selected = e.target.value;
-                  if (selected === lang) return;
-                  // Save current panels for the old language as 'custom'
-                  const currentSlot = {
-                    mode: perLang[lang]?.mode === 'default' || perLang[lang]?.mode === 'skeleton'
-                      ? perLang[lang].mode : 'custom',
-                    code,
-                    stdin,
-                    description: descriptionText,
-                  };
-                  const updatedStore = { ...perLang, [lang]: currentSlot };
-                  setPerLang(updatedStore);
-                  // Now apply the new language from the store
-                  applyLang(selected, updatedStore);
-                }}
-                className="fx-input py-1.5"
-              >
-                <option value="python">Python 3</option>
-                <option value="cpp">C++ (GCC)</option>
-                <option value="java">Java (OpenJDK)</option>
-              </select>
-            </div>
-
-            <div className="flex gap-2">
-              <button onClick={handleDefault} className="fx-btn-secondary" title="Load default template for current language">
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={handleClear} className="fx-btn-secondary" title="Clear all — empty editor, stdin and output">
-                <Eraser className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={run} disabled={running} className="fx-btn-primary" title="Run Code">
-                <Play className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{running ? 'Compiling…' : 'Run Code'}</span>
-              </button>
-            </div>
+              <Columns className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              className={`fx-tab${layoutPaneCount === 4 ? ' active' : ''} px-2 py-1`}
+              onClick={switchToFourPaneLayout}
+              title="4 Panes Layout"
+            >
+              <Layout className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
+
+        {/* Language selector */}
+        <div className="flex items-center gap-2 md:border-l border-[var(--border)] md:pl-4">
+          <span className="fx-section-label">Language:</span>
+          <select
+            value={lang}
+            onChange={(e) => {
+              const selected = e.target.value;
+              if (selected === lang) return;
+              const currentSlot = {
+                mode: perLang[lang]?.mode === 'default' || perLang[lang]?.mode === 'skeleton'
+                  ? perLang[lang].mode : 'custom',
+                code,
+                stdin,
+                description: descriptionText,
+              };
+              const updatedStore = { ...perLang, [lang]: currentSlot };
+              setPerLang(updatedStore);
+              applyLang(selected, updatedStore);
+            }}
+            className="fx-input py-1 px-2 text-xs"
+          >
+            <option value="python">Python 3</option>
+            <option value="cpp">C++ (GCC)</option>
+            <option value="java">Java (OpenJDK)</option>
+          </select>
+        </div>
       </div>
+
+      <div className="flex gap-2 ml-auto sm:ml-0">
+        {/* Focus Mode toggle */}
+        {!isFocusMode && (
+          <button
+            type="button"
+            onClick={() => setIsFocusMode(true)}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer fx-btn-secondary"
+            title="Enter Focus Mode (Fullscreen)"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+
+        <button onClick={handleDefault} className="fx-btn-secondary py-1 px-2" title="Load default template">
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={handleClear} className="fx-btn-secondary py-1 px-2" title="Clear all">
+          <Eraser className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={run} disabled={running} className="fx-btn-primary py-1 px-3 text-xs font-semibold" title="Run Code">
+          <Play className="h-3.5 w-3.5" />
+          <span>{running ? 'Compiling…' : 'Run'}</span>
+        </button>
+      </div>
+
+      {isFocusMode && (
+        <button
+          type="button"
+          onClick={() => setIsFocusMode(false)}
+          className="p-1.5 rounded-lg border border-[var(--primary-border)] bg-[var(--primary-faint)] text-[var(--primary)] transition-all cursor-pointer hover:bg-[var(--primary-border)] shrink-0 ml-auto"
+          title="Exit Focus Mode (Fullscreen)"
+        >
+          <Minimize2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <div className={isFocusMode ? "fixed inset-0 z-[99999] bg-zinc-950 p-3 flex flex-col space-y-3 overflow-hidden" : "space-y-6"}>
+      {/* Header / Toolbar */}
+      {isFocusMode ? (
+        <div className="fx-toolbar shrink-0" style={{ border: 'none', background: 'transparent', padding: '4px 0' }}>
+          {renderToolbar()}
+        </div>
+      ) : (
+        <div className="fx-page-header flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2.5" style={{ color: 'var(--foreground)' }}>
+              <div
+                className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
+              >
+                <Terminal className="h-5 w-5" style={{ color: 'var(--primary)' }} />
+              </div>
+              Code Sandbox
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Write FIX parser templates in Python, C++, or Java and execute with stdin streams.
+            </p>
+          </div>
+
+          <div className="fx-toolbar">
+            {renderToolbar()}
+          </div>
+        </div>
+      )}
 
       {/* Editor & Console Grid Layout */}
       {layoutPaneCount === 4 ? (

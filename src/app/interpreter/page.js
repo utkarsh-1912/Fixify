@@ -927,7 +927,7 @@ export default function InterpreterPage() {
                   <div className="space-y-1">
                     <h4 className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>Role & Architecture</h4>
                     <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                      Gemini 2.5 Flash is Google's high-speed multimodal reasoning model. It operates online, parsing large text streams to diagnose complex, multi-layered log traces.
+                      Gemini 2.5 Flash is Google&apos;s high-speed multimodal reasoning model. It operates online, parsing large text streams to diagnose complex, multi-layered log traces.
                     </p>
                   </div>
 

@@ -15,17 +15,55 @@ import {
   Activity,
   Flag,
   X,
-  ArrowUpRight
+  ArrowUpRight,
+  Settings,
+  Layers
 } from "lucide-react";
 
 // Seed data with realistic FIX conformance milestones, subtasks, priorities, and history
-const initialTasks = {
-  todo: [],
-  doing: [],
-  done: []
-};
+const initialTasks = [
+  {
+    id: "TASK-101",
+    title: "Implement Heartbeat (35=0) Verification",
+    description: "Verify that heartbeat messages are sent at the defined HeartBtInt interval and handle test requests.",
+    status: "todo",
+    row: "default",
+    assignee: "Alex",
+    priority: "high",
+    subtasks: [
+      { text: "Heartbeat response logic", completed: true },
+      { text: "Missed heartbeat timeout", completed: false }
+    ],
+    comments: [],
+    history: [{ text: "Task created", timestamp: new Date().toISOString() }]
+  },
+  {
+    id: "TASK-102",
+    title: "Implement Test Request (35=1) Logic",
+    description: "Send test requests if heartbeat has not been received and verify the response contains matching TestReqID.",
+    status: "doing",
+    row: "default",
+    assignee: "Emma",
+    priority: "medium",
+    subtasks: [],
+    comments: [],
+    history: [{ text: "Task created", timestamp: new Date().toISOString() }]
+  },
+  {
+    id: "TASK-103",
+    title: "Verify Logon (35=A) Sequence Reset",
+    description: "Ensure ResetSeqNumFlag (141=Y) behavior is correct when establishing new session connection.",
+    status: "done",
+    row: "default",
+    assignee: "Sofia",
+    priority: "low",
+    subtasks: [],
+    comments: [],
+    history: [{ text: "Task created", timestamp: new Date().toISOString() }]
+  }
+];
 
-const COLUMN_CONFIG = {
+const DEFAULT_COLUMN_CONFIG = {
   todo:  { label: 'To Do',       color: '#3b82f6', bg: 'rgba(59,130,246,0.06)'  },
   doing: { label: 'In Progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.06)'  },
   done:  { label: 'Completed',   color: 'var(--primary)', bg: 'var(--primary-faint)' },
@@ -59,54 +97,22 @@ function getPriorityBadgeStyles(priority) {
   }
 }
 
-function DroppableColumn({ id, tasks, onTaskClick, allTasksList }) {
-  const { setNodeRef } = useDroppable({ id });
-  const cfg = COLUMN_CONFIG[id];
+function DroppableCell({ rowId, colId, columnConfig, tasks, onTaskClick, allTasksList }) {
+  const cellId = `${rowId}::${colId}`;
+  const { setNodeRef, isOver } = useDroppable({ id: cellId });
 
   return (
     <div
       ref={setNodeRef}
-      className="flex flex-col rounded-2xl overflow-hidden backdrop-blur-md animate-fade-in"
+      className="flex-1 min-h-[160px] p-4 transition-colors duration-200 min-w-[280px] lg:min-w-0"
       style={{
-        border: '1px solid var(--border)',
-        borderTop: `4px solid ${cfg.color}`,
-        background: 'rgba(9, 9, 11, 0.05)',
-        minHeight: 520,
-        boxShadow: `0 8px 32px 0 rgba(0, 0, 0, 0.3), 0 0 15px ${cfg.color}10`,
+        background: isOver ? `${columnConfig.color}0a` : 'transparent',
       }}
     >
-      {/* Column header */}
-      <div
-        className="px-5 py-3.5 flex items-center justify-between"
-        style={{ borderBottom: '1px solid var(--border)', background: 'rgba(9, 9, 11, 0.2)' }}
-      >
-        <div className="flex items-center gap-2">
-          <div className="h-2.5 w-2.5 rounded-full" style={{ background: cfg.color }} />
-          <span className="text-xs font-bold font-mono uppercase tracking-wider" style={{ color: cfg.color }}>
-            {cfg.label}
-          </span>
-        </div>
-        <span
-          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-          style={{
-            background: 'var(--background)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-mono)'
-          }}
-        >
-          {tasks.length}
-        </span>
-      </div>
-
-      {/* Tasks list */}
-      <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+      <div className="space-y-3">
         {tasks.length === 0 && (
-          <div
-            className="flex items-center justify-center py-10 rounded-xl text-xs italic"
-            style={{ border: '2px dashed var(--border)', color: 'var(--text-muted)' }}
-          >
-            No matching tasks
+          <div className="h-full min-h-[120px] flex items-center justify-center rounded-xl text-[10px] text-zinc-600 border border-dashed border-zinc-800/40 bg-zinc-900/5 select-none">
+            Drop here
           </div>
         )}
         {tasks.map(task => (
@@ -263,13 +269,16 @@ function DraggableTask({ id, task, onClick, allTasksList }) {
   );
 }
 
-function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] }) {
+function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [], columnsConfig = {}, rowsConfig = [] }) {
   const isEditing = !!task;
+  const firstColKey = Object.keys(columnsConfig)[0] || "todo";
+  const firstRowKey = rowsConfig[0]?.id || "default";
 
   // Form states
   const [title, setTitle] = useState(task?.title || "");
   const [desc, setDesc] = useState(task?.description || "");
-  const [status, setStatus] = useState(task?.status || "todo");
+  const [status, setStatus] = useState(task?.status || firstColKey);
+  const [rowId, setRowId] = useState(task?.row || firstRowKey);
   const [assignee, setAssignee] = useState(task?.assignee || "");
   const [priority, setPriority] = useState(task?.priority || "medium");
   const [blockedBy, setBlockedBy] = useState(task?.blockedBy || []);
@@ -289,7 +298,8 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] 
   useEffect(() => {
     setTitle(task?.title || "");
     setDesc(task?.description || "");
-    setStatus(task?.status || "todo");
+    setStatus(task?.status || Object.keys(columnsConfig)[0] || "todo");
+    setRowId(task?.row || rowsConfig[0]?.id || "default");
     setAssignee(task?.assignee || "");
     setPriority(task?.priority || "medium");
     setBlockedBy(task?.blockedBy || []);
@@ -298,7 +308,7 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] 
     setNewSubtaskText("");
     setNewCommentText("");
     setActiveTab("details");
-  }, [task]);
+  }, [task, columnsConfig, rowsConfig]);
 
   if (!isOpen) return null;
 
@@ -350,6 +360,7 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] 
       if (task.title !== title.trim()) logEvent("Title updated");
       if (task.priority !== priority) logEvent(`Priority changed: ${task.priority} → ${priority}`);
       if (task.status !== status) logEvent(`Status moved: ${task.status} → ${status}`);
+      if (task.row !== rowId) logEvent(`Swimlane changed: ${task.row || 'default'} → ${rowId}`);
       if (task.assignee !== assignee.trim()) logEvent(`Assignee changed: ${task.assignee || 'Unassigned'} → ${assignee.trim() || 'Unassigned'}`);
     } else {
       updatedHistory.push({ text: "Task created", timestamp: new Date().toISOString() });
@@ -361,6 +372,7 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] 
       description: desc.trim(),
       assignee: assignee.trim(),
       status,
+      row: rowId,
       priority,
       subtasks,
       comments,
@@ -492,11 +504,24 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] 
                     value={status} onChange={(e) => setStatus(e.target.value)}
                     className={inputCls} style={{ ...inputSty, fontFamily: 'var(--font-mono)' }}
                   >
-                    <option value="todo">To Do</option>
-                    <option value="doing">In Progress</option>
-                    <option value="done">Done</option>
+                    {Object.keys(columnsConfig).map(colId => (
+                      <option key={colId} value={colId}>{columnsConfig[colId].label}</option>
+                    ))}
                   </select>
                 </div>
+                {rowsConfig && rowsConfig.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="fx-section-label">Swimlane / Row</label>
+                    <select
+                      value={rowId} onChange={(e) => setRowId(e.target.value)}
+                      className={inputCls} style={{ ...inputSty, fontFamily: 'var(--font-mono)' }}
+                    >
+                      {rowsConfig.map(r => (
+                        <option key={r.id} value={r.id}>{r.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="fx-section-label">Priority</label>
                   <select
@@ -715,8 +740,11 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [] 
 }
 
 export default function KanbanPage() {
+  const [columns, setColumns] = useState(DEFAULT_COLUMN_CONFIG);
+  const [rows, setRows] = useState([{ id: 'default', label: 'General' }]);
   const [tasks, setTasks] = useState(initialTasks);
   const [modalOpen, setModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [activeId, setActiveId] = useState(null);
 
@@ -725,33 +753,60 @@ export default function KanbanPage() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const activeTask = activeId ? Object.values(tasks).flat().find(t => t.id === activeId) : null;
+  const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
 
-
-
-  // Load tasks from localStorage on mount
+  // Load tasks, columns, rows from localStorage on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const savedTasks = localStorage.getItem('fixify-kanban-tasks');
+    const savedColumns = localStorage.getItem('fixify-kanban-columns');
+    const savedRows = localStorage.getItem('fixify-kanban-rows');
+    
+    if (savedColumns) {
+      try {
+        setColumns(JSON.parse(savedColumns));
+      } catch (e) {}
+    }
+    if (savedRows) {
+      try {
+        setRows(JSON.parse(savedRows));
+      } catch (e) {}
+    }
     if (savedTasks) {
       try {
-        setTasks(JSON.parse(savedTasks));
+        const parsed = JSON.parse(savedTasks);
+        if (parsed && !Array.isArray(parsed)) {
+          // Migrate old nested format to flat array
+          const flat = [];
+          Object.keys(parsed).forEach(colId => {
+            if (Array.isArray(parsed[colId])) {
+              parsed[colId].forEach(t => {
+                flat.push({ ...t, status: colId, row: t.row || 'default' });
+              });
+            }
+          });
+          setTasks(flat);
+        } else if (Array.isArray(parsed)) {
+          setTasks(parsed);
+        }
       } catch (e) {
-        console.error("Failed to parse saved tasks", e);
+        setTasks(initialTasks);
       }
+    } else {
+      setTasks(initialTasks);
     }
     setIsLoaded(true);
   }, []);
 
-  // Save tasks to localStorage on change
+  // Save tasks, columns, rows to localStorage on change
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
     try {
       localStorage.setItem('fixify-kanban-tasks', JSON.stringify(tasks));
-    } catch (e) {
-      console.warn("Could not save kanban tasks", e);
-    }
-  }, [tasks, isLoaded]);
+      localStorage.setItem('fixify-kanban-columns', JSON.stringify(columns));
+      localStorage.setItem('fixify-kanban-rows', JSON.stringify(rows));
+    } catch (e) {}
+  }, [tasks, columns, rows, isLoaded]);
 
   // Configure pointer sensor to distinguish between clicks and drags
   const sensors = useSensors(
@@ -770,42 +825,43 @@ export default function KanbanPage() {
     setActiveId(null);
     const { over, active } = event;
     if (!over) return;
-    const fromCol = Object.keys(tasks).find(col => tasks[col].some(t => t.id === active.id));
-    const toCol = over.id;
-    if (fromCol === toCol) return;
-    const task = tasks[fromCol].find(t => t.id === active.id);
-    const newFrom = tasks[fromCol].filter(t => t.id !== active.id);
-
-    // Append to timeline log
+    
+    const [toRow, toCol] = over.id.split('::');
+    const task = tasks.find(t => t.id === active.id);
+    if (!task) return;
+    
+    const fromCol = task.status;
+    const fromRow = task.row || 'default';
+    if (fromCol === toCol && fromRow === toRow) return;
+    
     const updatedHistory = task.history
-      ? [...task.history, { text: `Moved column: ${fromCol} → ${toCol}`, timestamp: new Date().toISOString() }]
-      : [{ text: `Moved column: ${fromCol} → ${toCol}`, timestamp: new Date().toISOString() }];
-
-    const updatedTask = {
-      ...task,
-      status: toCol,
-      history: updatedHistory
-    };
-
-    setTasks({ ...tasks, [fromCol]: newFrom, [toCol]: [...tasks[toCol], updatedTask] });
+      ? [...task.history, { text: `Moved: ${fromCol}/${fromRow} → ${toCol}/${toRow}`, timestamp: new Date().toISOString() }]
+      : [{ text: `Moved: ${fromCol}/${fromRow} → ${toCol}/${toRow}`, timestamp: new Date().toISOString() }];
+      
+    setTasks(prev => prev.map(t => t.id === active.id ? { ...t, status: toCol, row: toRow, history: updatedHistory } : t));
   };
 
   const saveTask = (task) => {
     setTasks(prev => {
-      let updated = { ...prev };
-      Object.keys(updated).forEach(col => (updated[col] = updated[col].filter(t => t.id !== task.id)));
-      updated[task.status] = [...updated[task.status], task];
-      return updated;
+      const idx = prev.findIndex(t => t.id === task.id);
+      if (idx >= 0) {
+        return prev.map(t => t.id === task.id ? task : t);
+      } else {
+        return [...prev, task];
+      }
     });
   };
 
-  const deleteTask = (id, columnId) => {
-    setTasks(prev => ({ ...prev, [columnId]: prev[columnId].filter(t => t.id !== id) }));
+  const deleteTask = (id) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
   };
 
-  // Filter tasks based on search text and priority filter
-  const getFilteredTasks = (columnId) => {
-    return (tasks[columnId] || []).filter(task => {
+  const getCellTasks = (rowId, colId) => {
+    return tasks.filter(task => {
+      const isStatusMatch = task.status === colId;
+      const isRowMatch = (task.row || 'default') === rowId;
+      if (!isStatusMatch || !isRowMatch) return false;
+      
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (task.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -834,16 +890,25 @@ export default function KanbanPage() {
             Kanban Tasks
           </h1>
           <p className="text-sm font-sans" style={{ color: 'var(--text-muted)' }}>
-            Track implementation progress, conformance milestones, and team debug sessions.
+            Track implementation progress, conformance milestones, and team swimlanes.
           </p>
         </div>
-        <button
-          onClick={() => { setSelectedTask(null); setModalOpen(true); }}
-          className="fx-btn-primary shrink-0"
-          title="New Task"
-        >
-          <Plus className="h-4 w-4" /> <span className="inline">New Task</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="fx-btn-secondary py-1.5 px-3 flex items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0"
+            title="Configure columns and swimlanes"
+          >
+            <Settings className="h-4 w-4" /> <span>Board Settings</span>
+          </button>
+          <button
+            onClick={() => { setSelectedTask(null); setModalOpen(true); }}
+            className="fx-btn-primary shrink-0"
+            title="New Task"
+          >
+            <Plus className="h-4 w-4" /> <span className="inline">New Task</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Filter Toolbar */}
@@ -892,7 +957,7 @@ export default function KanbanPage() {
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
-            className="text-[10px] font-bold font-mono px-3 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-850 text-zinc-400 flex items-center gap-1 transition-colors"
+            className="text-[10px] font-bold font-mono px-3 py-2 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-850 text-zinc-400 flex items-center gap-1 transition-colors cursor-pointer"
             title="Clear Filters"
           >
             <Trash2 className="h-3 w-3" /> <span className="hidden sm:inline">Clear Filters</span>
@@ -901,27 +966,170 @@ export default function KanbanPage() {
       </div>
 
       {/* Grid Canvas */}
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {['todo', 'doing', 'done'].map(col => (
-            <DroppableColumn
-              key={col}
-              id={col}
-              tasks={getFilteredTasks(col)}
-              onTaskClick={(task) => { setSelectedTask(task); setModalOpen(true); }}
-              allTasksList={Object.values(tasks).flat()}
-            />
-          ))}
-        </div>
+      {/* Desktop Grid Board (hidden on mobile/tablet) */}
+      <div className="hidden lg:block">
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="w-full overflow-x-auto pb-4">
+            <div 
+              className="border rounded-2xl bg-zinc-950/20 overflow-hidden flex flex-col backdrop-blur-md min-w-[900px] lg:min-w-0 border-[var(--border)]"
+            >
+              {/* Top Header Row for Column Names */}
+              <div className="flex border-b bg-zinc-900/40 select-none border-[var(--border)]">
+                {Object.keys(columns).map(col => {
+                  const cfg = columns[col];
+                  return (
+                    <div 
+                      key={col} 
+                      className="flex-1 px-5 py-4 flex items-center justify-between border-r last:border-r-0 border-[var(--border)] min-w-[280px] lg:min-w-0"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: cfg.color }} />
+                        <span className="text-xs font-bold font-mono uppercase tracking-wider truncate" style={{ color: cfg.color }}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-900 border text-zinc-400 border-[var(--border)]">
+                        {tasks.filter(t => t.status === col).length}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
 
-        <DragOverlay>
-          {activeId && activeTask ? (
-            <div style={{ transform: 'rotate(2deg)', opacity: 0.95, cursor: 'grabbing' }}>
-              <TaskCard task={activeTask} allTasksList={Object.values(tasks).flat()} />
+              {/* Rows / Swimlanes */}
+              <div className="divide-y divide-[var(--border)] border-[var(--border)]">
+                {rows.map(row => {
+                  const rowTasks = tasks.filter(t => (t.row || 'default') === row.id);
+                  return (
+                    <div key={row.id} className="flex flex-col">
+                      {/* Swimlane Header (only if multiple rows exist) */}
+                      {rows.length > 1 && (
+                        <div 
+                          className="px-5 py-2.5 bg-zinc-900/10 border-b flex items-center justify-between border-[var(--border)]"
+                        >
+                          <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                            <Layers className="h-3.5 w-3.5 text-[var(--primary)]" />
+                            {row.label}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            {rowTasks.length} {rowTasks.length === 1 ? 'task' : 'tasks'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Columns Cells row */}
+                      <div className="flex divide-r divide-[var(--border)]">
+                        {Object.keys(columns).map(col => {
+                          const cellTasks = getCellTasks(row.id, col);
+                          return (
+                            <DroppableCell
+                              key={col}
+                              rowId={row.id}
+                              colId={col}
+                              columnConfig={columns[col]}
+                              tasks={cellTasks}
+                              onTaskClick={(task) => { setSelectedTask(task); setModalOpen(true); }}
+                              allTasksList={tasks}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          </div>
+
+          <DragOverlay>
+            {activeId && activeTask ? (
+              <div style={{ transform: 'rotate(2deg)', opacity: 0.95, cursor: 'grabbing' }}>
+                <TaskCard task={activeTask} allTasksList={tasks} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+
+      {/* Mobile Stacked Board (vertical columns list, active on mobile) */}
+      <div className="flex lg:hidden flex-col gap-6">
+        {Object.keys(columns).map(col => {
+          const colTasks = tasks.filter(t => t.status === col);
+          const colConfig = columns[col];
+          return (
+            <div 
+              key={col} 
+              className="border rounded-2xl bg-zinc-950/20 overflow-hidden flex flex-col"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              {/* Column Header */}
+              <div 
+                className="px-5 py-3.5 flex items-center justify-between border-b bg-zinc-900/40"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: colConfig.color }} />
+                  <span className="text-xs font-bold font-mono uppercase tracking-wider" style={{ color: colConfig.color }}>
+                    {colConfig.label}
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-900 border text-zinc-400 border-[var(--border)]">
+                  {colTasks.length}
+                </span>
+              </div>
+
+              {/* Column Body - Tasks grouped by Swimlanes */}
+              <div className="p-4 space-y-4">
+                {colTasks.length === 0 ? (
+                  <div className="py-6 flex items-center justify-center rounded-xl text-[10px] text-zinc-500 border border-dashed border-zinc-800/40 bg-zinc-900/5 select-none font-mono">
+                    No tasks in this column
+                  </div>
+                ) : (
+                  rows.map(row => {
+                    const cellTasks = colTasks.filter(t => {
+                      const isRowMatch = (t.row || 'default') === row.id;
+                      
+                      // Also apply toolbar search/filters
+                      const matchesSearch =
+                        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (t.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (t.assignee || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        t.id.toLowerCase().includes(searchQuery.toLowerCase());
+
+                      const matchesPriority =
+                        priorityFilter === "all" || t.priority === priorityFilter;
+
+                      return isRowMatch && matchesSearch && matchesPriority;
+                    });
+                    
+                    if (cellTasks.length === 0 && rows.length <= 1) return null;
+                    return (
+                      <div key={row.id} className="space-y-2">
+                        {rows.length > 1 && (
+                          <div className="flex items-center gap-1.5 px-1 py-0.5">
+                            <Layers className="h-3 w-3 text-[var(--primary)]" />
+                            <span className="text-[10px] font-bold text-zinc-400 font-mono">{row.label}</span>
+                          </div>
+                        )}
+                        <div className="space-y-3">
+                          {cellTasks.map(task => (
+                            <TaskCard 
+                              key={task.id} 
+                              task={task} 
+                              onClick={() => { setSelectedTask(task); setModalOpen(true); }}
+                              allTasksList={tasks} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Task Modal Editor */}
       {modalOpen && (
@@ -931,9 +1139,287 @@ export default function KanbanPage() {
           onSave={saveTask}
           onDelete={deleteTask}
           task={selectedTask}
-          allTasksList={Object.values(tasks).flat()}
+          allTasksList={tasks}
+          columnsConfig={columns}
+          rowsConfig={rows}
         />
       )}
+
+      {/* Board Settings Modal */}
+      {settingsOpen && (
+        <BoardSettingsModal
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          columns={columns}
+          setColumns={setColumns}
+          rows={rows}
+          setRows={setRows}
+          tasks={tasks}
+          setTasks={setTasks}
+        />
+      )}
+    </div>
+  );
+}
+
+function BoardSettingsModal({ 
+  isOpen, 
+  onClose, 
+  columns, 
+  setColumns, 
+  rows, 
+  setRows, 
+  tasks, 
+  setTasks 
+}) {
+  const [activeTab, setActiveTab] = useState('columns'); // 'columns' | 'rows'
+  const [newColName, setNewColName] = useState('');
+  const [newColColor, setNewColColor] = useState('#3b82f6');
+  const [newRowName, setNewRowName] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleAddColumn = () => {
+    if (!newColName.trim()) return;
+    const colId = `col-${Date.now()}`;
+    setColumns(prev => ({
+      ...prev,
+      [colId]: {
+        label: newColName.trim(),
+        color: newColColor,
+        bg: `${newColColor}0a`
+      }
+    }));
+    setNewColName('');
+  };
+
+  const handleRenameColumn = (colId, label) => {
+    if (!label.trim()) return;
+    setColumns(prev => ({
+      ...prev,
+      [colId]: {
+        ...prev[colId],
+        label: label.trim()
+      }
+    }));
+  };
+
+  const handleColorChange = (colId, color) => {
+    setColumns(prev => ({
+      ...prev,
+      [colId]: {
+        ...prev[colId],
+        color,
+        bg: `${color}0a`
+      }
+    }));
+  };
+
+  const handleDeleteColumn = (colId) => {
+    const colKeys = Object.keys(columns);
+    if (colKeys.length <= 1) {
+      alert("You must keep at least one column.");
+      return;
+    }
+    const targetCol = colKeys.find(k => k !== colId);
+    
+    // Move tasks in this column to targetCol
+    setTasks(prev => prev.map(t => t.status === colId ? { ...t, status: targetCol } : t));
+    
+    setColumns(prev => {
+      const copy = { ...prev };
+      delete copy[colId];
+      return copy;
+    });
+  };
+
+  const handleAddRow = () => {
+    if (!newRowName.trim()) return;
+    const rowId = `row-${Date.now()}`;
+    setRows(prev => [...prev, { id: rowId, label: newRowName.trim() }]);
+    setNewRowName('');
+  };
+
+  const handleRenameRow = (rowId, label) => {
+    if (!label.trim()) return;
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, label: label.trim() } : r));
+  };
+
+  const handleDeleteRow = (rowId) => {
+    if (rows.length <= 1) {
+      alert("You must keep at least one swimlane row.");
+      return;
+    }
+    const targetRow = rows.find(r => r.id !== rowId).id;
+    
+    // Move tasks in this row to targetRow
+    setTasks(prev => prev.map(t => (t.row || 'default') === rowId ? { ...t, row: targetRow } : t));
+    
+    setRows(prev => prev.filter(r => r.id !== rowId));
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4 animate-fade-in">
+      <div 
+        className="w-full max-w-lg rounded-2xl border flex flex-col max-h-[90vh] overflow-hidden shadow-2xl"
+        style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+      >
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)] font-mono flex items-center gap-2">
+            <Settings className="h-4 w-4 text-[var(--primary)]" />
+            Board Settings
+          </h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Tabs switcher */}
+        <div className="flex border-b" style={{ borderColor: 'var(--border)' }}>
+          <button
+            onClick={() => setActiveTab('columns')}
+            className={`flex-1 py-3 text-center text-xs font-mono font-bold uppercase border-b-2 transition-all cursor-pointer ${
+              activeTab === 'columns' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            Columns
+          </button>
+          <button
+            onClick={() => setActiveTab('rows')}
+            className={`flex-1 py-3 text-center text-xs font-mono font-bold uppercase border-b-2 transition-all cursor-pointer ${
+              activeTab === 'rows' ? 'border-[var(--primary)] text-[var(--primary)] bg-zinc-900/10' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            Swimlane Rows
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {activeTab === 'columns' ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Current Columns</span>
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                  {Object.keys(columns).map(colId => {
+                    const col = columns[colId];
+                    return (
+                      <div key={colId} className="flex items-center gap-3 p-2 rounded-xl bg-zinc-900/40 border border-zinc-800">
+                        <input
+                          type="color"
+                          value={col.color.startsWith('var') ? '#00e676' : col.color}
+                          onChange={(e) => handleColorChange(colId, e.target.value)}
+                          className="w-6 h-6 rounded-lg cursor-pointer border-none bg-transparent"
+                        />
+                        <input
+                          type="text"
+                          value={col.label}
+                          onChange={(e) => handleRenameColumn(colId, e.target.value)}
+                          className="flex-1 px-2.5 py-1 bg-zinc-950/60 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-lg text-xs font-semibold text-zinc-200"
+                        />
+                        <button
+                          onClick={() => handleDeleteColumn(colId)}
+                          className="p-1.5 text-zinc-500 hover:text-red-400 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Column"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="h-px bg-zinc-850" />
+
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Add New Column</span>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={newColColor}
+                    onChange={(e) => setNewColColor(e.target.value)}
+                    className="w-8 h-8 rounded-lg cursor-pointer border-none bg-transparent self-center"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Column Label (e.g. Code Review)"
+                    value={newColName}
+                    onChange={(e) => setNewColName(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-zinc-950/60 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-lg text-xs font-semibold text-zinc-200"
+                  />
+                  <button
+                    onClick={handleAddColumn}
+                    className="fx-btn-primary px-3 py-1.5 text-xs font-semibold shrink-0 cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Current Swimlanes</span>
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                  {rows.map(row => (
+                    <div key={row.id} className="flex items-center gap-3 p-2 rounded-xl bg-zinc-900/40 border border-zinc-800">
+                      <div className="h-6 w-6 rounded-lg flex items-center justify-center bg-zinc-950 text-zinc-400">
+                        <Layers className="h-3.5 w-3.5 text-zinc-500" />
+                      </div>
+                      <input
+                        type="text"
+                        value={row.label}
+                        onChange={(e) => handleRenameRow(row.id, e.target.value)}
+                        className="flex-1 px-2.5 py-1 bg-zinc-950/60 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-lg text-xs font-semibold text-zinc-200"
+                      />
+                      <button
+                        onClick={() => handleDeleteRow(row.id)}
+                        className="p-1.5 text-zinc-500 hover:text-red-400 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Swimlane"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-zinc-850" />
+
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-mono">Add New Swimlane</span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Swimlane Name (e.g. Sprint 2 / Critical Fixes)"
+                    value={newRowName}
+                    onChange={(e) => setNewRowName(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-zinc-950/60 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-lg text-xs font-semibold text-zinc-200"
+                  />
+                  <button
+                    onClick={handleAddRow}
+                    className="fx-btn-primary px-3 py-1.5 text-xs font-semibold shrink-0 cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3.5 border-t flex justify-end" style={{ borderColor: 'var(--border)' }}>
+          <button
+            onClick={onClose}
+            className="fx-btn-secondary px-4 py-1.5 text-xs font-semibold cursor-pointer"
+          >
+            Close Settings
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
