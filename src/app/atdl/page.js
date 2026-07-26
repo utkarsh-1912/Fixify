@@ -2113,7 +2113,7 @@ export default function ATDLRendererPage() {
         {/* ── Page Header ── */}
         <div className={`fx-page-header flex flex-col md:flex-row md:items-start justify-between gap-3 ${!isValid ? 'max-w-2xl mx-auto' : ''}`}>
           <div className={`space-y-1 ${!isValid ? 'text-center md:text-left w-full' : ''}`}>
-            <h1 className='text-xl font-bold tracking-tight flex items-center justify-center md:justify-start gap-2' style={{ color: 'var(--foreground)' }}>
+            <h1 className='text-xl font-bold tracking-tight flex items-center justify-start gap-2' style={{ color: 'var(--foreground)' }}>
               <div className='h-8 w-8 rounded-lg flex items-center justify-center shrink-0'
                 style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
               >

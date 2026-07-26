@@ -1137,7 +1137,7 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                     </span>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-3 text-[11px]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
                     {TARGET_FIELDS.map(field => (
                       <div key={field.key} className="flex flex-col gap-1">
                         <span className="text-[var(--text-muted)] font-medium">{field.label}:</span>
@@ -1757,8 +1757,8 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                   <div className="space-y-3.5">
                     <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block">Comparison Matrix</span>
                     
-                    <div className="space-y-2 text-[11px] font-mono">
-                      <div className="grid grid-cols-3 pb-1 text-zinc-500 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="space-y-2 text-[10px] sm:text-xs font-mono">
+                      <div className="grid grid-cols-3 pb-1 text-zinc-500 border-b text-[10px] sm:text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
                         <span>Field</span>
                         <span>FIX Log</span>
                         <span>Blotter</span>
@@ -1793,7 +1793,7 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                       ].map((row, idx) => {
                         const isDiscrepancy = row.fix !== 'N/A' && row.blotter !== 'N/A' && String(row.fix).toLowerCase() !== String(row.blotter).toLowerCase();
                         return (
-                          <div key={idx} className="grid grid-cols-3 py-1 font-mono items-center">
+                          <div key={idx} className="grid grid-cols-3 py-1 font-mono items-center text-[10px] sm:text-xs">
                             <span className="text-[var(--text-muted)]">{row.label}</span>
                             <span className="text-[var(--foreground)] truncate pr-2">{row.fix}</span>
                             <span className={`truncate ${isDiscrepancy ? 'text-amber-400 font-bold' : 'text-zinc-400'}`}>
