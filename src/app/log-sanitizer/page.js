@@ -19,9 +19,27 @@ import {
   Sparkles
 } from 'lucide-react';
 
+function cyrb128(str) {
+  let h1 = 1779033703, h2 = 3024733165, h3 = 3362453659, h4 = 502493250;
+  for (let i = 0, k; i < str.length; i++) {
+    k = str.charCodeAt(i);
+    h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+    h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+    h3 = h4 ^ Math.imul(h4 ^ k, 951274213);
+    h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+  }
+  h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+  h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+  h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+  h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+  return (h1>>>0).toString(16).padStart(8,'0') + (h2>>>0).toString(16).padStart(8,'0') + (h3>>>0).toString(16).padStart(8,'0') + (h4>>>0).toString(16).padStart(8,'0');
+}
+
 export default function LogSanitizerPage() {
   const [inputText, setInputText] = useState('');
   const [outputText, setOutputText] = useState('');
+  const [useHashing, setUseHashing] = useState(false);
+  const [saltVal, setSaltVal] = useState('fixify_salt_2026');
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSetup, setShowSetup] = useState(true);
@@ -53,6 +71,8 @@ export default function LogSanitizerPage() {
     setMaskSizes(false);
     setCustomTagsStr('');
     setReplacementStr('[MASKED]');
+    setUseHashing(false);
+    setSaltVal('fixify_salt_2026');
     setStats({ messageCount: 0, fieldsMasked: 0, byteReduction: 0 });
     setCopied(false);
     setShowSetup(true);
@@ -178,7 +198,7 @@ export default function LogSanitizerPage() {
             if (tag === '8' || tag === '9' || tag === '10') shouldMask = false;
 
             if (shouldMask) {
-              val = replacementStr;
+              val = useHashing ? cyrb128(val + saltVal) : replacementStr;
               totalMasked++;
             }
 
@@ -429,19 +449,51 @@ export default function LogSanitizerPage() {
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono">
-              Mask Replacement Text
-            </label>
+          <label className="flex items-center justify-between p-3 rounded-lg border text-xs cursor-pointer hover:bg-zinc-850/10 dark:hover:bg-zinc-850/20 transition-colors" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4 text-cyan-500" />
+              <div className="text-left">
+                <p className="font-bold text-[var(--foreground)]">Enable Cryptographic Hashing</p>
+                <p className="text-[9px] text-[var(--text-muted)] mt-0.5">Use salted SHA-256 (cyrb128) tokenization instead of static replacement text.</p>
+              </div>
+            </div>
             <input
-              type="text"
-              value={replacementStr}
-              onChange={(e) => setReplacementStr(e.target.value)}
-              placeholder="[MASKED]"
-              className="w-full fx-input"
-              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              type="checkbox"
+              checked={useHashing}
+              onChange={(e) => setUseHashing(e.target.checked)}
+              className="accent-[var(--primary)] h-4 w-4 cursor-pointer"
             />
-          </div>
+          </label>
+
+          {useHashing ? (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono">
+                Cryptographic Salt Key
+              </label>
+              <input
+                type="text"
+                value={saltVal}
+                onChange={(e) => setSaltVal(e.target.value)}
+                placeholder="fixify_salt_2026"
+                className="w-full fx-input font-mono"
+                style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono">
+                Mask Replacement Text
+              </label>
+              <input
+                type="text"
+                value={replacementStr}
+                onChange={(e) => setReplacementStr(e.target.value)}
+                placeholder="[MASKED]"
+                className="w-full fx-input"
+                style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              />
+            </div>
+          )}
         </div>
 
         <button

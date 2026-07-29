@@ -186,6 +186,22 @@ export default function BinaryDecoderPage() {
   const [statsModalOpen, setStatsModalOpen] = useState(false);
 
   const fileInputRef = useRef(null);
+  const schemaFileInputRef1 = useRef(null);
+  const schemaFileInputRef2 = useRef(null);
+  const schemaFileInputRef3 = useRef(null);
+  const [schemaFileName, setSchemaFileName] = useState('');
+
+  const handleSchemaFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSchemaFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setXmlTemplate(event.target.result);
+      setSuccessMsg(`Loaded Schema: ${file.name}`);
+    };
+    reader.readAsText(file);
+  };
 
   // Load preset data
   const handlePresetSelect = (key) => {
@@ -1218,7 +1234,26 @@ export default function BinaryDecoderPage() {
 
                   {encoding !== 'ascii_hex' && (
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-zinc-400 font-sans">XML Schema Definition</label>
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-semibold text-zinc-400 font-sans">XML Schema Definition</label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); schemaFileInputRef1.current?.click(); }}
+                            className="text-[10px] font-bold text-[var(--primary)] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer"
+                          >
+                            <UploadCloud className="h-3 w-3" />
+                            {schemaFileName ? `Replace (${schemaFileName.slice(0, 15)})` : 'Upload Schema File'}
+                          </button>
+                          <input
+                            type="file"
+                            ref={schemaFileInputRef1}
+                            onChange={handleSchemaFileUpload}
+                            accept=".xml,.txt"
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
                       <textarea
                         value={xmlTemplate}
                         onChange={(e) => setXmlTemplate(e.target.value)}
@@ -1275,7 +1310,26 @@ export default function BinaryDecoderPage() {
 
                   {encoding !== 'ascii_hex' && (
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-zinc-400 font-sans">XML Schema Definition</label>
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-semibold text-zinc-400 font-sans">XML Schema Definition</label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); schemaFileInputRef2.current?.click(); }}
+                            className="text-[10px] font-bold text-[var(--primary)] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer"
+                          >
+                            <UploadCloud className="h-3 w-3" />
+                            {schemaFileName ? `Replace (${schemaFileName.slice(0, 15)})` : 'Upload Schema File'}
+                          </button>
+                          <input
+                            type="file"
+                            ref={schemaFileInputRef2}
+                            onChange={handleSchemaFileUpload}
+                            accept=".xml,.txt"
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
                       <textarea
                         value={xmlTemplate}
                         onChange={(e) => setXmlTemplate(e.target.value)}
@@ -1373,13 +1427,29 @@ export default function BinaryDecoderPage() {
                       <option value="ascii_hex">Standard FIX Message (ASCII Hex)</option>
                     </select>
                   </div>
-
-                  {/* XML Schema Editor (Conditional) */}
+                                 {/* XML Schema Editor (Conditional) */}
                   {encoding !== 'ascii_hex' && (
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <label className="text-xs font-semibold text-zinc-400 font-sans">XML Schema Definition</label>
-                        <span className="text-[9px] font-mono text-zinc-655 bg-zinc-900 border border-zinc-850 px-2 py-0.5 rounded">XML</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); schemaFileInputRef3.current?.click(); }}
+                            className="text-[10px] font-bold text-[var(--primary)] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer"
+                          >
+                            <UploadCloud className="h-3 w-3" />
+                            {schemaFileName ? `Replace (${schemaFileName.slice(0, 10)})` : 'Upload Schema File'}
+                          </button>
+                          <input
+                            type="file"
+                            ref={schemaFileInputRef3}
+                            onChange={handleSchemaFileUpload}
+                            accept=".xml,.txt"
+                            className="hidden"
+                          />
+                          <span className="text-[9px] font-mono text-zinc-655 bg-zinc-900 border border-zinc-850 px-2 py-0.5 rounded">XML</span>
+                        </div>
                       </div>
                       <textarea
                         value={xmlTemplate}

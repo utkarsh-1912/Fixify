@@ -294,6 +294,7 @@ export default function LatencyDashboard() {
   const [hoveredPoint, setHoveredPoint] = useState(null); // Chart tooltip details
   const [loading, setLoading] = useState(false);
   const [expandedChart, setExpandedChart] = useState(null); // "timeline", "distribution" or null
+  const [distributionMode, setDistributionMode] = useState('stddev'); // 'stddev' | 'cdf'
   const [percentileScale, setPercentileScale] = useState("max"); // "max", "99", "95", "90"
   const [hideOutliersFromTable, setHideOutliersFromTable] = useState(false);
 
@@ -1033,6 +1034,152 @@ export default function LatencyDashboard() {
     );
   };
 
+  const renderCDFCurve = () => {
+    const allDataPoints = activeTab === "hop" 
+      ? parsedData.filter(d => d.hopLatency !== null)
+      : rttPairs;
+
+    const dataPoints = zoomRange 
+      ? allDataPoints.slice(zoomRange.start, zoomRange.end + 1)
+      : allDataPoints;
+
+    if (dataPoints.length === 0) {
+      return (
+        <div className="h-48 flex items-center justify-center border border-dashed rounded-xl" style={{ borderColor: "var(--border)" }}>
+          <p className="text-xs font-mono text-[var(--text-muted)]">No data for CDF</p>
+        </div>
+      );
+    }
+
+    const values = activeTab === "hop" 
+      ? dataPoints.map(d => d.hopLatency)
+      : dataPoints.map(d => d.rttMicroseconds);
+
+    const sorted = [...values].sort((a, b) => a - b);
+    const count = sorted.length;
+
+    // Calculate percentiles
+    const getPercentileVal = (pct) => {
+      const idx = Math.min(count - 1, Math.floor((pct / 100) * count));
+      return sorted[idx] || 0;
+    };
+
+    const p50 = getPercentileVal(50);
+    const p90 = getPercentileVal(90);
+    const p95 = getPercentileVal(95);
+    const p99 = getPercentileVal(99);
+    const p999 = getPercentileVal(99.9);
+    const max = sorted[count - 1] || 1;
+
+    // Let's filter outlier cutoffs to keep CDF graph scalable
+    const limitMax = p999 * 1.2 || max;
+
+    const svgWidth = 380;
+    const svgHeight = 180;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 30;
+
+    const chartWidth = svgWidth - paddingLeft - paddingRight;
+    const chartHeight = svgHeight - paddingTop - paddingBottom;
+
+    // Plot coordinates for CDF curve:
+    // X-axis: Latency from 0 to limitMax
+    // Y-axis: Percentile from 0 to 1
+    const steps = 100;
+    let pathD = "";
+    for (let i = 0; i <= steps; i++) {
+      const pct = (i / steps) * 100;
+      const val = getPercentileVal(pct);
+      const x = paddingLeft + (Math.min(val, limitMax) / limitMax) * chartWidth;
+      const y = paddingTop + chartHeight - (pct / 100) * chartHeight;
+      pathD += (i === 0 ? "M" : " L") + ` ${x} ${y}`;
+    }
+
+    // Helper coordinates for percentile markers
+    const getMarkerCoords = (val, pct) => {
+      const x = paddingLeft + (Math.min(val, limitMax) / limitMax) * chartWidth;
+      const y = paddingTop + chartHeight - (pct / 100) * chartHeight;
+      return { x, y };
+    };
+
+    const markers = [
+      { label: "p50", val: p50, pct: 50, color: "#10b981" },
+      { label: "p90", val: p90, pct: 90, color: "#3b82f6" },
+      { label: "p95", val: m => p95, valRaw: p95, pct: 95, color: "#f59e0b" },
+      { label: "p99", val: m => p99, valRaw: p99, pct: 99, color: "#ef4444" }
+    ];
+
+    const displayMarkers = [
+      { label: "p50", val: p50, pct: 50, color: "#10b981" },
+      { label: "p90", val: p90, pct: 90, color: "#3b82f6" },
+      { label: "p95", val: p95, pct: 95, color: "#f59e0b" },
+      { label: "p99", val: p99, pct: 99, color: "#ef4444" }
+    ];
+
+    return (
+      <div className="space-y-4">
+        <div className="relative w-full rounded-xl border border-zinc-900 bg-zinc-950/20 p-2">
+          <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ width: "100%" }} className="h-auto select-none overflow-visible">
+            {/* Grid lines (Y-axis: Percentiles) */}
+            {[25, 50, 75, 100].map(pct => {
+              const y = paddingTop + chartHeight - (pct / 100) * chartHeight;
+              return (
+                <g key={pct}>
+                  <line x1={paddingLeft} y1={y} x2={svgWidth - paddingRight} y2={y} stroke="var(--border)" strokeDasharray="3 3" strokeWidth="0.8" />
+                  <text x={paddingLeft - 6} y={y + 3} textAnchor="end" className="text-[7.5px] font-mono fill-[var(--text-muted)]">{pct}%</text>
+                </g>
+              );
+            })}
+
+            {/* CDF Curve Path */}
+            <path d={pathD} fill="none" stroke="var(--primary)" strokeWidth="2.5" />
+
+            {/* Percentile Markers */}
+            {displayMarkers.map(m => {
+              const coords = getMarkerCoords(m.val, m.pct);
+              return (
+                <g key={m.label}>
+                  <circle cx={coords.x} cy={coords.y} r="3.5" fill={m.color} stroke="var(--background)" strokeWidth="1" />
+                  <line x1={coords.x} y1={coords.y} x2={coords.x} y2={paddingTop + chartHeight} stroke={m.color} strokeDasharray="2 2" strokeWidth="0.8" />
+                  <text x={coords.x} y={coords.y - 6} textAnchor="middle" className="text-[7.5px] font-mono font-bold" fill={m.color}>{m.label}</text>
+                </g>
+              );
+            })}
+
+            {/* X-Axis */}
+            <line x1={paddingLeft} y1={paddingTop + chartHeight} x2={svgWidth - paddingRight} y2={paddingTop + chartHeight} stroke="var(--border)" strokeWidth="1.5" />
+            
+            {/* X-axis ticks (Latency in ms) */}
+            {[0, 0.25, 0.5, 0.75, 1.0].map(ratio => {
+              const val = ratio * limitMax;
+              const x = paddingLeft + ratio * chartWidth;
+              return (
+                <g key={ratio}>
+                  <line x1={x} y1={paddingTop + chartHeight} x2={x} y2={paddingTop + chartHeight + 4} stroke="var(--border)" />
+                  <text x={x} y={paddingTop + chartHeight + 12} textAnchor="middle" className="text-[7.5px] font-mono fill-[var(--text-muted)]">
+                    {(val / 1000).toFixed(1)}ms
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Legend / Info Metrics Table */}
+        <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-mono border-t pt-2.5 border-zinc-900 bg-zinc-950/40 p-2.5 rounded-xl">
+          {displayMarkers.map(m => (
+            <div key={m.label} className="p-1 rounded bg-zinc-950/60 border border-zinc-900">
+              <span className="block text-[8px] uppercase font-bold" style={{ color: m.color }}>{m.label}</span>
+              <span className="font-semibold text-zinc-300">{(m.val / 1000).toFixed(3)} ms</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
 
 
   const isProcessed = parsedData.length > 0;
@@ -1396,7 +1543,7 @@ export default function LatencyDashboard() {
               </div>
             </div>
 
-            {/* Standard Deviation Distribution Card */}
+            {/* Dynamic Analysis Curve Card (Std Dev vs CDF) */}
             <div 
               className="rounded-xl overflow-hidden flex flex-col justify-between"
               style={{ border: "1px solid var(--border)", background: "var(--card)" }}
@@ -1405,19 +1552,36 @@ export default function LatencyDashboard() {
                 className="px-5 py-4 flex items-center justify-between gap-3"
                 style={{ borderBottom: "1px solid var(--border)", background: "var(--background)" }}
               >
-                <span className="font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
-                  <Activity className="h-4 w-4 text-[var(--primary)]" /> Standard Deviation
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold text-xs uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
+                    <Activity className="h-4 w-4 text-[var(--primary)]" />
+                    {distributionMode === 'stddev' ? 'Standard Deviation' : 'Percentile CDF'}
+                  </span>
+                  <div className="flex bg-zinc-950 p-0.5 rounded-lg border border-zinc-800 text-[9px] font-mono select-none">
+                    <button
+                      onClick={() => setDistributionMode('stddev')}
+                      className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${distributionMode === 'stddev' ? 'bg-[var(--primary-faint)] text-[var(--foreground)] font-bold' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      Std Dev
+                    </button>
+                    <button
+                      onClick={() => setDistributionMode('cdf')}
+                      className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${distributionMode === 'cdf' ? 'bg-[var(--primary-faint)] text-[var(--foreground)] font-bold' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      Percentile CDF
+                    </button>
+                  </div>
+                </div>
                 <button
-                  onClick={() => setExpandedChart("distribution")}
+                  onClick={() => setExpandedChart(distributionMode === 'stddev' ? "distribution" : "cdf")}
                   className="p-1 rounded hover:bg-zinc-800 text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors"
-                  title="Expand distribution view"
+                  title="Expand view"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </button>
               </div>
               <div className="p-5 flex-1 flex flex-col justify-center">
-                {renderDistributionCurve()}
+                {distributionMode === 'stddev' ? renderDistributionCurve() : renderCDFCurve()}
               </div>
             </div>
 
@@ -1634,6 +1798,7 @@ export default function LatencyDashboard() {
                 <Activity className="h-4 w-4 text-[var(--primary)]" /> 
                 {expandedChart === "timeline" && "Latency Timeline"}
                 {expandedChart === "distribution" && "Standard Deviation"}
+                {expandedChart === "cdf" && "Percentile CDF"}
               </span>
               
               <div className="flex items-center gap-3.5 flex-wrap">
@@ -1673,6 +1838,11 @@ export default function LatencyDashboard() {
               {expandedChart === "distribution" && (
                 <div className="w-full h-auto">
                   {renderDistributionCurve()}
+                </div>
+              )}
+              {expandedChart === "cdf" && (
+                <div className="w-full h-auto">
+                  {renderCDFCurve()}
                 </div>
               )}
             </div>

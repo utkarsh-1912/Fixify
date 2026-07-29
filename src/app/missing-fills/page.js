@@ -15,6 +15,9 @@ import {
   RefreshCw,
   Sliders,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   ChevronDown,
   TrendingUp,
   HelpCircle,
@@ -1638,65 +1641,67 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                 }
                 return (
                   <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t" style={{ borderColor: 'var(--border)' }}>
-                    <span className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                      Showing <span style={{ color: 'var(--foreground)' }}>{startIdx + 1}–{endIdx}</span> of <span style={{ color: 'var(--foreground)' }}>{filteredResults.length}</span> results
+                    <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+                      Showing <span style={{ color: 'var(--foreground)' }}>{startIdx + 1} to {endIdx}</span> of <span style={{ color: 'var(--foreground)' }}>{filteredResults.length}</span> results
                     </span>
                     <div className="flex items-center gap-1.5">
                       {/* Items per page */}
                       <select
                         value={itemsPerPage}
                         onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                        className="text-[11px] font-mono rounded-lg border px-2 py-1 outline-none transition-colors cursor-pointer"
+                        className="text-xs font-mono rounded-md border px-2 py-1 outline-none transition-colors cursor-pointer mr-2"
                         style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
                       >
                         {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
-                      {/* Prev */}
+
+                      {/* First Page << */}
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={safePage === 1}
+                        className="p-1.5 rounded-lg border disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--primary-faint)] transition-all flex items-center justify-center"
+                        style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                        title="First Page"
+                      >
+                        <ChevronsLeft className="h-3.5 w-3.5" />
+                      </button>
+
+                      {/* Previous Page < */}
                       <button
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={safePage === 1}
-                        className="px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--primary-faint)]"
-                        style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                        className="p-1.5 rounded-lg border disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--primary-faint)] transition-all flex items-center justify-center"
+                        style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                        title="Previous Page"
                       >
-                        ‹ Prev
+                        <ChevronLeft className="h-3.5 w-3.5" />
                       </button>
-                      {/* First page if not visible */}
-                      {pageNumbers[0] > 1 && (
-                        <>
-                          <button onClick={() => setCurrentPage(1)} className="px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors hover:bg-[var(--primary-faint)]" style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}>1</button>
-                          {pageNumbers[0] > 2 && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>…</span>}
-                        </>
-                      )}
-                      {/* Page numbers */}
-                      {pageNumbers.map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setCurrentPage(n)}
-                          className="px-2.5 py-1 rounded-lg border text-xs font-mono font-bold transition-all"
-                          style={{
-                            borderColor: n === safePage ? 'var(--primary-border)' : 'var(--border)',
-                            background: n === safePage ? 'var(--primary-faint)' : 'transparent',
-                            color: 'var(--foreground)'
-                          }}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                      {/* Last page if not visible */}
-                      {pageNumbers[pageNumbers.length - 1] < totalPages && (
-                        <>
-                          {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>…</span>}
-                          <button onClick={() => setCurrentPage(totalPages)} className="px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors hover:bg-[var(--primary-faint)]" style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}>{totalPages}</button>
-                        </>
-                      )}
-                      {/* Next */}
+
+                      {/* Page indicator text: Page X of Y */}
+                      <span className="text-xs font-mono px-2 select-none font-bold" style={{ color: 'var(--text-muted)' }}>
+                        Page {safePage} of {totalPages}
+                      </span>
+
+                      {/* Next Page > */}
                       <button
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={safePage === totalPages}
-                        className="px-2.5 py-1 rounded-lg border text-xs font-mono transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--primary-faint)]"
-                        style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                        className="p-1.5 rounded-lg border disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--primary-faint)] transition-all flex items-center justify-center"
+                        style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                        title="Next Page"
                       >
-                        Next ›
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+
+                      {/* Last Page >> */}
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={safePage === totalPages}
+                        className="p-1.5 rounded-lg border disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--primary-faint)] transition-all flex items-center justify-center"
+                        style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                        title="Last Page"
+                      >
+                        <ChevronsRight className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>

@@ -8,6 +8,7 @@ import {
   CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers,
   Code2, UserCog, BarChart3, Trash2, Search, X, Plus, FileCode2,
 } from 'lucide-react';
+import { getTagName, getValueMeaning } from '@/lib/fixParser';
 
 /* ─── ATDL Parser — FIXatdl 1.1 + 1.2 ─── */
 function parseEditElement(el) {
@@ -2599,10 +2600,21 @@ export default function ATDLRendererPage() {
                               const tag = ei > -1 ? part.slice(0, ei) : part;
                               const val = ei > -1 ? part.slice(ei + 1) : '';
                               return (
-                                <div key={i} className='flex items-baseline gap-2 text-[10px] font-mono py-1 px-1.5 rounded transition-colors hover:bg-[var(--primary-faint)]'>
-                                  <span className='shrink-0 w-10 text-right font-bold' style={{ color: 'var(--primary)' }}>{tag}</span>
-                                  <span style={{ color: 'var(--text-muted)' }}>=</span>
-                                  <span className='break-all' style={{ color: 'var(--foreground)' }}>{val}</span>
+                                <div key={i} className='flex flex-col py-1.5 px-2 rounded transition-colors hover:bg-[var(--primary-faint)] border-b border-zinc-900/40 last:border-0'>
+                                  <div className='flex items-baseline gap-2 text-[10px] font-mono'>
+                                    <span className='shrink-0 w-10 text-right font-bold' style={{ color: 'var(--primary)' }}>{tag}</span>
+                                    <span style={{ color: 'var(--text-muted)' }}>=</span>
+                                    <span className='break-all font-semibold' style={{ color: 'var(--foreground)' }}>{val}</span>
+                                  </div>
+                                  <div className='text-[8.5px] font-sans pl-12 text-zinc-500 flex flex-wrap gap-1 items-center mt-0.5 select-none'>
+                                    <span className='text-zinc-450 font-bold'>{getTagName(tag) || `Tag ${tag}`}</span>
+                                    {getValueMeaning(tag, val) !== val && (
+                                      <>
+                                        <span className='text-zinc-700'>→</span>
+                                        <span className='text-[var(--primary)] font-semibold'>{getValueMeaning(tag, val)}</span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}

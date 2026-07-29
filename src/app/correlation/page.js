@@ -1095,8 +1095,15 @@ export default function MultiHopCorrelationPage() {
     return (
       <div className="fx-card space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="fx-tab-group">
+            <button onClick={() => setActiveInputTab('upload')} className={`fx-tab ${activeInputTab === 'upload' ? 'active' : ''}`}>
+              <UploadCloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">File</span>
+            </button>
+            <button onClick={() => setActiveInputTab('text')} className={`fx-tab ${activeInputTab === 'text' ? 'active' : ''}`}>
+              <ClipboardList className="h-3.5 w-3.5" /><span className="hidden sm:inline">Paste</span>
+            </button>
+          </div>
           <div className="flex items-center gap-3">
-            <span className="fx-section-label">Log Input Source</span>
             {!rawLogs.trim() && (
               <button
                 onClick={handleQuickLoad}
@@ -1107,14 +1114,6 @@ export default function MultiHopCorrelationPage() {
                 <span>Quick Load</span>
               </button>
             )}
-          </div>
-          <div className="fx-tab-group">
-            <button onClick={() => setActiveInputTab('upload')} className={`fx-tab ${activeInputTab === 'upload' ? 'active' : ''}`}>
-              <UploadCloud className="h-3.5 w-3.5" /><span className="hidden sm:inline">File</span>
-            </button>
-          <button onClick={() => setActiveInputTab('text')} className={`fx-tab ${activeInputTab === 'text' ? 'active' : ''}`}>
-            <ClipboardList className="h-3.5 w-3.5" /><span className="hidden sm:inline">Paste</span>
-          </button>
         </div>
       </div>
 
