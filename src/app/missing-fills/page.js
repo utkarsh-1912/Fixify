@@ -1087,7 +1087,7 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
           {matchedResults.length > 0 && filteredResults.length > 0 && (
             <button
               onClick={handleExportCSV}
-              className="px-3 py-1.5 bg-[var(--primary)] hover:opacity-90 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+              className="px-3 py-1.5 bg-[var(--primary)] hover:opacity-90 text-[var(--background)] rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
             >
               <Download className="h-3.5 w-3.5" />
               Export {activeTab === 'all' ? 'All' : activeTab === 'missing' ? 'Missing' : activeTab === 'unmapped' ? 'Unmapped' : 'Matched'} CSV
