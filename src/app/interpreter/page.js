@@ -540,7 +540,7 @@ export default function InterpreterPage() {
       </div>
 
       {/* Main chat window container */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-5 items-stretch">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 items-stretch">
         
         {/* Chat stream area */}
         <div className="flex-1 flex flex-col min-h-0">
@@ -705,7 +705,7 @@ export default function InterpreterPage() {
               onClick={() => setShowSidebar(false)}
             />
             <div 
-              className="fixed inset-y-0 right-0 w-full max-w-xs sm:max-w-sm lg:relative lg:inset-auto lg:h-full lg:w-80 flex flex-col gap-4 shrink-0 justify-between transition-all duration-300 z-[9999] lg:z-auto animate-in slide-in-from-right duration-200 border-l lg:border-none"
+              className="fixed inset-y-0 right-0 w-full max-w-xs sm:max-w-sm lg:relative lg:inset-auto lg:h-full lg:w-80 flex flex-col gap-4 shrink-0 justify-between transition-all z-[9999] lg:z-auto animate-in slide-in-from-right duration-200 border-l lg:border-none"
               style={{ 
                 background: 'var(--card)', 
                 borderColor: 'var(--border)' 
