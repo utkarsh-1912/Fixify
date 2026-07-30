@@ -28,7 +28,8 @@ import {
   UploadCloud,
   FileCode,
   ArrowBigDownDashIcon,
-  ArrowBigUpDashIcon
+  ArrowBigUpDashIcon,
+  Trash2
 } from 'lucide-react';
 import { analyzeTickerSignals, backtestStrategy } from '@/lib/indicators';
 import { 
@@ -1647,19 +1648,19 @@ export default function MultiAlgoStudio() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 text-xs font-mono">
-                <div className="px-3 py-1.5 rounded-xl border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Total Portfolio Value</span>
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <div className="px-3 py-1.5 rounded-lg border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[8px] text-zinc-400 block uppercase font-bold">Total Portfolio Value</span>
                   <span className="text-sm font-bold text-[var(--foreground)]">${portfolioData.totalPortfolioValue.toFixed(2)}</span>
                 </div>
-                <div className="px-3 py-1.5 rounded-xl border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Unrealized MTM PnL</span>
+                <div className="px-3 py-1.5 rounded-lg border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[8px] text-zinc-400 block uppercase font-bold">Unrealized MTM PnL</span>
                   <span className={`text-sm font-bold ${portfolioData.totalUnrealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {portfolioData.totalUnrealizedPnL >= 0 ? '+' : ''}${portfolioData.totalUnrealizedPnL.toFixed(2)}
                   </span>
                 </div>
-                <div className="px-3 py-1.5 rounded-xl border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Realized PnL</span>
+                <div className="px-3 py-1.5 rounded-lg border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[8px] text-zinc-400 block uppercase font-bold">Realized PnL</span>
                   <span className={`text-sm font-bold ${portfolioData.totalRealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {portfolioData.totalRealizedPnL >= 0 ? '+' : ''}${portfolioData.totalRealizedPnL.toFixed(2)}
                   </span>
@@ -1667,10 +1668,9 @@ export default function MultiAlgoStudio() {
                 {portfolioExecutions.length > 0 && (
                   <button
                     onClick={handleClearPortfolio}
-                    className="text-[10px] font-mono font-bold hover:underline cursor-pointer text-red-400"
-                  >
-                    Clear Ledger
-                  </button>
+                    className="text-[10px] font-mono font-bold hover:underline cursor-pointer text-red-400 p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400">
+                    <Trash2 className="h-4 w-4" />
+                 </button>
                 )}
               </div>
             </div>

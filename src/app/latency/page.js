@@ -1738,7 +1738,7 @@ export default function LatencyDashboard() {
                 style={{ borderColor: "var(--border)", background: "var(--background)" }}
               >
                 <div className="text-xs font-mono text-[var(--text-muted)]">
-                  Showing {Math.min(totalItems, (currentPage - 1) * pageSize + 1)} to {Math.min(totalItems, currentPage * pageSize)} of {totalItems} entries
+                  Showing {pageSize === "all" ? (totalItems > 0 ? 1 : 0) : Math.min(totalItems, (currentPage - 1) * effectivePageSize + 1)} to {pageSize === "all" ? totalItems : Math.min(totalItems, currentPage * effectivePageSize)} of {totalItems} entries
                 </div>
                 
                 <div className="flex items-center gap-4 flex-wrap">

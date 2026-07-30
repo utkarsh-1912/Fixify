@@ -1587,10 +1587,11 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                   </thead>
                   <tbody>
                     {(() => {
-                      const totalPages = Math.max(1, Math.ceil(filteredResults.length / itemsPerPage));
+                      const effectiveItemsPerPage = itemsPerPage === "all" ? Math.max(1, filteredResults.length) : Number(itemsPerPage);
+                      const totalPages = Math.max(1, Math.ceil(filteredResults.length / effectiveItemsPerPage));
                       const safePage = Math.min(currentPage, totalPages);
-                      const startIdx = (safePage - 1) * itemsPerPage;
-                      const pageItems = filteredResults.slice(startIdx, startIdx + itemsPerPage);
+                      const startIdx = itemsPerPage === "all" ? 0 : (safePage - 1) * effectiveItemsPerPage;
+                      const pageItems = itemsPerPage === "all" ? filteredResults : filteredResults.slice(startIdx, startIdx + effectiveItemsPerPage);
                       if (pageItems.length === 0) {
                         return (
                           <tr>
