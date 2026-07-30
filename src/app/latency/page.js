@@ -23,6 +23,7 @@ import {
   Sparkles
 } from "lucide-react";
 import SohVisualizer from "@/components/SohVisualizer";
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from "@/lib/workspaceSession";
 // Standard parser helpers specifically for latency tracking
 function extractTagValue(line, tag, delimiter = "|") {
   if (!line) return "";
@@ -426,6 +427,10 @@ export default function LatencyDashboard() {
     if (!rawLogsText.trim()) return;
     setLoading(true);
 
+    if (isWorkspaceSharingEnabled()) {
+      setWorkspaceSession({ rawText: rawLogsText, source: 'latency' });
+    }
+
     if (typeof window !== "undefined" && window.Worker) {
       const blob = new Blob([WORKER_CODE], { type: "application/javascript" });
       const workerUrl = URL.createObjectURL(blob);
@@ -456,7 +461,7 @@ export default function LatencyDashboard() {
     }
   }, [delimiter, runSyncParsing]);
 
-  // Pre-seed search term & auto-load logs from localStorage if navigating from Missing Fills
+  // Pre-seed search term & auto-load logs from localStorage (or Workspace Session if enabled)
   useEffect(() => {
     try {
       const seed = localStorage.getItem("fixify_investigate_clordid");
@@ -468,6 +473,16 @@ export default function LatencyDashboard() {
           setPastedText(logs);
           setInputMode("paste");
           processLatencyLogs(logs);
+          return;
+        }
+      }
+
+      if (isWorkspaceSharingEnabled()) {
+        const session = getWorkspaceSession();
+        if (session && session.rawText && session.rawText.trim()) {
+          setPastedText(session.rawText);
+          setInputMode("paste");
+          processLatencyLogs(session.rawText);
         }
       }
     } catch (e) {}

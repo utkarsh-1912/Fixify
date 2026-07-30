@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
 import SohVisualizer from '@/components/SohVisualizer';
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from '@/lib/workspaceSession';
 
 // ─── Audit Rule Definitions ──────────────────────────────────────────────────
 const AUDIT_RULES = [
@@ -748,9 +749,17 @@ export default function SecurityAuditorPage() {
     setEnforceExchange(cachedEnforce);
     setExchangeVenue(cachedVenue);
 
-    if (cached) {
-      setRawLogs(cached);
-      triggerAudit(cached, activeRules, cachedEnforce, cachedVenue);
+    let logsToRun = cached || '';
+    if (isWorkspaceSharingEnabled()) {
+      const session = getWorkspaceSession();
+      if (session && session.rawText) {
+        logsToRun = session.rawText;
+      }
+    }
+
+    if (logsToRun) {
+      setRawLogs(logsToRun);
+      triggerAudit(logsToRun, activeRules, cachedEnforce, cachedVenue);
     }
   }, []);
 
@@ -774,6 +783,9 @@ export default function SecurityAuditorPage() {
     if (messages.length > 0) setSelectedMsgIndex(0);
     if (typeof window !== 'undefined') {
       localStorage.setItem('fixify-security-raw', logText);
+      if (isWorkspaceSharingEnabled() && logText) {
+        setWorkspaceSession({ rawText: logText, source: 'security-auditor' });
+      }
     }
   };
 

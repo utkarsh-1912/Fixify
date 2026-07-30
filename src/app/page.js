@@ -37,6 +37,7 @@ import {
 import TagDetailsModal from "@/components/TagDetailsModal";
 import ErrorAnalyticsModal from "@/components/ErrorAnalyticsModal";
 import SohVisualizer from "@/components/SohVisualizer";
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from "@/lib/workspaceSession";
 
 function evaluateFQL(lineContent, query, delimiter = "|") {
   if (!query || !query.trim()) return true;
@@ -523,6 +524,12 @@ export default function LogsProcessorPage() {
       checksumFailedSeqs,
       bodyLengthFailedSeqs
     });
+    if (isWorkspaceSharingEnabled()) {
+      const combinedRaw = updatedFiles.map(f => f.content || '').join('\n');
+      if (combinedRaw.trim()) {
+        setWorkspaceSession({ rawText: combinedRaw, parsedCount: aggTotal, source: 'logs-processor' });
+      }
+    }
     setIsProcessing(false);
     setParsingProgress(0);
   }, [sortOrder, delimiter]);

@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { validateFIXMessage, getValueMeaning, getTagName } from "@/lib/fixParser";
 import SohVisualizer from "@/components/SohVisualizer";
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from "@/lib/workspaceSession";
 
 // Standard CSV/TSV Parser with double-quote handling
 function parseCSV(text) {
@@ -424,8 +425,18 @@ export default function MissingFillsPage() {
       if (cachedBlotterName) setBlotterFileName(cachedBlotterName);
       if (cachedMappings) setColumnMappings(JSON.parse(cachedMappings));
       
-      if (cachedFixRaw) setFixRawText(cachedFixRaw);
-      if (cachedFixName) setFixFileName(cachedFixName);
+      if (isWorkspaceSharingEnabled()) {
+        const session = getWorkspaceSession();
+        if (session && session.rawText) {
+          setFixRawText(session.rawText);
+          setFixFileName("Shared Workspace Logs");
+        } else if (cachedFixRaw) {
+          setFixRawText(cachedFixRaw);
+        }
+      } else if (cachedFixRaw) {
+        setFixRawText(cachedFixRaw);
+      }
+      if (cachedFixName && !isWorkspaceSharingEnabled()) setFixFileName(cachedFixName);
       
       if (cachedTolerance) setMatchTolerance(Number(cachedTolerance));
       if (cachedMatchType) setExecIdMatchType(cachedMatchType);
@@ -449,6 +460,9 @@ export default function MissingFillsPage() {
       localStorage.setItem("fixify_column_mappings", JSON.stringify(columnMappings));
       localStorage.setItem("fixify_fix_raw", fixRawText || "");
       localStorage.setItem("fixify_fix_name", fixFileName || "");
+      if (isWorkspaceSharingEnabled() && fixRawText) {
+        setWorkspaceSession({ rawText: fixRawText, source: 'missing-fills' });
+      }
       localStorage.setItem("fixify_match_tolerance", String(matchTolerance));
       localStorage.setItem("fixify_match_type", execIdMatchType);
       localStorage.setItem("fixify_allow_fuzzy", String(allowFuzzyMatch));

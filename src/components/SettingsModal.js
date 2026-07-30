@@ -68,22 +68,28 @@ const themes = [
   },
 ];
 
+import { isWorkspaceSharingEnabled, setWorkspaceSharingEnabled } from '@/lib/workspaceSession';
+import { Database } from 'lucide-react';
+
 export default function SettingsModal({ isOpen, onClose }) {
   const [theme, setTheme] = useState('dark');
   const [fontScale, setFontScale] = useState(1.0);
   const [fontFamily, setFontFamily] = useState('sans');
+  const [workspaceSharing, setWorkspaceSharing] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     setTheme(localStorage.getItem('fixify-theme') || 'dark');
     setFontScale(parseFloat(localStorage.getItem('fixify-font-scale') || '1.0'));
     setFontFamily(localStorage.getItem('fixify-font-family') || 'sans');
+    setWorkspaceSharing(isWorkspaceSharingEnabled());
   }, [isOpen]);
 
   const handleSave = () => {
     localStorage.setItem('fixify-theme', theme);
     localStorage.setItem('fixify-font-scale', fontScale.toString());
     localStorage.setItem('fixify-font-family', fontFamily);
+    setWorkspaceSharingEnabled(workspaceSharing);
     applyGlobalSettings({ theme, fontScale, fontFamily });
     onClose();
   };
@@ -366,8 +372,30 @@ export default function SettingsModal({ isOpen, onClose }) {
             </div>
           </section>
 
+          {/* Workspace Log Sharing Control */}
+          <section className="space-y-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
+                <span className="fx-section-label">Workspace Context Sharing</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={workspaceSharing}
+                  onChange={e => setWorkspaceSharing(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--primary)]"></div>
+              </label>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              When enabled, parsed FIX logs are shared across Latency, Correlation, Missing Fills, and Sanitizer workspaces. When disabled, each tool runs in isolated mode.
+            </p>
+          </section>
+
           {/* Workspace Profile Backup & Restore */}
-          <section className="space-y-3 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+          <section className="space-y-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
             <div className="flex items-center gap-2">
               <Download className="h-3.5 w-3.5" style={{ color: 'var(--primary)' }} />
               <span className="fx-section-label">Workspace Profile Manager</span>

@@ -18,6 +18,7 @@ import {
   Info,
   Sparkles
 } from 'lucide-react';
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from '@/lib/workspaceSession';
 
 function cyrb128(str) {
   let h1 = 1779033703, h2 = 3024733165, h3 = 3362453659, h4 = 502493250;
@@ -132,12 +133,27 @@ export default function LogSanitizerPage() {
     performSanitize(inputText);
   };
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isWorkspaceSharingEnabled()) {
+      const session = getWorkspaceSession();
+      if (session && session.rawText) {
+        setInputText(session.rawText);
+        setInputMode('paste');
+      }
+    }
+  }, []);
+
   const performSanitize = (text) => {
     if (!text.trim()) return;
     setIsProcessing(true);
 
+    if (isWorkspaceSharingEnabled()) {
+      setWorkspaceSession({ rawText: text, source: 'sanitizer' });
+    }
+
     setTimeout(() => {
-      const lines = inputText.split(/\r?\n/);
+      const lines = text.split(/\r?\n/);
       const customTags = customTagsStr
         .split(',')
         .map(t => t.trim())

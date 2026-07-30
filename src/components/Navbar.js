@@ -31,8 +31,10 @@ import {
   LineChart,
   UserCog,
   Cpu,
+  Database,
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
+import { isWorkspaceSharingEnabled, setWorkspaceSharingEnabled } from '@/lib/workspaceSession';
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -64,6 +66,17 @@ export default function Navbar() {
     { href: '/atdl', label: 'ATDL Renderer', icon: UserCog, short: 'ATDL', desc: 'Parse FIXatdl 1.1 strategy XML, render interactive parameter controls, and generate wire preview.', inMenu: false },
     { href: '/binary-decoder', label: 'Binary FAST/SBE Decoder', icon: Cpu, short: 'Binary', desc: 'Decode CME/Nasdaq FAST streams and SBE binary messages into standard tag-value maps.', inMenu: false },
   ];
+
+  const [wsShared, setWsShared] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setWsShared(isWorkspaceSharingEnabled());
+
+    const handleToggle = (e) => setWsShared(!!e.detail?.enabled);
+    window.addEventListener('fixify-workspace-toggle', handleToggle);
+    return () => window.removeEventListener('fixify-workspace-toggle', handleToggle);
+  }, []);
 
   // Apply saved settings and track page visits on mount/pathchange
   useEffect(() => {

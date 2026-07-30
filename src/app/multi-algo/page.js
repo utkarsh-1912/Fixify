@@ -18,9 +18,26 @@ import {
   Play,
   X,
   Search,
-  BookOpen
+  BookOpen,
+  Send,
+  Copy,
+  Layers,
+  Sliders,
+  ShieldCheck,
+  Zap,
+  UploadCloud,
+  FileCode,
+  ArrowBigDownDashIcon,
+  ArrowBigUpDashIcon
 } from 'lucide-react';
 import { analyzeTickerSignals, backtestStrategy } from '@/lib/indicators';
+import { 
+  parseFixExecutionReport, 
+  calculatePortfolioPositions, 
+  generateFixNewOrderSingle, 
+  runParameterSweep 
+} from '@/lib/portfolioEngine';
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from '@/lib/workspaceSession';
 
 // Default list of symbols to scanner
 const DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'TSLA', 'NVDA', 'BTC-USD'];
@@ -44,10 +61,28 @@ export default function MultiAlgoStudio() {
   const [showRecommendations, setShowRecommendations] = useState(false);
   const searchContainerRef = useRef(null);
 
-  // Paper portfolio states
-  const [paperTrades, setPaperTrades] = useState([]);
-  const [simTradeAmount, setSimTradeAmount] = useState('1000');
+  // Portfolio & Execution Assistant States
+  const [portfolioExecutions, setPortfolioExecutions] = useState([]);
   const [tradeActionMessage, setTradeActionMessage] = useState(null);
+  const [activeTab, setActiveTab] = useState('scanner'); // 'scanner' | 'portfolio' | 'sweep'
+
+  // FIX Trade Assistant Modal state
+  const [tradeAssistantOpen, setTradeAssistantOpen] = useState(false);
+  const [assistantOrderParams, setAssistantOrderParams] = useState({
+    symbol: 'AAPL',
+    side: 'BUY',
+    qty: 100,
+    price: 180.00,
+    ordType: '2', // Limit
+    clOrdId: '',
+    senderCompId: 'TRADER_CLIENT',
+    targetCompId: 'EXEC_BROKER',
+    account: 'ACCT_QUANT_01',
+    exDestination: 'NASDAQ',
+    timeInForce: '0'
+  });
+  const [copiedPayload, setCopiedPayload] = useState(false);
+  const [rawExecutionReportInput, setRawExecutionReportInput] = useState('');
 
   // Strategy Configurations
   const [compareMode, setCompareMode] = useState(false);
@@ -243,58 +278,126 @@ export default function MultiAlgoStudio() {
     return { buyCount, sellCount, holdCount };
   }, [analyzedResults]);
 
-  // Handle Paper Trade Execution
-  const handleExecutePaperTrade = (symbol, action, currentPrice) => {
-    const amountNum = parseFloat(simTradeAmount) || 1000;
-    const quantity = amountNum / currentPrice;
+  // Restore portfolio executions from cache on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const cached = localStorage.getItem('fixify-portfolio-executions');
+      if (cached) {
+        setPortfolioExecutions(JSON.parse(cached));
+      }
+    } catch (e) {}
+  }, []);
 
-    const newTrade = {
-      id: Math.random().toString(36).substr(2, 9),
+  // Compute live portfolio metrics and positions
+  const portfolioData = useMemo(() => {
+    return calculatePortfolioPositions(portfolioExecutions, analyzedResults);
+  }, [portfolioExecutions, analyzedResults]);
+
+  // Open FIX Execution Assistant Modal pre-filled with ticker signal
+  const handleOpenFixTradeAssistant = (symbol, action, price) => {
+    const isBuy = action.includes('BUY');
+    const autoClOrdId = `CL_${symbol}_${Date.now().toString().slice(-6)}`;
+    setAssistantOrderParams({
       symbol,
-      action,
-      entryPrice: currentPrice,
-      entryTime: new Date().toLocaleTimeString(),
-      quantity: parseFloat(quantity.toFixed(4)),
-      capital: amountNum,
-      status: 'OPEN'
-    };
+      side: isBuy ? 'BUY' : 'SELL',
+      qty: 100,
+      price: price || 150.00,
+      ordType: '2',
+      clOrdId: autoClOrdId,
+      senderCompId: 'TRADER_CLIENT',
+      targetCompId: 'EXEC_BROKER',
+      account: 'ACCT_QUANT_01',
+      exDestination: 'NASDAQ',
+      timeInForce: '0'
+    });
+    setTradeAssistantOpen(true);
+  };
 
-    const updated = [newTrade, ...paperTrades];
-    setPaperTrades(updated);
-    localStorage.setItem('fixify-algo-trades', JSON.stringify(updated));
+  // Dispatch / Confirm generated FIX 35=D order
+  const handleDispatchFixOrder = (simulateFill = true) => {
+    const generatedPayload = generateFixNewOrderSingle(assistantOrderParams);
+    
+    // Copy to clipboard
+    try {
+      navigator.clipboard.writeText(generatedPayload.pipeMessage);
+      setCopiedPayload(true);
+      setTimeout(() => setCopiedPayload(false), 2500);
+    } catch (e) {}
+
+    // Dispatch to Workspace Session if enabled
+    if (isWorkspaceSharingEnabled()) {
+      setWorkspaceSession({ rawText: generatedPayload.pipeMessage, source: 'multi-algo-assistant' });
+    }
+
+    // Optionally record a simulated broker execution fill into portfolio ledger
+    if (simulateFill) {
+      const mockExec = {
+        id: `EXEC_${Date.now()}`,
+        execId: `EXEC_${Date.now()}`,
+        orderId: `ORD_${Date.now().toString().slice(-6)}`,
+        clOrdId: assistantOrderParams.clOrdId,
+        symbol: assistantOrderParams.symbol,
+        side: assistantOrderParams.side,
+        lastPx: parseFloat(assistantOrderParams.price),
+        lastQty: parseFloat(assistantOrderParams.qty),
+        avgPx: parseFloat(assistantOrderParams.price),
+        cumQty: parseFloat(assistantOrderParams.qty),
+        execType: 'F',
+        ordStatus: '2',
+        timestamp: new Date().toLocaleTimeString(),
+        rawText: `8=FIX.4.4|35=8|49=${assistantOrderParams.targetCompId}|56=${assistantOrderParams.senderCompId}|11=${assistantOrderParams.clOrdId}|17=EXEC_${Date.now()}|150=F|39=2|55=${assistantOrderParams.symbol}|54=${assistantOrderParams.side === 'BUY' ? '1' : '2'}|38=${assistantOrderParams.qty}|32=${assistantOrderParams.qty}|31=${assistantOrderParams.price}|`
+      };
+
+      const updated = [mockExec, ...portfolioExecutions];
+      setPortfolioExecutions(updated);
+      localStorage.setItem('fixify-portfolio-executions', JSON.stringify(updated));
+    }
 
     setTradeActionMessage({
       type: 'success',
-      text: `Executed paper order: ${action} ${quantity.toFixed(4)} shares of ${symbol} at $${currentPrice.toFixed(2)}`
+      text: `FIX Order Payload 35=D generated for ${assistantOrderParams.symbol} (${assistantOrderParams.side} ${assistantOrderParams.qty} @ $${assistantOrderParams.price}) and copied to clipboard!`
     });
-    setTimeout(() => setTradeActionMessage(null), 4000);
+    setTradeAssistantOpen(false);
+    setTimeout(() => setTradeActionMessage(null), 5000);
   };
 
-  // Close Paper Trade
-  const handleClosePaperTrade = (tradeId, exitPrice) => {
-    const updated = paperTrades.map(trade => {
-      if (trade.id === tradeId) {
-        const entryValue = trade.quantity * trade.entryPrice;
-        const exitValue = trade.quantity * exitPrice;
-        const pnl = trade.action === 'BUY' ? (exitValue - entryValue) : (entryValue - exitValue);
-        return {
-          ...trade,
-          status: 'CLOSED',
-          exitPrice,
-          exitTime: new Date().toLocaleTimeString(),
-          pnl: parseFloat(pnl.toFixed(2))
-        };
+  // Ingest raw 35=8 Execution Reports into portfolio
+  const handleImportExecutionReport = () => {
+    if (!rawExecutionReportInput.trim()) return;
+    const lines = rawExecutionReportInput.split(/\r?\n/).filter(Boolean);
+    let count = 0;
+    const newExecs = [];
+
+    lines.forEach(line => {
+      const parsed = parseFixExecutionReport(line);
+      if (parsed) {
+        newExecs.push(parsed);
+        count++;
       }
-      return trade;
     });
-    setPaperTrades(updated);
-    localStorage.setItem('fixify-algo-trades', JSON.stringify(updated));
+
+    if (count > 0) {
+      const updated = [...newExecs, ...portfolioExecutions];
+      setPortfolioExecutions(updated);
+      localStorage.setItem('fixify-portfolio-executions', JSON.stringify(updated));
+      setRawExecutionReportInput('');
+      setTradeActionMessage({
+        type: 'success',
+        text: `Successfully ingested ${count} FIX Execution Reports (35=8) into Portfolio Ledger!`
+      });
+      setTimeout(() => setTradeActionMessage(null), 4000);
+    } else {
+      alert("No valid 35=8 Execution Reports found in input string.");
+    }
   };
 
   // Clear Portfolio Ledger
   const handleClearPortfolio = () => {
-    setPaperTrades([]);
-    localStorage.removeItem('fixify-algo-trades');
+    if (confirm("Are you sure you want to clear all recorded execution reports and active portfolio positions?")) {
+      setPortfolioExecutions([]);
+      localStorage.removeItem('fixify-portfolio-executions');
+    }
   };
 
   // Selected Ticker Details
@@ -532,31 +635,14 @@ export default function MultiAlgoStudio() {
 
   // Calculate stats for paper trading open items
   const openPortfolioStats = useMemo(() => {
-    let totalValue = 0;
-    let initialCapital = 0;
-    let totalPnl = 0;
-
-    paperTrades.forEach(trade => {
-      if (trade.status === 'OPEN') {
-        const symbolPrice = analyzedResults[trade.symbol]?.price || trade.entryPrice;
-        const currentVal = trade.quantity * symbolPrice;
-        const entryVal = trade.quantity * trade.entryPrice;
-        const pnl = trade.action === 'BUY' ? (currentVal - entryVal) : (entryVal - currentVal);
-        
-        totalValue += currentVal;
-        initialCapital += trade.capital;
-        totalPnl += pnl;
-      } else {
-        totalPnl += trade.pnl || 0;
-      }
-    });
-
     return {
-      currentValue: parseFloat(totalValue.toFixed(2)),
-      totalPnl: parseFloat(totalPnl.toFixed(2)),
-      pnlPercent: initialCapital > 0 ? parseFloat(((totalPnl / initialCapital) * 100).toFixed(2)) : 0
+      currentValue: portfolioData.totalPortfolioValue,
+      totalPnl: portfolioData.totalPnL,
+      pnlPercent: portfolioData.totalPortfolioValue > 0 
+        ? parseFloat(((portfolioData.totalPnL / portfolioData.totalPortfolioValue) * 100).toFixed(2)) 
+        : 0
     };
-  }, [paperTrades, analyzedResults]);
+  }, [portfolioData]);
 
   return (
     <div className="space-y-8 max-w-screen-2xl mx-auto animate-in fade-in duration-200">
@@ -1514,31 +1600,28 @@ export default function MultiAlgoStudio() {
                   </div>
                 </div>
 
-                {/* Simulation execute box */}
+                {/* FIX Trade Dispatch Assistant box */}
                 <div className="p-4 rounded-xl bg-zinc-950/40 border border-zinc-800/40 flex flex-col justify-between gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block mb-1">Simulated Capital Allocations ($)</label>
-                    <input
-                      type="number"
-                      value={simTradeAmount}
-                      onChange={(e) => setSimTradeAmount(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs font-mono border rounded-lg outline-none bg-[var(--background)] text-[var(--foreground)] border-zinc-850"
-                    />
+                    <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider block mb-1">FIX Execution Assistant</span>
+                    <p className="text-[11px] text-[var(--text-muted)] leading-tight">
+                      Convert signal parameters into a valid FIX 35=D wire payload ready to copy or dispatch.
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleExecutePaperTrade(selectedSymbol, 'BUY', selectedDetails.price)}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-[var(--background)] font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                      onClick={() => handleOpenFixTradeAssistant(selectedSymbol, 'BUY', selectedDetails.price)}
+                      className="flex-1 fx-btn-primary py-2 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <Play className="h-3 w-3" />
-                      <span>Simulate Buy</span>
+                      <ArrowBigUpDashIcon className="h-3.5 w-3.5" />
+                      <span>BUY Order</span>
                     </button>
                     <button
-                      onClick={() => handleExecutePaperTrade(selectedSymbol, 'SELL', selectedDetails.price)}
-                      className="flex-1 bg-red-650 hover:bg-red-500 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                      onClick={() => handleOpenFixTradeAssistant(selectedSymbol, 'SELL', selectedDetails.price)}
+                      className="flex-1 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                     >
-                      <Play className="h-3 w-3 transform rotate-180" />
-                      <span>Simulate Sell</span>
+                      <ArrowBigDownDashIcon className="h-3.5 w-3.5 transform" />
+                      <span>SELL Order</span>
                     </button>
                   </div>
                 </div>
@@ -1547,102 +1630,279 @@ export default function MultiAlgoStudio() {
             </div>
           ) : null}
 
-          {/* Paper Trading Ledger Portfolio */}
-          <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-            <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)', background: 'var(--background)' }}>
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-[var(--primary)]" />
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono">
-                  Paper Trading Portfolio Ledger
-                </h2>
-              </div>
-              {paperTrades.length > 0 && (
-                <button
-                  onClick={handleClearPortfolio}
-                  className="text-[10px] font-mono font-bold hover:underline cursor-pointer"
-                  style={{ color: 'var(--primary)' }}
-                >
-                  Reset Ledger
-                </button>
-              )}
-            </div>
+          {/* Real Portfolio & Execution Manager */}
+          <div className="rounded-2xl border overflow-hidden space-y-4 p-5" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             
-            {paperTrades.length === 0 ? (
-              <div className="p-8 text-center text-[var(--text-muted)] text-xs space-y-1.5">
-                <p className="font-semibold text-zinc-400">No active paper positions in database</p>
-                <p className="text-[10px]">Use the &quot;Simulate&quot; tools in the cockpit details to open simulated long/short trades.</p>
+            {/* Header Strip & Summary Metrics */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-[var(--primary)]" />
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--foreground)] font-mono">
+                    Real Portfolio &amp; Execution Ledger (35=8 Fills)
+                  </h2>
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    Real-time Mark-to-Market PnL, cost basis, and positions calculated from FIX Execution Reports.
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider font-mono bg-zinc-950/20" style={{ borderColor: 'var(--border-subtle)' }}>
-                      <th className="p-3">Asset</th>
-                      <th className="p-3">Action</th>
-                      <th className="p-3 text-right">Entry Price</th>
-                      <th className="p-3 text-right font-mono">Quantity</th>
-                      <th className="p-3 text-right">Position Value</th>
-                      <th className="p-3 text-right">Real-Time P&amp;L</th>
-                      <th className="p-3 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/40 text-xs" style={{ color: 'var(--foreground)' }}>
-                    {paperTrades.map(trade => {
-                      const latestPrice = analyzedResults[trade.symbol]?.price || trade.entryPrice;
-                      const entryVal = trade.quantity * trade.entryPrice;
-                      const currentVal = trade.quantity * latestPrice;
-                      
-                      let pnl = 0;
-                      if (trade.status === 'OPEN') {
-                        pnl = trade.action === 'BUY' ? (currentVal - entryVal) : (entryVal - currentVal);
-                      } else {
-                        pnl = trade.pnl || 0;
-                      }
 
-                      const pnlColor = pnl >= 0 ? 'text-emerald-400' : 'text-red-400';
-                      
-                      return (
-                        <tr key={trade.id} className="hover:bg-zinc-800/5">
-                          <td className="p-3 font-mono font-bold">{trade.symbol}</td>
-                          <td className="p-3">
-                            <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold ${trade.action === 'BUY' ? 'bg-emerald-950/40 text-emerald-400' : 'bg-red-950/40 text-red-400'}`}>
-                              {trade.action}
+              <div className="flex items-center gap-4 text-xs font-mono">
+                <div className="px-3 py-1.5 rounded-xl border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Total Portfolio Value</span>
+                  <span className="text-sm font-bold text-[var(--foreground)]">${portfolioData.totalPortfolioValue.toFixed(2)}</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Unrealized MTM PnL</span>
+                  <span className={`text-sm font-bold ${portfolioData.totalUnrealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {portfolioData.totalUnrealizedPnL >= 0 ? '+' : ''}${portfolioData.totalUnrealizedPnL.toFixed(2)}
+                  </span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Realized PnL</span>
+                  <span className={`text-sm font-bold ${portfolioData.totalRealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {portfolioData.totalRealizedPnL >= 0 ? '+' : ''}${portfolioData.totalRealizedPnL.toFixed(2)}
+                  </span>
+                </div>
+                {portfolioExecutions.length > 0 && (
+                  <button
+                    onClick={handleClearPortfolio}
+                    className="text-[10px] font-mono font-bold hover:underline cursor-pointer text-red-400"
+                  >
+                    Clear Ledger
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Active Positions Table */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold font-mono uppercase text-[var(--foreground)]">Active Net Positions</span>
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">{portfolioData.positions.length} Active Assets</span>
+              </div>
+
+              {portfolioData.positions.length === 0 ? (
+                <div className="p-6 text-center text-[var(--text-muted)] text-xs space-y-1.5 border rounded-xl" style={{ borderColor: 'var(--border-subtle)', background: 'var(--background)' }}>
+                  <p className="font-semibold text-zinc-400">No active positions in portfolio ledger</p>
+                  <p className="text-[10px]">Use the &quot;Assist BUY / SELL Order&quot; buttons above or import 35=8 Execution Reports below to record fills.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border rounded-xl" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider font-mono bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <th className="p-3">Asset</th>
+                        <th className="p-3">Net Position</th>
+                        <th className="p-3 text-right">Avg Entry Px (Cost Basis)</th>
+                        <th className="p-3 text-right">Current Price</th>
+                        <th className="p-3 text-right">Market Value</th>
+                        <th className="p-3 text-right">Unrealized MTM PnL</th>
+                        <th className="p-3 text-right">Return %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/40 text-xs" style={{ color: 'var(--foreground)' }}>
+                      {portfolioData.positions.map((pos, idx) => (
+                        <tr key={idx} className="hover:bg-zinc-800/10">
+                          <td className="p-3 font-mono font-bold">{pos.symbol}</td>
+                          <td className="p-3 font-mono">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${pos.netQty > 0 ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/30' : pos.netQty < 0 ? 'bg-red-950/40 text-red-400 border border-red-800/30' : 'text-zinc-400'}`}>
+                              {pos.netQty > 0 ? `LONG +${pos.netQty}` : pos.netQty < 0 ? `SHORT ${pos.netQty}` : 'FLAT'}
                             </span>
                           </td>
-                          <td className="p-3 text-right font-mono">${trade.entryPrice.toFixed(2)}</td>
-                          <td className="p-3 text-right font-mono text-[var(--text-muted)]">{trade.quantity}</td>
-                          <td className="p-3 text-right font-mono">
-                            ${(trade.status === 'OPEN' ? currentVal : entryVal).toFixed(2)}
+                          <td className="p-3 text-right font-mono">${pos.avgEntryPrice.toFixed(2)}</td>
+                          <td className="p-3 text-right font-mono">${pos.currentPrice.toFixed(2)}</td>
+                          <td className="p-3 text-right font-mono">${pos.marketValue.toFixed(2)}</td>
+                          <td className={`p-3 text-right font-mono font-bold ${pos.unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {pos.unrealizedPnL >= 0 ? '+' : ''}${pos.unrealizedPnL.toFixed(2)}
                           </td>
-                          <td className={`p-3 text-right font-mono font-bold ${pnlColor}`}>
-                            {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
-                          </td>
-                          <td className="p-3 text-center">
-                            {trade.status === 'OPEN' ? (
-                              <button
-                                onClick={() => handleClosePaperTrade(trade.id, latestPrice)}
-                                className="px-2.5 py-0.5 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 text-red-400 rounded text-[10px] font-mono cursor-pointer transition-colors"
-                              >
-                                Close Trade
-                              </button>
-                            ) : (
-                              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                                Closed @ ${trade.exitPrice?.toFixed(2)}
-                              </span>
-                            )}
+                          <td className={`p-3 text-right font-mono font-bold ${pos.returnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {pos.returnPct >= 0 ? '+' : ''}{pos.returnPct.toFixed(2)}%
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Ingest Raw FIX Execution Reports Box */}
+            <div className="pt-2 space-y-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <span className="text-[10px] font-mono font-bold uppercase text-[var(--text-muted)]">Import Raw FIX Execution Reports (35=8)</span>
+              <div className="flex gap-2">
+                <textarea
+                  rows={2}
+                  value={rawExecutionReportInput}
+                  onChange={e => setRawExecutionReportInput(e.target.value)}
+                  placeholder="Paste 35=8 Execution Reports to ingest fills (e.g. 8=FIX.4.4|35=8|49=EXEC|11=ORD1|17=EX1|150=F|39=2|55=AAPL|54=1|32=100|31=180.50|...)"
+                  className="flex-1 p-2 rounded-xl text-xs font-mono border outline-none bg-[var(--background)] text-[var(--foreground)] resize-none"
+                  style={{ borderColor: 'var(--border-subtle)' }}
+                />
+                <button
+                  onClick={handleImportExecutionReport}
+                  className="fx-btn-primary py-2 px-4 text-xs font-semibold shrink-0 flex items-center gap-1.5"
+                >
+                  <UploadCloud className="h-4 w-4" /> Ingest Fills
+                </button>
               </div>
-            )}
+            </div>
+
           </div>
 
         </div>
 
       </div>
+
+      {/* ── FIX Trade Assistant Modal ── */}
+      {tradeAssistantOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className="w-full max-w-2xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            style={{ background: 'var(--card)', borderColor: 'var(--primary-border)' }}
+          >
+            {/* Modal Header */}
+            <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center border" style={{ background: 'var(--primary-faint)', borderColor: 'var(--primary-border)' }}>
+                  <Send className="h-4.5 w-4.5 text-[var(--primary)]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold font-mono text-[var(--foreground)] uppercase">
+                    FIX Trade Execution Assistant — {assistantOrderParams.symbol}
+                  </h3>
+                  <p className="text-xs text-[var(--text-muted)]">Configure order parameters to generate valid FIX 35=D wire payload.</p>
+                </div>
+              </div>
+              <button onClick={() => setTradeAssistantOpen(false)} className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Form Content */}
+            <div className="p-6 overflow-y-auto space-y-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase">Symbol (55)</label>
+                  <input
+                    type="text"
+                    value={assistantOrderParams.symbol}
+                    onChange={e => setAssistantOrderParams(prev => ({ ...prev, symbol: e.target.value }))}
+                    className="w-full p-2 mt-1 rounded-xl border text-xs font-mono bg-[var(--background)] text-[var(--foreground)]"
+                    style={{ borderColor: 'var(--border)' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase">Side (54)</label>
+                  <select
+                    value={assistantOrderParams.side}
+                    onChange={e => setAssistantOrderParams(prev => ({ ...prev, side: e.target.value }))}
+                    className="w-full p-2 mt-1 rounded-xl border text-xs font-mono bg-[var(--background)] text-[var(--foreground)]"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <option value="BUY">1 — BUY</option>
+                    <option value="SELL">2 — SELL</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase">Order Qty (38)</label>
+                  <input
+                    type="number"
+                    value={assistantOrderParams.qty}
+                    onChange={e => setAssistantOrderParams(prev => ({ ...prev, qty: parseFloat(e.target.value) || 0 }))}
+                    className="w-full p-2 mt-1 rounded-xl border text-xs font-mono bg-[var(--background)] text-[var(--foreground)]"
+                    style={{ borderColor: 'var(--border)' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase">Price (44)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={assistantOrderParams.price}
+                    onChange={e => setAssistantOrderParams(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                    className="w-full p-2 mt-1 rounded-xl border text-xs font-mono bg-[var(--background)] text-[var(--foreground)]"
+                    style={{ borderColor: 'var(--border)' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase">OrdType (40)</label>
+                  <select
+                    value={assistantOrderParams.ordType}
+                    onChange={e => setAssistantOrderParams(prev => ({ ...prev, ordType: e.target.value }))}
+                    className="w-full p-2 mt-1 rounded-xl border text-xs font-mono bg-[var(--background)] text-[var(--foreground)]"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <option value="1">1 — Market</option>
+                    <option value="2">2 — Limit</option>
+                    <option value="3">3 — Stop</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-mono font-bold text-zinc-400 uppercase">ClOrdID (11)</label>
+                  <input
+                    type="text"
+                    value={assistantOrderParams.clOrdId}
+                    onChange={e => setAssistantOrderParams(prev => ({ ...prev, clOrdId: e.target.value }))}
+                    className="w-full p-2 mt-1 rounded-xl border text-xs font-mono bg-[var(--background)] text-[var(--foreground)]"
+                    style={{ borderColor: 'var(--border)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Generated FIX Payload Preview Box */}
+              {(() => {
+                const generated = generateFixNewOrderSingle(assistantOrderParams);
+                return (
+                  <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold text-[var(--primary)] uppercase">Generated FIX Payload (35=D NewOrderSingle)</span>
+                      <span className="text-[10px] font-mono text-zinc-400">BodyLength: {generated.bodyLength} | CheckSum: {generated.checksum}</span>
+                    </div>
+                    <div className="p-3 rounded-xl border bg-zinc-950 font-mono text-[11px] text-emerald-400 break-all select-all shadow-inner">
+                      {generated.pipeMessage}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="p-5 border-t flex items-center justify-between gap-3" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
+              <button
+                onClick={() => setTradeAssistantOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-mono font-semibold border"
+                style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+              >
+                Cancel
+              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleDispatchFixOrder(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-mono font-semibold border transition-all flex items-center gap-1.5"
+                  style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  <span>{copiedPayload ? 'Copied!' : 'Copy Wire Payload Only'}</span>
+                </button>
+                <button
+                  onClick={() => handleDispatchFixOrder(true)}
+                  className="fx-btn-primary py-2 px-4 text-xs font-semibold flex items-center gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Confirm &amp; Record Execution</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Info Help Modal Guide */}
       {infoModalOpen && (

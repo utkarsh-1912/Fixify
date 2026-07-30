@@ -28,6 +28,7 @@ import {
   Sparkles,
   Download
 } from 'lucide-react';
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from '@/lib/workspaceSession';
 import { validateFIXMessage } from '@/lib/fixParser';
 import SohVisualizer from '@/components/SohVisualizer';
 
@@ -787,7 +788,18 @@ export default function MultiHopCorrelationPage() {
     const cachedLogs = localStorage.getItem('fixify-correlation-raw-logs') || localStorage.getItem('fixify-logs-pastedText');
     const cachedConfig = localStorage.getItem('fixify-correlation-connections-config');
     const cachedLinks = localStorage.getItem('fixify-correlation-manual-links');
-    if (cachedLogs !== null) setRawLogs(cachedLogs);
+    
+    if (isWorkspaceSharingEnabled()) {
+      const session = getWorkspaceSession();
+      if (session && session.rawText) {
+        setRawLogs(session.rawText);
+      } else if (cachedLogs !== null) {
+        setRawLogs(cachedLogs);
+      }
+    } else if (cachedLogs !== null) {
+      setRawLogs(cachedLogs);
+    }
+
     if (cachedConfig !== null) {
       try { setConnectionsConfig(JSON.parse(cachedConfig)); } catch {}
     }
@@ -811,6 +823,9 @@ export default function MultiHopCorrelationPage() {
     localStorage.setItem('fixify-correlation-raw-logs', rawLogs);
     localStorage.setItem('fixify-correlation-connections-config', JSON.stringify(connectionsConfig));
     localStorage.setItem('fixify-correlation-manual-links', JSON.stringify(manualLinks));
+    if (isWorkspaceSharingEnabled() && rawLogs) {
+      setWorkspaceSession({ rawText: rawLogs, source: 'correlation' });
+    }
   }, [rawLogs, connectionsConfig, manualLinks, isLoaded]);
 
   // ── Auto-discover sessions ────────────────────────────────────────────────
