@@ -1397,7 +1397,7 @@ export default function MultiHopCorrelationPage() {
               </div>
 
               {/* Row 2: Search + Tabs */}
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
                 {/* Search */}
                 <div className="relative flex-1 min-w-[140px] max-w-xs">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500 pointer-events-none" />
