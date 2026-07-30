@@ -646,17 +646,17 @@ export default function MultiAlgoStudio() {
   }, [portfolioData]);
 
   return (
-    <div className="space-y-8 max-w-screen-2xl mx-auto animate-in fade-in duration-200">
+    <div className="space-y-6 sm:space-y-8 max-w-screen-2xl mx-auto px-3 sm:px-6 py-6 sm:py-8 animate-in fade-in duration-200">
       
       {/* Header */}
-      <div className="fx-page-header flex flex-col md:flex-row md:items-start justify-between gap-4">
+      <div className="fx-page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2.5" style={{ color: 'var(--foreground)' }}>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2.5" style={{ color: 'var(--foreground)' }}>
             <div
-              className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0"
               style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
             >
-              <LineChart className="h-5 w-5" style={{ color: 'var(--primary)' }} />
+              <LineChart className="h-4.5 w-4.5 sm:h-5 sm:w-5" style={{ color: 'var(--primary)' }} />
             </div>
             <span>Multi-Algo Trade Studio</span>
             <button
@@ -667,16 +667,16 @@ export default function MultiAlgoStudio() {
               <Info className="h-4 w-4" />
             </button>
           </h1>
-          <p className="text-sm text-[var(--text-muted)]">
+          <p className="text-xs sm:text-sm text-[var(--text-muted)]">
             Scan markets with SMA cross, RSI, MACD, and Bollinger strategies concurrently. Execute simulated trades and track performance.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
           <select
             value={range}
             onChange={(e) => setRange(e.target.value)}
-            className="px-3 py-1.5 border rounded-xl text-xs font-semibold cursor-pointer outline-none transition-colors focus:border-[var(--primary)]"
+            className="flex-1 sm:flex-none px-3 py-1.5 border rounded-xl text-xs font-semibold cursor-pointer outline-none transition-colors focus:border-[var(--primary)]"
             style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
           >
             <option value="1mo">1 Month History</option>
@@ -686,7 +686,7 @@ export default function MultiAlgoStudio() {
           </select>
           <button
             onClick={() => fetchMarketData(symbols, range)}
-            className="fx-btn-secondary px-3 py-1.5 text-xs font-semibold flex items-center gap-2 cursor-pointer"
+            className="fx-btn-secondary px-3 py-1.5 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shrink-0"
             disabled={loading}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -710,52 +710,52 @@ export default function MultiAlgoStudio() {
       )}
 
       {/* Top Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl border flex items-center gap-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-400 shrink-0">
-            <TrendingUp className="h-5 w-5" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-3.5 sm:p-5 rounded-2xl border flex items-center gap-3 sm:gap-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-400 shrink-0">
+            <TrendingUp className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
           </div>
           <div>
-            <p className="text-xl font-bold font-mono" style={{ color: 'var(--foreground)' }}>
+            <p className="text-lg sm:text-xl font-bold font-mono" style={{ color: 'var(--foreground)' }}>
               {signalsSummary.buyCount}
             </p>
-            <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Buy Signals Active</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Buy Signals Active</p>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl border flex items-center gap-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-red-500/10 text-red-400 shrink-0">
-            <TrendingDown className="h-5 w-5" />
+        <div className="p-3.5 sm:p-5 rounded-2xl border flex items-center gap-3 sm:gap-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center bg-red-500/10 text-red-400 shrink-0">
+            <TrendingDown className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
           </div>
           <div>
-            <p className="text-xl font-bold font-mono" style={{ color: 'var(--foreground)' }}>
+            <p className="text-lg sm:text-xl font-bold font-mono" style={{ color: 'var(--foreground)' }}>
               {signalsSummary.sellCount}
             </p>
-            <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Sell Signals Active</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Sell Signals Active</p>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl border flex items-center gap-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-zinc-500/10 text-zinc-400 shrink-0">
-            <AlertTriangle className="h-5 w-5" />
+        <div className="p-3.5 sm:p-5 rounded-2xl border flex items-center gap-3 sm:gap-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center bg-zinc-500/10 text-zinc-400 shrink-0">
+            <AlertTriangle className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
           </div>
           <div>
-            <p className="text-xl font-bold font-mono" style={{ color: 'var(--foreground)' }}>
+            <p className="text-lg sm:text-xl font-bold font-mono" style={{ color: 'var(--foreground)' }}>
               {signalsSummary.holdCount}
             </p>
-            <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Neutral Hold Assets</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Neutral Hold Assets</p>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl border flex items-center gap-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-400 shrink-0">
-            <Briefcase className="h-5 w-5" />
+        <div className="p-3.5 sm:p-5 rounded-2xl border flex items-center gap-3 sm:gap-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-400 shrink-0">
+            <Briefcase className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
           </div>
           <div>
-            <p className={`text-xl font-bold font-mono ${openPortfolioStats.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <p className={`text-lg sm:text-xl font-bold font-mono ${openPortfolioStats.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {openPortfolioStats.totalPnl >= 0 ? '+' : ''}${openPortfolioStats.totalPnl.toLocaleString()}
             </p>
-            <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Simulated P&amp;L ({openPortfolioStats.pnlPercent}%)</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Simulated P&amp;L ({openPortfolioStats.pnlPercent}%)</p>
           </div>
         </div>
       </div>
@@ -1109,28 +1109,28 @@ export default function MultiAlgoStudio() {
                 </div>
 
                 {/* Subchart View Modes */}
-                <div className="fx-tab-group">
+                <div className="fx-tab-group flex items-center overflow-x-auto max-w-full pb-1 scrollbar-none shrink-0">
                   <button
                     onClick={() => setChartViewMode('price')}
-                    className={`fx-tab text-[10px] font-bold uppercase tracking-wider${chartMode === 'price' ? ' active' : ''}`}
+                    className={`fx-tab text-[10px] font-bold uppercase tracking-wider shrink-0${chartMode === 'price' ? ' active' : ''}`}
                   >
                     Overlay Price
                   </button>
                   <button
                     onClick={() => setChartViewMode('rsi')}
-                    className={`fx-tab text-[10px] font-bold uppercase tracking-wider${chartMode === 'rsi' ? ' active' : ''}`}
+                    className={`fx-tab text-[10px] font-bold uppercase tracking-wider shrink-0${chartMode === 'rsi' ? ' active' : ''}`}
                   >
                     RSI Wave
                   </button>
                   <button
                     onClick={() => setChartViewMode('macd')}
-                    className={`fx-tab text-[10px] font-bold uppercase tracking-wider${chartMode === 'macd' ? ' active' : ''}`}
+                    className={`fx-tab text-[10px] font-bold uppercase tracking-wider shrink-0${chartMode === 'macd' ? ' active' : ''}`}
                   >
                     MACD Bars
                   </button>
                   <button
                     onClick={() => setChartViewMode('backtest')}
-                    className={`fx-tab text-[10px] font-bold uppercase tracking-wider${chartMode === 'backtest' ? ' active' : ''}`}
+                    className={`fx-tab text-[10px] font-bold uppercase tracking-wider shrink-0${chartMode === 'backtest' ? ' active' : ''}`}
                   >
                     Backtest Report
                   </button>
@@ -1224,350 +1224,352 @@ export default function MultiAlgoStudio() {
                   </div>
                 </div>
               ) : (
-                /* TECHNICAL CHART VIEW WITH OVERLAYS */
-                <div className="relative w-full overflow-hidden select-none">
-                  <svg
-                    viewBox={`0 0 ${chartProps.width} ${chartProps.height}`}
-                    className="w-full overflow-visible"
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={() => setHoverIndex(null)}
-                  >
-                    <defs>
-                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.15" />
-                        <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
-                      </linearGradient>
-                      <linearGradient id="bbShadedGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.05" />
-                        <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.05" />
-                      </linearGradient>
-                    </defs>
+                /* TECHNICAL CHART VIEW WITH OVERLAYS (Dual X & Y Touch Scrollable) */
+                <div className="relative w-full overflow-x-auto overflow-y-auto max-w-full touch-pan-x touch-pan-y scrollbar-thin select-none py-1">
+                  <div className="min-w-[620px] sm:min-w-0 relative">
+                    <svg
+                      viewBox={`0 0 ${chartProps.width} ${chartProps.height}`}
+                      className="w-full overflow-visible"
+                      onMouseMove={handleMouseMove}
+                      onMouseLeave={() => setHoverIndex(null)}
+                    >
+                      <defs>
+                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.15" />
+                          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+                        </linearGradient>
+                        <linearGradient id="bbShadedGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.05" />
+                          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.05" />
+                        </linearGradient>
+                      </defs>
 
-                    {/* Draw grid lines and labels */}
-                    {chartMode === 'price' && (
-                      <>
-                        {/* Price Grid Y Axis ticks */}
-                        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                          const priceVal = chartProps.minPrice + ratio * (chartProps.maxPrice - chartProps.minPrice);
-                          const yCoord = chartProps.getY(priceVal);
-                          return (
-                            <g key={ratio} className="opacity-40">
+                      {/* Draw grid lines and labels */}
+                      {chartMode === 'price' && (
+                        <>
+                          {/* Price Grid Y Axis ticks */}
+                          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                            const priceVal = chartProps.minPrice + ratio * (chartProps.maxPrice - chartProps.minPrice);
+                            const yCoord = chartProps.getY(priceVal);
+                            return (
+                              <g key={ratio} className="opacity-40">
+                                <line
+                                  x1={chartProps.paddingLeft}
+                                  y1={yCoord}
+                                  x2={chartProps.width - chartProps.paddingRight}
+                                  y2={yCoord}
+                                  stroke="var(--border-subtle)"
+                                  strokeDasharray="4,4"
+                                />
+                                <text
+                                  x={chartProps.paddingLeft - 8}
+                                  y={yCoord + 3}
+                                  className="text-[9px] font-mono text-right"
+                                  textAnchor="end"
+                                  fill="var(--text-muted)"
+                                >
+                                  ${priceVal.toFixed(2)}
+                                </text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Time Grid X Axis ticks */}
+                          {chartProps.xGridTicks.map((tick, idx) => (
+                            <g key={idx} className="opacity-30">
+                              <line
+                                x1={tick.x}
+                                y1={chartProps.paddingTop}
+                                x2={tick.x}
+                                y2={chartProps.height - chartProps.paddingBottom}
+                                stroke="var(--border-subtle)"
+                                strokeDasharray="3,3"
+                              />
+                              <text
+                                x={tick.x}
+                                y={chartProps.height - 15}
+                                className="text-[8px] font-mono text-center"
+                                textAnchor="middle"
+                                fill="var(--text-muted)"
+                              >
+                                {tick.date}
+                              </text>
+                            </g>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Render Main price chart */}
+                      {chartMode === 'price' && (
+                        <>
+                          {/* Bollinger band envelope path */}
+                          {config.activeAlgos.bb && chartProps.bbArea && (
+                            <>
+                              <polygon points={chartProps.bbArea} fill="url(#bbShadedGradient)" />
+                              <polyline points={chartProps.bbUpperPoints} fill="none" stroke="rgba(59,130,246,0.3)" strokeWidth="1" strokeDasharray="3,3" />
+                              <polyline points={chartProps.bbLowerPoints} fill="none" stroke="rgba(59,130,246,0.3)" strokeWidth="1" strokeDasharray="3,3" />
+                            </>
+                          )}
+
+                          {/* SMAs */}
+                          {config.activeAlgos.sma && chartProps.smaShortPoints && (
+                            <polyline points={chartProps.smaShortPoints} fill="none" stroke="#fbbf24" strokeWidth="1.2" className="opacity-80" />
+                          )}
+                          {config.activeAlgos.sma && chartProps.smaLongPoints && (
+                            <polyline points={chartProps.smaLongPoints} fill="none" stroke="#60a5fa" strokeWidth="1.2" className="opacity-80" />
+                          )}
+
+                          {/* Suggested plan targets overlays */}
+                          {selectedDetails.signals?.recommendation && (
+                            <g>
+                              {/* Entry Zone rectangle */}
+                              <rect
+                                x={chartProps.paddingLeft}
+                                y={Math.min(chartProps.getY(selectedDetails.signals.recommendation.entryMin), chartProps.getY(selectedDetails.signals.recommendation.entryMax))}
+                                width={chartProps.plotWidth}
+                                height={Math.abs(chartProps.getY(selectedDetails.signals.recommendation.entryMin) - chartProps.getY(selectedDetails.signals.recommendation.entryMax))}
+                                fill="rgba(96,165,250,0.06)"
+                                stroke="rgba(96,165,250,0.3)"
+                                strokeWidth="0.8"
+                                strokeDasharray="3,3"
+                              />
+                              
+                              {/* Take Profit target line */}
                               <line
                                 x1={chartProps.paddingLeft}
-                                y1={yCoord}
+                                y1={chartProps.getY(selectedDetails.signals.recommendation.tp)}
                                 x2={chartProps.width - chartProps.paddingRight}
-                                y2={yCoord}
-                                stroke="var(--border-subtle)"
+                                y2={chartProps.getY(selectedDetails.signals.recommendation.tp)}
+                                stroke="#10b981"
+                                strokeWidth="1.5"
                                 strokeDasharray="4,4"
                               />
                               <text
-                                x={chartProps.paddingLeft - 8}
-                                y={yCoord + 3}
-                                className="text-[9px] font-mono text-right"
+                                x={chartProps.width - chartProps.paddingRight - 6}
+                                y={chartProps.getY(selectedDetails.signals.recommendation.tp) - 4}
+                                className="text-[8px] font-mono font-bold"
                                 textAnchor="end"
-                                fill="var(--text-muted)"
+                                fill="#10b981"
                               >
-                                ${priceVal.toFixed(2)}
+                                TARGET TP: ${selectedDetails.signals.recommendation.tp}
                               </text>
-                            </g>
-                          );
-                        })}
-                      </>
-                    )}
 
-                    {chartMode === 'rsi' && (
-                      <>
-                        {/* RSI limits guidelines 30 and 70 */}
-                        {[30, 50, 70].map((rsiThreshold) => {
-                          const yCoord = chartProps.getRsiY(rsiThreshold);
-                          const isBoundary = rsiThreshold === 30 || rsiThreshold === 70;
-                          return (
-                            <g key={rsiThreshold} className={isBoundary ? 'opacity-70' : 'opacity-30'}>
+                              {/* Stop Loss risk line */}
                               <line
                                 x1={chartProps.paddingLeft}
-                                y1={yCoord}
+                                y1={chartProps.getY(selectedDetails.signals.recommendation.sl)}
                                 x2={chartProps.width - chartProps.paddingRight}
-                                y2={yCoord}
-                                stroke={isBoundary ? (rsiThreshold === 70 ? '#f87171' : '#34d399') : 'var(--border-subtle)'}
-                                strokeDasharray={isBoundary ? 'none' : '3,3'}
+                                y2={chartProps.getY(selectedDetails.signals.recommendation.sl)}
+                                stroke="#ef4444"
+                                strokeWidth="1.5"
+                                strokeDasharray="4,4"
                               />
                               <text
-                                x={chartProps.paddingLeft - 8}
-                                y={yCoord + 3}
-                                className="text-[9px] font-mono font-bold"
+                                x={chartProps.width - chartProps.paddingRight - 6}
+                                y={chartProps.getY(selectedDetails.signals.recommendation.sl) - 4}
+                                className="text-[8px] font-mono font-bold"
                                 textAnchor="end"
-                                fill={isBoundary ? (rsiThreshold === 70 ? '#f87171' : '#34d399') : 'var(--text-muted)'}
+                                fill="#ef4444"
                               >
-                                {rsiThreshold}
+                                STOP LOSS: ${selectedDetails.signals.recommendation.sl}
                               </text>
                             </g>
-                          );
-                        })}
-                      </>
-                    )}
+                          )}
 
-                    {chartMode === 'macd' && (
-                      <line
-                        x1={chartProps.paddingLeft}
-                        y1={chartProps.height - chartProps.paddingBottom - (chartProps.plotHeight / 2)}
-                        x2={chartProps.width - chartProps.paddingRight}
-                        y2={chartProps.height - chartProps.paddingBottom - (chartProps.plotHeight / 2)}
-                        stroke="var(--border-subtle)"
-                        className="opacity-50"
-                      />
-                    )}
+                          {/* Price Shaded area & main Polyline */}
+                          <polygon points={chartProps.areaPoints} fill="url(#chartGradient)" />
+                          <polyline points={chartProps.pricePoints} fill="none" stroke="var(--primary)" strokeWidth="2" />
 
-                    {/* Render Main price chart */}
-                    {chartMode === 'price' && (
-                      <>
-                        {/* Bollinger band envelope path */}
-                        {config.activeAlgos.bb && chartProps.bbArea && (
+                          {/* Signal Markers */}
+                          {chartProps.signalMarkers.map((sm, idx) => (
+                            <g key={idx}>
+                              <circle
+                                cx={sm.x}
+                                cy={sm.y}
+                                r="4"
+                                fill={sm.type === 'BUY' ? '#10b981' : '#ef4444'}
+                                stroke="var(--card)"
+                                strokeWidth="1.5"
+                              />
+                              <text
+                                x={sm.x}
+                                y={sm.type === 'BUY' ? sm.y + 12 : sm.y - 8}
+                                className="text-[8px] font-mono font-bold"
+                                textAnchor="middle"
+                                fill={sm.type === 'BUY' ? '#10b981' : '#ef4444'}
+                              >
+                                {sm.type}
+                              </text>
+                            </g>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Render Subchart: RSI Wave */}
+                      {chartMode === 'rsi' && (
+                        <>
+                          <line
+                            x1={chartProps.paddingLeft}
+                            y1={chartProps.getY(70, 0, 100)}
+                            x2={chartProps.width - chartProps.paddingRight}
+                            y2={chartProps.getY(70, 0, 100)}
+                            stroke="#ef4444"
+                            strokeWidth="1"
+                            strokeDasharray="3,3"
+                          />
+                          <line
+                            x1={chartProps.paddingLeft}
+                            y1={chartProps.getY(30, 0, 100)}
+                            x2={chartProps.width - chartProps.paddingRight}
+                            y2={chartProps.getY(30, 0, 100)}
+                            stroke="#10b981"
+                            strokeWidth="1"
+                            strokeDasharray="3,3"
+                          />
+                          {chartProps.rsiPoints && (
+                            <polyline points={chartProps.rsiPoints} fill="none" stroke="var(--primary)" strokeWidth="2" />
+                          )}
+                        </>
+                      )}
+
+                      {/* Render Subchart: MACD Bars */}
+                      {chartMode === 'macd' && (
+                        <>
+                          <line
+                            x1={chartProps.paddingLeft}
+                            y1={chartProps.height / 2}
+                            x2={chartProps.width - chartProps.paddingRight}
+                            y2={chartProps.height / 2}
+                            stroke="var(--border-subtle)"
+                            strokeWidth="1"
+                          />
+                          {chartProps.macdHistBars.map((bar, idx) => (
+                            <rect
+                              key={idx}
+                              x={bar.x}
+                              y={bar.y}
+                              width={bar.w}
+                              height={bar.h}
+                              fill={bar.positive ? 'rgba(52,211,153,0.45)' : 'rgba(248,113,113,0.45)'}
+                              stroke={bar.positive ? '#10b981' : '#ef4444'}
+                              strokeWidth="0.5"
+                            />
+                          ))}
+                          {/* MACD and Signal lines */}
+                          {chartProps.macdPoints && (
+                            <polyline points={chartProps.macdPoints} fill="none" stroke="#60a5fa" strokeWidth="1.5" />
+                          )}
+                          {chartProps.signalPoints && (
+                            <polyline points={chartProps.signalPoints} fill="none" stroke="#fbbf24" strokeWidth="1.5" />
+                          )}
+                        </>
+                      )}
+
+                      {/* Vertical Hover Guides */}
+                      {hoverIndex !== null && (
+                        <g>
+                          <line
+                            x1={chartProps.getX(hoverIndex)}
+                            y1={chartProps.paddingTop}
+                            x2={chartProps.getX(hoverIndex)}
+                            y2={chartProps.height - chartProps.paddingBottom}
+                            stroke="var(--border-subtle)"
+                            strokeWidth="1.5"
+                          />
+                          <circle
+                            cx={chartProps.getX(hoverIndex)}
+                            cy={chartProps.getY(chartProps.history[hoverIndex].close)}
+                            r="5"
+                            fill="var(--primary)"
+                            stroke="var(--card)"
+                            strokeWidth="2"
+                          />
+                        </g>
+                      )}
+                    </svg>
+
+                    {/* Floating tooltip */}
+                    {hoverIndex !== null && chartProps.history[hoverIndex] && (
+                      <div
+                        className="absolute z-20 p-3 rounded-xl border pointer-events-none shadow-lg text-[10px] space-y-1 font-mono font-semibold"
+                        style={{
+                          left: `${hoverPos.x + 10}px`,
+                          top: `${hoverPos.y}px`,
+                          background: 'var(--card)',
+                          borderColor: 'var(--border)',
+                          color: 'var(--foreground)'
+                        }}
+                      >
+                        <div className="text-zinc-500 border-b border-zinc-800 pb-1 mb-1">
+                          {chartProps.history[hoverIndex].date}
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span>Close:</span>
+                          <span className="font-bold text-zinc-300">
+                            ${chartProps.history[hoverIndex].close.toFixed(2)}
+                          </span>
+                        </div>
+                        
+                        {/* Mode specific tooltip additions */}
+                        {chartMode === 'price' && (
                           <>
-                            <polygon points={chartProps.bbArea} fill="url(#bbShadedGradient)" />
-                            <polyline points={chartProps.bbUpperPoints} fill="none" stroke="rgba(59,130,246,0.3)" strokeWidth="1" strokeDasharray="3,3" />
-                            <polyline points={chartProps.bbLowerPoints} fill="none" stroke="rgba(59,130,246,0.3)" strokeWidth="1" strokeDasharray="3,3" />
+                            {config.activeAlgos.sma && selectedDetails.signals?.historyArrays?.smaShort && (
+                              <div className="flex justify-between gap-4 text-[#fbbf24]">
+                                <span>SMA({config.smaShortPeriod}):</span>
+                                <span>
+                                  {selectedDetails.signals.historyArrays.smaShort[hoverIndex] 
+                                    ? `$${selectedDetails.signals.historyArrays.smaShort[hoverIndex].toFixed(2)}` 
+                                    : 'N/A'}
+                                </span>
+                              </div>
+                            )}
+                            {config.activeAlgos.bb && selectedDetails.signals?.historyArrays?.bb && (
+                              <div className="flex justify-between gap-4 text-blue-400">
+                                <span>BB bands (L/U):</span>
+                                <span>
+                                  {selectedDetails.signals.historyArrays.bb.lower[hoverIndex]
+                                    ? `$${selectedDetails.signals.historyArrays.bb.lower[hoverIndex].toFixed(1)} / $${selectedDetails.signals.historyArrays.bb.upper[hoverIndex].toFixed(1)}`
+                                    : 'N/A'}
+                                </span>
+                              </div>
+                            )}
                           </>
                         )}
 
-                        {/* SMAs */}
-                        {config.activeAlgos.sma && chartProps.smaShortPoints && (
-                          <polyline points={chartProps.smaShortPoints} fill="none" stroke="#fbbf24" strokeWidth="1.2" className="opacity-80" />
-                        )}
-                        {config.activeAlgos.sma && chartProps.smaLongPoints && (
-                          <polyline points={chartProps.smaLongPoints} fill="none" stroke="#60a5fa" strokeWidth="1.2" className="opacity-80" />
-                        )}
-
-                        {/* Suggested plan targets overlays */}
-                        {selectedDetails.signals?.recommendation && (
-                          <g>
-                            {/* Entry Zone rectangle */}
-                            <rect
-                              x={chartProps.paddingLeft}
-                              y={Math.min(chartProps.getY(selectedDetails.signals.recommendation.entryMin), chartProps.getY(selectedDetails.signals.recommendation.entryMax))}
-                              width={chartProps.plotWidth}
-                              height={Math.abs(chartProps.getY(selectedDetails.signals.recommendation.entryMin) - chartProps.getY(selectedDetails.signals.recommendation.entryMax))}
-                              fill="rgba(96,165,250,0.06)"
-                              stroke="rgba(96,165,250,0.3)"
-                              strokeWidth="0.8"
-                              strokeDasharray="3,3"
-                            />
-                            
-                            {/* Take Profit target line */}
-                            <line
-                              x1={chartProps.paddingLeft}
-                              y1={chartProps.getY(selectedDetails.signals.recommendation.tp)}
-                              x2={chartProps.width - chartProps.paddingRight}
-                              y2={chartProps.getY(selectedDetails.signals.recommendation.tp)}
-                              stroke="#10b981"
-                              strokeWidth="1.5"
-                              strokeDasharray="4,4"
-                            />
-                            <text
-                              x={chartProps.width - chartProps.paddingRight - 6}
-                              y={chartProps.getY(selectedDetails.signals.recommendation.tp) - 4}
-                              className="text-[8px] font-mono font-bold"
-                              textAnchor="end"
-                              fill="#10b981"
-                            >
-                              TARGET TP: ${selectedDetails.signals.recommendation.tp}
-                            </text>
-
-                            {/* Stop Loss risk line */}
-                            <line
-                              x1={chartProps.paddingLeft}
-                              y1={chartProps.getY(selectedDetails.signals.recommendation.sl)}
-                              x2={chartProps.width - chartProps.paddingRight}
-                              y2={chartProps.getY(selectedDetails.signals.recommendation.sl)}
-                              stroke="#ef4444"
-                              strokeWidth="1.5"
-                              strokeDasharray="4,4"
-                            />
-                            <text
-                              x={chartProps.width - chartProps.paddingRight - 6}
-                              y={chartProps.getY(selectedDetails.signals.recommendation.sl) - 4}
-                              className="text-[8px] font-mono font-bold"
-                              textAnchor="end"
-                              fill="#ef4444"
-                            >
-                              STOP LOSS: ${selectedDetails.signals.recommendation.sl}
-                            </text>
-                          </g>
+                        {chartMode === 'rsi' && selectedDetails.signals?.historyArrays?.rsi && (
+                          <div className="flex justify-between gap-4 text-[var(--primary)]">
+                            <span>RSI:</span>
+                            <span>
+                              {selectedDetails.signals.historyArrays.rsi[hoverIndex]
+                                ? selectedDetails.signals.historyArrays.rsi[hoverIndex].toFixed(1)
+                                : 'N/A'}
+                            </span>
+                          </div>
                         )}
 
-                        {/* Price Line */}
-                        <polyline points={chartProps.points} fill="none" stroke="var(--primary)" strokeWidth="2.5" />
-                        
-                        {/* Fill area under price line */}
-                        <path
-                          d={`M ${chartProps.paddingLeft} ${chartProps.height - chartProps.paddingBottom} L ${chartProps.points} L ${chartProps.width - chartProps.paddingRight} ${chartProps.height - chartProps.paddingBottom} Z`}
-                          fill="url(#chartGradient)"
-                        />
-
-                        {/* Buy / Sell crossover signals */}
-                        {chartProps.signalMarkers.map((marker, i) => {
-                          const x = chartProps.getX(marker.index);
-                          const price = chartProps.history[marker.index].close;
-                          const y = chartProps.getY(price);
-                          
-                          return (
-                            <g key={i} className="cursor-help">
-                              <title>{marker.label}</title>
-                              {marker.type === 'BUY' ? (
-                                <polygon
-                                  points={`${x},${y-8} ${x-6},${y+2} ${x+6},${y+2}`}
-                                  fill="#34d399"
-                                  stroke="#10b981"
-                                  strokeWidth="1"
-                                />
-                              ) : (
-                                <polygon
-                                  points={`${x},${y+8} ${x-6},${y-2} ${x+6},${y-2}`}
-                                  fill="#f87171"
-                                  stroke="#ef4444"
-                                  strokeWidth="1"
-                                />
-                              )}
-                            </g>
-                          );
-                        })}
-                      </>
-                    )}
-
-                    {/* Render RSI chart */}
-                    {chartMode === 'rsi' && chartProps.rsiPoints && (
-                      <polyline points={chartProps.rsiPoints} fill="none" stroke="var(--primary)" strokeWidth="2" />
-                    )}
-
-                    {/* Render MACD chart */}
-                    {chartMode === 'macd' && (
-                      <>
-                        {/* Histogram bars */}
-                        {chartProps.macdHistBars.map((bar, idx) => (
-                          <rect
-                            key={idx}
-                            x={bar.x}
-                            y={bar.y}
-                            width={bar.w}
-                            height={bar.h}
-                            fill={bar.positive ? 'rgba(52,211,153,0.45)' : 'rgba(248,113,113,0.45)'}
-                            stroke={bar.positive ? '#10b981' : '#ef4444'}
-                            strokeWidth="0.5"
-                          />
-                        ))}
-                        {/* MACD and Signal lines */}
-                        {chartProps.macdPoints && (
-                          <polyline points={chartProps.macdPoints} fill="none" stroke="#60a5fa" strokeWidth="1.5" />
-                        )}
-                        {chartProps.signalPoints && (
-                          <polyline points={chartProps.signalPoints} fill="none" stroke="#fbbf24" strokeWidth="1.5" />
-                        )}
-                      </>
-                    )}
-
-                    {/* Vertical Hover Guides */}
-                    {hoverIndex !== null && (
-                      <g>
-                        <line
-                          x1={chartProps.getX(hoverIndex)}
-                          y1={chartProps.paddingTop}
-                          x2={chartProps.getX(hoverIndex)}
-                          y2={chartProps.height - chartProps.paddingBottom}
-                          stroke="var(--border-subtle)"
-                          strokeWidth="1.5"
-                        />
-                        <circle
-                          cx={chartProps.getX(hoverIndex)}
-                          cy={chartProps.getY(chartProps.history[hoverIndex].close)}
-                          r="5"
-                          fill="var(--primary)"
-                          stroke="var(--card)"
-                          strokeWidth="2"
-                        />
-                      </g>
-                    )}
-                  </svg>
-
-                  {/* Floating tooltip */}
-                  {hoverIndex !== null && chartProps.history[hoverIndex] && (
-                    <div
-                      className="absolute z-20 p-3 rounded-xl border pointer-events-none shadow-lg text-[10px] space-y-1 font-mono font-semibold"
-                      style={{
-                        left: `${hoverPos.x + 10}px`,
-                        top: `${hoverPos.y}px`,
-                        background: 'var(--card)',
-                        borderColor: 'var(--border)',
-                        color: 'var(--foreground)'
-                      }}
-                    >
-                      <div className="text-zinc-500 border-b border-zinc-800 pb-1 mb-1">
-                        {chartProps.history[hoverIndex].date}
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span>Close:</span>
-                        <span className="font-bold text-zinc-300">
-                          ${chartProps.history[hoverIndex].close.toFixed(2)}
-                        </span>
-                      </div>
-                      
-                      {/* Mode specific tooltip additions */}
-                      {chartMode === 'price' && (
-                        <>
-                          {config.activeAlgos.sma && selectedDetails.signals?.historyArrays?.smaShort && (
-                            <div className="flex justify-between gap-4 text-[#fbbf24]">
-                              <span>SMA({config.smaShortPeriod}):</span>
-                              <span>
-                                {selectedDetails.signals.historyArrays.smaShort[hoverIndex] 
-                                  ? `$${selectedDetails.signals.historyArrays.smaShort[hoverIndex].toFixed(2)}` 
-                                  : 'N/A'}
-                              </span>
-                            </div>
-                          )}
-                          {config.activeAlgos.bb && selectedDetails.signals?.historyArrays?.bb && (
+                        {chartMode === 'macd' && selectedDetails.signals?.historyArrays?.macd && (
+                          <>
                             <div className="flex justify-between gap-4 text-blue-400">
-                              <span>BB bands (L/U):</span>
+                              <span>MACD:</span>
                               <span>
-                                {selectedDetails.signals.historyArrays.bb.lower[hoverIndex]
-                                  ? `$${selectedDetails.signals.historyArrays.bb.lower[hoverIndex].toFixed(1)} / $${selectedDetails.signals.historyArrays.bb.upper[hoverIndex].toFixed(1)}`
+                                {selectedDetails.signals.historyArrays.macd.macdLine[hoverIndex]
+                                  ? selectedDetails.signals.historyArrays.macd.macdLine[hoverIndex].toFixed(3)
                                   : 'N/A'}
                               </span>
                             </div>
-                          )}
-                        </>
-                      )}
-
-                      {chartMode === 'rsi' && selectedDetails.signals?.historyArrays?.rsi && (
-                        <div className="flex justify-between gap-4 text-[var(--primary)]">
-                          <span>RSI:</span>
-                          <span>
-                            {selectedDetails.signals.historyArrays.rsi[hoverIndex]
-                              ? selectedDetails.signals.historyArrays.rsi[hoverIndex].toFixed(1)
-                              : 'N/A'}
-                          </span>
-                        </div>
-                      )}
-
-                      {chartMode === 'macd' && selectedDetails.signals?.historyArrays?.macd && (
-                        <>
-                          <div className="flex justify-between gap-4 text-blue-400">
-                            <span>MACD:</span>
-                            <span>
-                              {selectedDetails.signals.historyArrays.macd.macdLine[hoverIndex]
-                                ? selectedDetails.signals.historyArrays.macd.macdLine[hoverIndex].toFixed(3)
-                                : 'N/A'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between gap-4 text-[#fbbf24]">
-                            <span>Signal:</span>
-                            <span>
-                              {selectedDetails.signals.historyArrays.macd.signalLine[hoverIndex]
-                                ? selectedDetails.signals.historyArrays.macd.signalLine[hoverIndex].toFixed(3)
-                                : 'N/A'}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
+                            <div className="flex justify-between gap-4 text-[#fbbf24]">
+                              <span>Signal:</span>
+                              <span>
+                                {selectedDetails.signals.historyArrays.macd.signalLine[hoverIndex]
+                                  ? selectedDetails.signals.historyArrays.macd.signalLine[hoverIndex].toFixed(3)
+                                  : 'N/A'}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

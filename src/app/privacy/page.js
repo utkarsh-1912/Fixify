@@ -72,7 +72,7 @@ export default function PrivacyPage() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 sm:space-y-10 px-3 sm:px-6 py-6 sm:py-10">
+    <div className="max-w-5xl mx-auto space-y-8 sm:space-y-10 px-2 sm:px-6 py-4 sm:py-10">
 
       {/* ── Hero Banner ── */}
       <div 
