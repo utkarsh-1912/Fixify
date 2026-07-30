@@ -93,7 +93,7 @@ export default function ContactPage() {
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-mono font-semibold border"
                style={{ background: 'var(--card)', borderColor: 'var(--primary-border)', color: 'var(--primary)' }}>
             <MessageCircle className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">Dedicated Technical Support &amp; Integration Desks</span>
+            <span className="truncate">Dedicated Tech Support &amp; Integration Desks</span>
           </div>
 
           <div className="space-y-2 max-w-3xl">
