@@ -50,6 +50,7 @@ export default function MultiAlgoStudio() {
   const [tradeActionMessage, setTradeActionMessage] = useState(null);
 
   // Strategy Configurations
+  const [compareMode, setCompareMode] = useState(false);
   const [config, setConfig] = useState({
     rsiPeriod: 14,
     rsiOverbought: 70,
@@ -60,6 +61,25 @@ export default function MultiAlgoStudio() {
     bBandsStdDev: 2,
     macdFast: 12,
     macdSlow: 26,
+    macdSignal: 9,
+    activeAlgos: {
+      sma: true,
+      rsi: true,
+      macd: true,
+      bb: true
+    }
+  });
+
+  const [configB, setConfigB] = useState({
+    rsiPeriod: 10,
+    rsiOverbought: 75,
+    rsiOversold: 25,
+    smaShortPeriod: 5,
+    smaLongPeriod: 20,
+    bBandsPeriod: 15,
+    bBandsStdDev: 2,
+    macdFast: 8,
+    macdSlow: 17,
     macdSignal: 9,
     activeAlgos: {
       sma: true,
@@ -199,12 +219,13 @@ export default function MultiAlgoStudio() {
         results[symbol] = {
           ...symbolInfo,
           signals: analyzeTickerSignals(symbolInfo.history, config),
-          backtest: backtestStrategy(symbolInfo.history, config)
+          backtest: backtestStrategy(symbolInfo.history, config),
+          backtestB: backtestStrategy(symbolInfo.history, configB)
         };
       }
     });
     return results;
-  }, [marketData, config]);
+  }, [marketData, config, configB]);
 
   // Fetch quote summaries
   const signalsSummary = useMemo(() => {

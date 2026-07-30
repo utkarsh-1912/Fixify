@@ -53,6 +53,7 @@ export default function LogSanitizerPage() {
   const [maskPrices, setMaskPrices] = useState(false);
   const [maskSizes, setMaskSizes] = useState(false);
   const [customTagsStr, setCustomTagsStr] = useState('');
+  const [tagRemapsStr, setTagRemapsStr] = useState('');
   const [replacementStr, setReplacementStr] = useState('[MASKED]');
 
   // Stats
@@ -242,7 +243,20 @@ export default function LogSanitizerPage() {
         sanitizedLines.push(result);
       });
 
-      const output = sanitizedLines.join('\n');
+      let output = sanitizedLines.join('\n');
+
+      if (tagRemapsStr.trim()) {
+        const pairs = tagRemapsStr.split(',').map(s => s.trim()).filter(Boolean);
+        pairs.forEach(pair => {
+          const parts = pair.split('=').map(s => s.trim());
+          if (parts.length === 2 && parts[0] && parts[1]) {
+            const [tagNum, alias] = parts;
+            const rx = new RegExp(`(?:^|\\||\\x01)${tagNum}=`, 'g');
+            output = output.replace(rx, match => match.replace(`${tagNum}=`, `${alias}=`));
+          }
+        });
+      }
+
       setOutputText(output);
       setStats({
         messageCount: totalMessages,

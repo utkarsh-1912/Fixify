@@ -29,7 +29,8 @@ import {
   ClipboardList,
   Settings,
   Info,
-  Sparkles
+  Sparkles,
+  Download
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
 import SohVisualizer from '@/components/SohVisualizer';
@@ -1231,6 +1232,46 @@ export default function SecurityAuditorPage() {
                     </button>
                   );
                 })}
+                <div className="ml-auto flex items-center gap-1.5 pb-2">
+                  <button
+                    onClick={() => {
+                      if (!vulnerabilities.length) return;
+                      let csv = "Line,Severity,Category,Title,Description,Remediation\n";
+                      vulnerabilities.forEach(v => {
+                        csv += `"${v.line}","${v.severity}","${v.category}","${(v.title || '').replace(/"/g, '""')}","${(v.desc || '').replace(/"/g, '""')}","${(v.remediation || '').replace(/"/g, '""')}"\n`;
+                      });
+                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = `security-audit-report-${Date.now()}.csv`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 border transition-all"
+                    style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                    title="Export Audit CSV"
+                  >
+                    <Download className="h-3 w-3" /> Export CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      let md = `# Security Audit Report\n\n- **Grade**: ${gradeInfo.grade} (${complianceScore}%)\n- **Vulnerabilities Found**: ${vulnerabilities.length}\n- **Messages Audited**: ${auditedMessages.length}\n\n`;
+                      vulnerabilities.forEach((v, idx) => {
+                        md += `### ${idx + 1}. [${v.severity}] ${v.title} (Line ${v.line})\n- **Category**: ${v.category}\n- **Details**: ${v.desc}\n- **Remediation**: ${v.remediation || 'N/A'}\n\n`;
+                      });
+                      navigator.clipboard.writeText(md);
+                      alert('Audit summary copied to clipboard in Markdown format!');
+                    }}
+                    className="px-2 py-1 rounded text-[10px] font-semibold flex items-center gap-1 border transition-all"
+                    style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                    title="Copy Markdown Report"
+                  >
+                    <Copy className="h-3 w-3" /> Copy Markdown
+                  </button>
+                </div>
               </div>
 
               {/* TAB CONTENT */}

@@ -56,6 +56,11 @@ export default function LiveStreamingPage() {
   const [isAlertSoundEnabled, setIsAlertSoundEnabled] = useState(false);
   const [isAlertNotifyEnabled, setIsAlertNotifyEnabled] = useState(false);
   const [activeAlerts, setActiveAlerts] = useState([]);
+
+  // Live Stream Log Filters
+  const [filterMsgType, setFilterMsgType] = useState("ALL");
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterAlertsOnly, setFilterAlertsOnly] = useState(false);
   
   // 5-minute activity check — wall-clock timer (not message-count based)
   const ACTIVITY_CHECK_MS = 5 * 60 * 1000; // 300 000 ms
@@ -785,18 +790,69 @@ export default function LiveStreamingPage() {
             className="p-5 rounded-2xl border space-y-3 flex flex-col animate-in fade-in duration-300"
             style={{ background: 'var(--card)', borderColor: 'var(--border)', height: '42vh' }}
           >
-            <div className="flex justify-between items-center pb-1.5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <span className="text-xs font-bold uppercase tracking-wider font-mono text-[var(--primary)]">Live Feed Log Stream</span>
-              <span className="text-[9px] font-mono text-zinc-500 italic">Memory Autoprune Active (showing last 30 logs)</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1.5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider font-mono text-[var(--primary)]">Live Feed Log Stream</span>
+                <span className="text-[9px] font-mono text-zinc-500 italic">({feedLogs.length} total)</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={filterMsgType}
+                  onChange={e => setFilterMsgType(e.target.value)}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono outline-none border"
+                  style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                >
+                  <option value="ALL">All Types</option>
+                  <option value="D">35=D (New Order)</option>
+                  <option value="8">35=8 (Exec Report)</option>
+                  <option value="A">35=A (Logon)</option>
+                  <option value="0">35=0 (Heartbeat)</option>
+                </select>
+
+                <input
+                  type="text"
+                  value={filterQuery}
+                  onChange={e => setFilterQuery(e.target.value)}
+                  placeholder="Filter string..."
+                  className="px-2 py-0.5 rounded text-[10px] font-mono outline-none border w-28 sm:w-36"
+                  style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                />
+
+                <label className="flex items-center gap-1 text-[10px] font-mono cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                  <input
+                    type="checkbox"
+                    checked={filterAlertsOnly}
+                    onChange={e => setFilterAlertsOnly(e.target.checked)}
+                    className="h-3 w-3"
+                  />
+                  Alerts Only
+                </label>
+              </div>
             </div>
             
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 text-[10px] font-mono text-zinc-400 scrollbar-thin">
-              {feedLogs.length === 0 ? (
+              {feedLogs.filter(log => {
+                if (filterMsgType !== "ALL" && log.msgType !== filterMsgType) return false;
+                if (filterAlertsOnly && !log.isAlert && !log.isGap) return false;
+                if (filterQuery.trim()) {
+                  const q = filterQuery.toLowerCase();
+                  return (log.raw || '').toLowerCase().includes(q) || (log.msgTypeName || '').toLowerCase().includes(q) || (log.seqNum || '').includes(q);
+                }
+                return true;
+              }).length === 0 ? (
                 <div className="h-full flex items-center justify-center text-zinc-600 italic">
-                  Console idle. Press Start Feed to capture live network log signals.
+                  {feedLogs.length === 0 ? "Console idle. Press Start Feed to capture live network log signals." : "No messages match current filter criteria."}
                 </div>
               ) : (
-                feedLogs.map((log, idx) => (
+                feedLogs.filter(log => {
+                  if (filterMsgType !== "ALL" && log.msgType !== filterMsgType) return false;
+                  if (filterAlertsOnly && !log.isAlert && !log.isGap) return false;
+                  if (filterQuery.trim()) {
+                    const q = filterQuery.toLowerCase();
+                    return (log.raw || '').toLowerCase().includes(q) || (log.msgTypeName || '').toLowerCase().includes(q) || (log.seqNum || '').includes(q);
+                  }
+                  return true;
+                }).map((log, idx) => (
                   <div 
                     key={idx} 
                     onClick={() => { setSelectedLogMsg(log); setShowPayload(false); }}

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
+import { useRouter } from "next/navigation";
 import {
   UploadCloud,
   FileText,
@@ -21,7 +22,9 @@ import {
   ChevronDown,
   TrendingUp,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  ExternalLink,
+  RotateCcw
 } from "lucide-react";
 import { validateFIXMessage, getValueMeaning, getTagName } from "@/lib/fixParser";
 import SohVisualizer from "@/components/SohVisualizer";
@@ -253,6 +256,7 @@ const TARGET_FIELDS = [
 ];
 
 export default function MissingFillsPage() {
+  const router = useRouter();
   const [blotterInputMode, setBlotterInputMode] = useState("file"); // 'file' | 'paste'
   const [fixInputMode, setFixInputMode] = useState("file"); // 'file' | 'paste'
   const [blotterRawText, setBlotterRawText] = useState("");
@@ -1066,26 +1070,24 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
               Quick Load
             </button>
           )}
-          {matchedResults.length > 0 && (
-            <>
-              {filteredResults.length > 0 && (
-                <button
-                  onClick={handleExportCSV}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Export {activeTab === 'all' ? 'All' : activeTab === 'missing' ? 'Missing' : activeTab === 'unmapped' ? 'Unmapped' : 'Matched'} CSV
-                </button>
-              )}
-              <button
-                onClick={handleClear}
-                className="px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors hover:bg-[var(--primary-faint)]"
-                style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
-              >
-                Reset
-              </button>
-            </>
+          {matchedResults.length > 0 && filteredResults.length > 0 && (
+            <button
+              onClick={handleExportCSV}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-[var(--background)] font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export {activeTab === 'all' ? 'All' : activeTab === 'missing' ? 'Missing' : activeTab === 'unmapped' ? 'Unmapped' : 'Matched'} CSV
+            </button>
           )}
+          <button
+            onClick={handleClear}
+            className="px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors hover:bg-[var(--primary-faint)] flex items-center gap-1.5 shrink-0"
+            style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            title="Reset all imported data, column mappings, and results"
+          >
+            <RotateCcw className="h-3.5 w-3.5 text-zinc-400" />
+            Reset All
+          </button>
         </div>
       </div>
 
@@ -1097,13 +1099,30 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
           
           {/* Column 1: Blotter Data */}
           <div className="flex flex-col rounded-xl border p-5 space-y-4" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
-            <div>
-              <h2 className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
-                1. Import Blotter Fills (Excel / CSV)
-              </h2>
-              <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                Upload a exported CSV file or copy-paste spreadsheet columns directly.
-              </p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
+                  1. Import Blotter Fills (Excel / CSV)
+                </h2>
+                <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                  Upload a exported CSV file or copy-paste spreadsheet columns directly.
+                </p>
+              </div>
+              {blotterRows.length > 0 && (
+                <button
+                  onClick={() => {
+                    setBlotterRawText("");
+                    setBlotterFileName("");
+                    setBlotterRows([]);
+                    setBlotterHeaders([]);
+                  }}
+                  className="px-2 py-1 rounded text-[10px] font-mono border transition-colors hover:bg-red-500/10 text-red-400 flex items-center gap-1 cursor-pointer shrink-0"
+                  style={{ borderColor: 'var(--border)' }}
+                  title="Clear Blotter Data"
+                >
+                  <Trash2 className="h-3 w-3" /> Clear
+                </button>
+              )}
             </div>
 
             {blotterRows.length > 0 ? (
@@ -1549,6 +1568,7 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                       <th className="py-3 px-4 font-semibold">Qty</th>
                       <th className="py-3 px-4 font-semibold">Price</th>
                       <th className="py-3 px-4 font-semibold">Time</th>
+                      <th className="py-3 px-4 font-semibold text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1560,7 +1580,7 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                       if (pageItems.length === 0) {
                         return (
                           <tr>
-                            <td colSpan={6} className="py-12 text-center text-zinc-500 italic">
+                            <td colSpan={7} className="py-12 text-center text-zinc-500 italic">
                               No executions match current filters.
                             </td>
                           </tr>
@@ -1573,6 +1593,7 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                           (item.type === 'unmapped' && selectedResultItem.blotter?.execId === item.blotter?.execId && selectedResultItem.blotter?.qty === item.blotter?.qty) ||
                           (item.type === 'matched' && selectedResultItem.fix?.id === item.fix?.id)
                         );
+                        const clOrdId = item.fix?.clOrdId || item.blotter?.clOrdId || item.fix?.execId || item.blotter?.execId;
                         return (
                           <tr
                             key={globalIdx}
@@ -1620,6 +1641,54 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                                   : item.blotter?.timestamp || 'N/A'
                               }
                             </td>
+                            <td className="py-2.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1 ml-auto">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (clOrdId) {
+                                      try {
+                                        localStorage.setItem("fixify_investigate_clordid", clOrdId);
+                                        const logs = fixRawText || localStorage.getItem("fixify-logs-pastedText") || "";
+                                        if (logs) {
+                                          localStorage.setItem("fixify-logs-pastedText", logs);
+                                          localStorage.setItem("fixify-correlation-raw-logs", logs);
+                                        }
+                                      } catch (err) {}
+                                      router.push("/latency");
+                                    }
+                                  }}
+                                  disabled={!clOrdId}
+                                  className="px-2 py-0.5 rounded text-[9px] font-mono font-semibold flex items-center gap-1 border transition-all disabled:opacity-30"
+                                  style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--primary)' }}
+                                  title="Investigate in Latency Hop Dashboard"
+                                >
+                                  <ExternalLink className="h-3 w-3" /> Latency
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (clOrdId) {
+                                      try {
+                                        localStorage.setItem("fixify_investigate_clordid", clOrdId);
+                                        const logs = fixRawText || localStorage.getItem("fixify-logs-pastedText") || "";
+                                        if (logs) {
+                                          localStorage.setItem("fixify-logs-pastedText", logs);
+                                          localStorage.setItem("fixify-correlation-raw-logs", logs);
+                                        }
+                                      } catch (err) {}
+                                      router.push("/correlation");
+                                    }
+                                  }}
+                                  disabled={!clOrdId}
+                                  className="px-2 py-0.5 rounded text-[9px] font-mono font-semibold flex items-center gap-1 border transition-all disabled:opacity-30"
+                                  style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                                  title="Investigate in Sequence Topology Correlation Engine"
+                                >
+                                  <ExternalLink className="h-3 w-3" /> Correlation
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         );
                       });
@@ -1630,10 +1699,11 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
 
               {/* ── Pagination Controls ── */}
               {filteredResults.length > 0 && (() => {
-                const totalPages = Math.max(1, Math.ceil(filteredResults.length / itemsPerPage));
+                const effectiveItemsPerPage = itemsPerPage === "all" ? Math.max(1, filteredResults.length) : Number(itemsPerPage);
+                const totalPages = Math.max(1, Math.ceil(filteredResults.length / effectiveItemsPerPage));
                 const safePage = Math.min(currentPage, totalPages);
-                const startIdx = (safePage - 1) * itemsPerPage;
-                const endIdx = Math.min(startIdx + itemsPerPage, filteredResults.length);
+                const startIdx = (safePage - 1) * effectiveItemsPerPage;
+                const endIdx = itemsPerPage === "all" ? filteredResults.length : Math.min(startIdx + effectiveItemsPerPage, filteredResults.length);
                 const pageNumbers = [];
                 const delta = 2;
                 for (let i = Math.max(1, safePage - delta); i <= Math.min(totalPages, safePage + delta); i++) {
@@ -1642,17 +1712,18 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
                 return (
                   <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t" style={{ borderColor: 'var(--border)' }}>
                     <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-                      Showing <span style={{ color: 'var(--foreground)' }}>{startIdx + 1} to {endIdx}</span> of <span style={{ color: 'var(--foreground)' }}>{filteredResults.length}</span> results
+                      Showing <span style={{ color: 'var(--foreground)' }}>{filteredResults.length > 0 ? startIdx + 1 : 0} to {endIdx}</span> of <span style={{ color: 'var(--foreground)' }}>{filteredResults.length}</span> results
                     </span>
                     <div className="flex items-center gap-1.5">
                       {/* Items per page */}
                       <select
                         value={itemsPerPage}
-                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                        onChange={(e) => { setItemsPerPage(e.target.value === "all" ? "all" : Number(e.target.value)); setCurrentPage(1); }}
                         className="text-xs font-mono rounded-md border px-2 py-1 outline-none transition-colors cursor-pointer mr-2"
                         style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
                       >
                         {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                        <option value="all">All ({filteredResults.length})</option>
                       </select>
 
                       {/* First Page << */}

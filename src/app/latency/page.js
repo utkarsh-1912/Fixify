@@ -309,6 +309,15 @@ export default function LatencyDashboard() {
   const [pageSize, setPageSize] = useState(25);
   const [showPayload, setShowPayload] = useState(false);
 
+  // Latency Budgets state (in microseconds)
+  const [latencyBudgets, setLatencyBudgets] = useState({
+    "D": 5000,   // 5ms for New Order Single
+    "8": 10000,  // 10ms for Execution Report
+    "F": 5000,   // 5ms for Order Cancel Request
+    "default": 15000 // 15ms default
+  });
+  const [showBudgetModal, setShowBudgetModal] = useState(false);
+
   // Reset zoom & page when data/tab/filters change
   useEffect(() => {
     setZoomRange(null);
@@ -446,6 +455,23 @@ export default function LatencyDashboard() {
       setLoading(false);
     }
   }, [delimiter, runSyncParsing]);
+
+  // Pre-seed search term & auto-load logs from localStorage if navigating from Missing Fills
+  useEffect(() => {
+    try {
+      const seed = localStorage.getItem("fixify_investigate_clordid");
+      if (seed) {
+        setSearchTerm(seed);
+        localStorage.removeItem("fixify_investigate_clordid");
+        const logs = localStorage.getItem("fixify-logs-pastedText");
+        if (logs && logs.trim()) {
+          setPastedText(logs);
+          setInputMode("paste");
+          processLatencyLogs(logs);
+        }
+      }
+    } catch (e) {}
+  }, [processLatencyLogs]);
 
   // CSV Report Downloader
   const exportCSV = () => {
@@ -787,14 +813,23 @@ export default function LatencyDashboard() {
               {/* Data Nodes */}
               {coordinates.map((pt, idx) => {
                 const isHovered = hoveredPoint && hoveredPoint.index === pt.originalIndex;
+                const budget = latencyBudgets[pt.data.msgType] || latencyBudgets.default;
+                let strokeCol = "var(--primary)";
+                if (pt.isOutlier || pt.val > budget) {
+                  strokeCol = "#ef4444";
+                } else if (pt.val > budget * 0.8) {
+                  strokeCol = "#eab308";
+                } else {
+                  strokeCol = "#22c55e";
+                }
                 return (
                   <circle
                     key={idx}
                     cx={pt.x}
                     cy={pt.y}
                     r={isHovered ? 6 : pt.isOutlier ? 3.5 : 4}
-                    fill={isHovered ? "var(--primary)" : pt.isOutlier ? "#ef4444" : "var(--background)"}
-                    stroke={pt.isOutlier ? "#ef4444" : "var(--primary)"}
+                    fill={isHovered ? strokeCol : pt.isOutlier ? "#ef4444" : "var(--background)"}
+                    stroke={strokeCol}
                     strokeWidth={isHovered ? 3 : 2}
                     className="cursor-pointer transition-all duration-100"
                     onMouseEnter={(e) => {
@@ -804,7 +839,8 @@ export default function LatencyDashboard() {
                         data: pt.data,
                         x: pt.x,
                         y: pt.y,
-                        isOutlier: pt.isOutlier
+                        isOutlier: pt.isOutlier,
+                        budget
                       });
                     }}
                     onMouseLeave={() => setHoveredPoint(null)}
@@ -1233,11 +1269,11 @@ export default function LatencyDashboard() {
   });
 
   const totalItems = filteredLogs.length;
-  const totalPages = Math.ceil(totalItems / pageSize) || 1;
-  const paginatedLogs = filteredLogs.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const effectivePageSize = pageSize === "all" ? Math.max(1, totalItems) : Number(pageSize);
+  const totalPages = Math.ceil(totalItems / effectivePageSize) || 1;
+  const paginatedLogs = pageSize === "all" 
+    ? filteredLogs 
+    : filteredLogs.slice((currentPage - 1) * effectivePageSize, currentPage * effectivePageSize);
 
   return (
     <div className="space-y-8 max-w-screen-2xl mx-auto">
@@ -1697,7 +1733,7 @@ export default function LatencyDashboard() {
                     <select
                       value={pageSize}
                       onChange={(e) => {
-                        setPageSize(Number(e.target.value));
+                        setPageSize(e.target.value === "all" ? "all" : Number(e.target.value));
                         setCurrentPage(1);
                       }}
                       className="px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 outline-none focus:border-[var(--primary)] text-xs font-mono cursor-pointer"
@@ -1705,6 +1741,7 @@ export default function LatencyDashboard() {
                       {[10, 25, 50, 100].map(sz => (
                         <option key={sz} value={sz}>{sz}</option>
                       ))}
+                      <option value="all">All ({totalItems})</option>
                     </select>
                   </div>
 

@@ -415,9 +415,10 @@ export default function FIXComparePage() {
     setDiffPage(1);
   }, [diffSearch, hideAdmin, showDiffsOnly, selectedPairIndex, diffPageSize]);
 
-  const diffTotalPages = Math.ceil(filteredDiffRows.length / diffPageSize) || 1;
+  const effectiveDiffPageSize = diffPageSize === "all" ? Math.max(1, filteredDiffRows.length) : Number(diffPageSize);
+  const diffTotalPages = Math.ceil(filteredDiffRows.length / effectiveDiffPageSize) || 1;
   const diffCurrentPage = Math.max(1, Math.min(diffPage, diffTotalPages));
-  const previewDiffRows = filteredDiffRows.slice((diffCurrentPage - 1) * diffPageSize, diffCurrentPage * diffPageSize);
+  const previewDiffRows = diffPageSize === "all" ? filteredDiffRows : filteredDiffRows.slice((diffCurrentPage - 1) * effectiveDiffPageSize, diffCurrentPage * effectiveDiffPageSize);
 
   const inputStyle = {
     background: 'var(--background)',
@@ -696,6 +697,26 @@ export default function FIXComparePage() {
                   )}
                 </div>
 
+                {/* High-level Session Diff Summary Card */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl border" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                  <div className="text-center p-2 rounded bg-zinc-950/20 border border-zinc-900/50">
+                    <span className="text-[10px] uppercase font-mono block text-zinc-500">Total Fields</span>
+                    <span className="text-lg font-bold font-mono text-zinc-200">{groupedDiffRows.length}</span>
+                  </div>
+                  <div className="text-center p-2 rounded bg-emerald-950/20 border border-emerald-900/30">
+                    <span className="text-[10px] uppercase font-mono block text-emerald-500">Identical</span>
+                    <span className="text-lg font-bold font-mono text-emerald-400">{groupedDiffRows.filter(r => r.diffType === 'identical').length}</span>
+                  </div>
+                  <div className="text-center p-2 rounded bg-amber-950/20 border border-amber-900/30">
+                    <span className="text-[10px] uppercase font-mono block text-amber-500">Value Mismatches</span>
+                    <span className="text-lg font-bold font-mono text-amber-400">{groupedDiffRows.filter(r => r.diffType === 'mismatch').length}</span>
+                  </div>
+                  <div className="text-center p-2 rounded bg-rose-950/20 border border-rose-900/30">
+                    <span className="text-[10px] uppercase font-mono block text-rose-500">Unique / Missing</span>
+                    <span className="text-lg font-bold font-mono text-rose-400">{groupedDiffRows.filter(r => r.diffType === 'missing1' || r.diffType === 'missing2').length}</span>
+                  </div>
+                </div>
+
                 {/* Compact grouped diff table */}
                 <div className="space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -828,13 +849,14 @@ export default function FIXComparePage() {
                         </span>
                         <select
                           value={diffPageSize}
-                          onChange={(e) => setDiffPageSize(Number(e.target.value))}
+                          onChange={(e) => setDiffPageSize(e.target.value === "all" ? "all" : Number(e.target.value))}
                           className="px-2 py-1.5 rounded-lg text-xs font-mono cursor-pointer"
                           style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--foreground)', outline: 'none' }}
                         >
                           {[10, 20, 50, 100].map(size => (
                             <option key={size} value={size}>{size}</option>
                           ))}
+                          <option value="all">All ({filteredDiffRows.length})</option>
                         </select>
                       </div>
                       {diffTotalPages > 1 && (

@@ -155,13 +155,15 @@ export default function FIXDictionaryPage() {
     });
   }, [currentDict, searchQuery]);
 
-  const totalPages = Math.ceil(filteredFields.length / pageSize) || 1;
+  const effectivePageSize = pageSize === "all" ? Math.max(1, filteredFields.length) : Number(pageSize);
+  const totalPages = Math.ceil(filteredFields.length / effectivePageSize) || 1;
 
   // Paginate displayed fields
   const displayedFields = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredFields.slice(start, start + pageSize);
-  }, [filteredFields, currentPage, pageSize]);
+    if (pageSize === "all") return filteredFields;
+    const start = (currentPage - 1) * effectivePageSize;
+    return filteredFields.slice(start, start + effectivePageSize);
+  }, [filteredFields, currentPage, pageSize, effectivePageSize]);
 
 
 
@@ -212,7 +214,7 @@ export default function FIXDictionaryPage() {
           <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider shrink-0">Page Size:</span>
           <select
             value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
+            onChange={(e) => setPageSize(e.target.value === "all" ? "all" : Number(e.target.value))}
             className="px-2.5 py-1.5 border border-zinc-850 rounded-xl text-xs font-mono outline-none cursor-pointer text-zinc-350"
             style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
           >
@@ -220,6 +222,7 @@ export default function FIXDictionaryPage() {
             <option value={60}>60</option>
             <option value={100}>100</option>
             <option value={200}>200</option>
+            <option value="all">All ({filteredFields.length})</option>
           </select>
         </div>
 

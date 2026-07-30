@@ -25,7 +25,8 @@ import {
   Search,
   Tag,
   Layers,
-  Sparkles
+  Sparkles,
+  Download
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
 import SohVisualizer from '@/components/SohVisualizer';
@@ -535,13 +536,40 @@ function TraceSidebar({ chain, manualLinks, allMessages, onClose, onInspectMessa
               </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-zinc-800/40 shrink-0 ml-2"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            <button
+              onClick={() => {
+                let reportText = `FIXIFY ORDER LIFECYCLE TRACE REPORT\n=====================================\n`;
+                reportText += `Base ClOrdID: ${chain.clOrdID}\nSymbol: ${chain.symbol}\n`;
+                reportText += `RTT: ${chain.totalRtt !== null ? chain.totalRtt + ' ms' : 'N/A'}\n`;
+                reportText += `Status: ${chain.hasBottleneck ? 'Bottleneck' : chain.isComplete ? 'Complete' : 'Incomplete'}\n\n`;
+                reportText += `MESSAGES IN SEQUENCE:\n`;
+                chain.messages.forEach((m, idx) => {
+                  reportText += `[${idx + 1}] ${m.msgTypeName} (${m.sender} -> ${m.target}) Seq:${m.parsed?.msgSeqNum || 'N/A'}\n`;
+                  reportText += `    Payload: ${m.content}\n`;
+                });
+                const blob = new Blob([reportText], { type: "text/plain;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `trace-${chain.clOrdID}-${Date.now()}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="p-1.5 rounded-lg hover:bg-zinc-800/40 text-[10px] font-semibold flex items-center gap-1 border"
+              style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              title="Export Trace Report"
+            >
+              <Download className="h-3.5 w-3.5" /> Export
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-zinc-800/40"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Summary bar */}
@@ -743,6 +771,7 @@ export default function MultiHopCorrelationPage() {
   const [connectionsConfig, setConnectionsConfig] = useState([]);
   const [activeInputTab, setActiveInputTab] = useState('upload');
   const [activeTab, setActiveTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedChainId, setSelectedChainId] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [inspectedMessage, setInspectedMessage] = useState(null); // message obj for modal
@@ -755,7 +784,7 @@ export default function MultiHopCorrelationPage() {
   // ── localStorage persistence ──────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const cachedLogs = localStorage.getItem('fixify-correlation-raw-logs');
+    const cachedLogs = localStorage.getItem('fixify-correlation-raw-logs') || localStorage.getItem('fixify-logs-pastedText');
     const cachedConfig = localStorage.getItem('fixify-correlation-connections-config');
     const cachedLinks = localStorage.getItem('fixify-correlation-manual-links');
     if (cachedLogs !== null) setRawLogs(cachedLogs);
@@ -765,6 +794,15 @@ export default function MultiHopCorrelationPage() {
     if (cachedLinks !== null) {
       try { setManualLinks(JSON.parse(cachedLinks)); } catch {}
     }
+
+    try {
+      const seed = localStorage.getItem("fixify_investigate_clordid");
+      if (seed) {
+        setSearchTerm(seed);
+        localStorage.removeItem("fixify_investigate_clordid");
+      }
+    } catch (e) {}
+
     setIsLoaded(true);
   }, []);
 
@@ -962,10 +1000,15 @@ export default function MultiHopCorrelationPage() {
   }, [rawLogs, connectionsConfig, manualLinks]);
 
   const filteredChains = useMemo(() => {
-    if (activeTab === 'bottlenecks') return correlationChains.filter(c => c.hasBottleneck);
-    if (activeTab === 'unmatched') return correlationChains.filter(c => !c.isComplete);
-    return correlationChains;
-  }, [correlationChains, activeTab]);
+    let list = correlationChains;
+    if (activeTab === 'bottlenecks') list = list.filter(c => c.hasBottleneck);
+    if (activeTab === 'unmatched') list = list.filter(c => !c.isComplete);
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(c => c.clOrdID.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q) || c.messages.some(m => (m.content || '').toLowerCase().includes(q)));
+    }
+    return list;
+  }, [correlationChains, activeTab, searchTerm]);
 
   const selectedChain = useMemo(() =>
     selectedChainId ? correlationChains.find(c => c.id === selectedChainId) || null : null,
@@ -1332,48 +1375,85 @@ export default function MultiHopCorrelationPage() {
 
         {/* Right: Chains Table (7/12) */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="fx-card p-5 space-y-4" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="fx-card" style={{ background: 'var(--card)', borderColor: 'var(--border)', overflow: 'hidden' }}>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-2">
-                <span className="fx-section-label" style={{ color: 'var(--primary)' }}>Correlated Transaction Chains</span>
-                {correlationChains.length > 0 && (
-                  <span
-                    className="px-1.5 py-0.5 rounded text-[8px] font-mono"
-                    style={{ background: 'var(--primary-faint)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}
-                  >
-                    {correlationChains.length}
+            {/* ── Card Header ── */}
+            <div className="space-y-2 border-b" style={{ borderColor: 'var(--border)' }}>
+              {/* Row 1: Title + count */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="fx-section-label text-sm font-semibold" style={{ color: 'var(--primary)' }}>
+                    Correlated Transaction Chains
                   </span>
-                )}
+                  {correlationChains.length > 0 && (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold"
+                      style={{ background: 'var(--primary-faint)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}
+                    >
+                      {filteredChains.length} / {correlationChains.length}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="fx-tab-group">
-                {['all', 'bottlenecks', 'unmatched'].map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`fx-tab ${activeTab === tab ? 'active' : ''}`}>
-                    {tab === 'all' ? 'All' : tab === 'bottlenecks' ? 'Bottlenecks' : 'Incomplete'}
-                  </button>
-                ))}
+
+              {/* Row 2: Search + Tabs */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[140px] max-w-xs">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Search ClOrdID or Symbol…"
+                    className="w-full pl-7 pr-7 py-1.5 rounded-lg text-[10px] font-mono outline-none border transition-colors"
+                    style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3 text-zinc-400" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Tab pills */}
+                <div className="fx-tab-group shrink-0">
+                  {['all', 'bottlenecks', 'unmatched'].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`fx-tab ${activeTab === tab ? 'active' : ''}`}
+                    >
+                      {tab === 'all' ? 'All' : tab === 'bottlenecks' ? 'Bottlenecks' : 'Incomplete'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="overflow-x-auto max-h-[520px] overflow-y-auto scrollbar-thin">
-              <table className="w-full text-left border-collapse text-[10px] font-mono" style={{ color: 'var(--foreground)' }}>
+            {/* ── Table ── */}
+            <div className="overflow-x-auto" style={{ maxHeight: '480px', overflowY: 'auto' }}>
+              <table className="w-full text-left border-collapse" style={{ color: 'var(--foreground)' }}>
                 <thead>
                   <tr
-                    className="border-b text-[9px] uppercase tracking-wider sticky top-0 backdrop-blur z-10"
-                    style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
+                    className="border-b sticky top-0 z-10"
+                    style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
                   >
-                    <th className="py-2.5 px-3" style={{ color: 'var(--text-muted)' }}>Base ClOrdID</th>
-                    <th className="py-2.5 px-3" style={{ color: 'var(--text-muted)' }}>Symbol</th>
-                    <th className="py-2.5 px-3" style={{ color: 'var(--text-muted)' }}>Delays</th>
-                    <th className="py-2.5 px-3" style={{ color: 'var(--text-muted)' }}>RTT</th>
-                    <th className="py-2.5 px-3" style={{ color: 'var(--text-muted)' }}>Status</th>
-                    <th className="py-2.5 px-3 text-right" style={{ color: 'var(--text-muted)' }}>Trace</th>
+                    <th className="py-2.5 pl-5 pr-3 text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Base ClOrdID</th>
+                    <th className="py-2.5 px-3 text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Symbol</th>
+                    <th className="py-2.5 px-3 text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Hop Delays</th>
+                    <th className="py-2.5 px-3 text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Total RTT</th>
+                    <th className="py-2.5 px-3 text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Status</th>
+                    <th className="py-2.5 pl-3 pr-5 text-[9px] font-bold uppercase tracking-widest text-right" style={{ color: 'var(--text-muted)' }}>Trace</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                <tbody>
                   {filteredChains.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center italic" style={{ color: 'var(--text-muted)' }}>
+                      <td colSpan={6} className="py-14 text-center text-[11px] font-mono italic" style={{ color: 'var(--text-muted)' }}>
                         {rawLogs ? 'No chains matched current filters.' : 'Load or paste logs above to start correlation.'}
                       </td>
                     </tr>
@@ -1383,57 +1463,77 @@ export default function MultiHopCorrelationPage() {
                       return (
                         <tr
                           key={c.id}
-                          className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer group"
-                          style={{
-                            background: isSelected ? 'var(--primary-faint)' : 'transparent',
-                            borderLeft: isSelected ? '2px solid var(--primary)' : '2px solid transparent'
-                          }}
                           onClick={() => handleSelectChain(c)}
+                          className="border-b transition-colors cursor-pointer group"
+                          style={{
+                            borderColor: 'var(--border)',
+                            background: isSelected ? 'var(--primary-faint)' : 'transparent',
+                            borderLeft: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
+                          }}
                         >
-                          <td className="py-3 px-3 font-semibold">{c.clOrdID}</td>
-                          <td className="py-3 px-3 font-semibold" style={{ color: 'var(--foreground)' }}>{c.symbol}</td>
+                          {/* ClOrdID */}
+                          <td className="py-3 pl-4 pr-3 font-mono text-[10px] font-semibold group-hover:text-[var(--primary)] transition-colors" style={{ color: 'var(--foreground)' }}>
+                            {c.clOrdID}
+                          </td>
+                          {/* Symbol */}
+                          <td className="py-3 px-3 text-[10px] font-mono">
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }}>
+                              {c.symbol}
+                            </span>
+                          </td>
+                          {/* Hop delays */}
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-1 flex-wrap">
-                              {c.latencies.map((l, i) => (
-                                <span
-                                  key={i}
-                                  className={`px-1 rounded text-[8px] font-mono ${l.delay === null ? '' : l.delay > 8 ? 'badge-danger' : ''}`}
-                                  style={{
-                                    background: l.delay !== null && l.delay <= 8 ? 'var(--background)' : undefined,
-                                    border: l.delay !== null && l.delay <= 8 ? '1px solid var(--border)' : undefined,
-                                    color: l.delay === null ? 'var(--text-muted)' : l.delay <= 8 ? 'var(--foreground)' : undefined,
-                                  }}
-                                  title={`${l.fromHop} → ${l.toHop}`}
-                                >
-                                  {l.delay !== null ? `${l.delay}ms` : '—'}
-                                </span>
-                              ))}
+                              {c.latencies.length === 0
+                                ? <span className="text-[9px] font-mono" style={{ color: 'var(--text-muted)' }}>—</span>
+                                : c.latencies.map((l, i) => (
+                                  <span
+                                    key={i}
+                                    title={`${l.fromHop} → ${l.toHop}`}
+                                    className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold ${l.delay !== null && l.delay > 8 ? 'badge-danger' : ''}`}
+                                    style={l.delay === null
+                                      ? { color: 'var(--text-muted)' }
+                                      : l.delay <= 8
+                                        ? { background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }
+                                        : {}
+                                    }
+                                  >
+                                    {l.delay !== null ? `${l.delay}ms` : '—'}
+                                  </span>
+                                ))
+                              }
                             </div>
                           </td>
-                          <td className="py-3 px-3 font-semibold">
+                          {/* RTT */}
+                          <td className="py-3 px-3 text-[10px] font-mono font-semibold">
                             {c.totalRtt !== null
                               ? <span style={{ color: 'var(--primary)' }}>{c.totalRtt} ms</span>
-                              : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                              : <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            }
                           </td>
+                          {/* Status badge */}
                           <td className="py-3 px-3">
                             {c.hasBottleneck
                               ? <span className="badge-danger">Bottleneck</span>
                               : c.isComplete
                               ? <span className="badge-success">Complete</span>
-                              : <span className="badge-warn">Incomplete</span>}
+                              : <span className="badge-warn">Incomplete</span>
+                            }
                           </td>
-                          <td className="py-3 px-3 text-right">
+                          {/* Trace button */}
+                          <td className="py-3 pl-3 pr-5 text-right">
                             <button
                               onClick={e => { e.stopPropagation(); handleSelectChain(c); }}
-                              className="p-1.5 rounded-lg transition-all"
+                              title="Open trace sidebar"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-mono font-semibold transition-all"
                               style={{
                                 background: isSelected ? 'var(--primary-faint)' : 'var(--background)',
                                 border: `1px solid ${isSelected ? 'var(--primary-border)' : 'var(--border)'}`,
                                 color: isSelected ? 'var(--primary)' : 'var(--text-muted)',
                               }}
-                              title="Open trace sidebar"
                             >
-                              <Layers className="h-3.5 w-3.5" />
+                              <Layers className="h-3 w-3" />
+                              <span className="hidden sm:inline">Trace</span>
                             </button>
                           </td>
                         </tr>
@@ -1444,18 +1544,23 @@ export default function MultiHopCorrelationPage() {
               </table>
             </div>
 
-            {/* Info footer */}
+            {/* ── Footer hint ── */}
             {correlationChains.length > 0 && (
-              <div className="flex items-center gap-2 pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
-                <Info className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
-                <span className="text-[9px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                  Click a row or the <Layers className="inline h-2.5 w-2.5 mx-0.5" /> icon to open the Trace sidebar. Click any message in the sidebar to inspect its tags.
-                  {manualLinks.length === 0 && ' If orders are unlinked, use the Manual Link button above.'}
-                </span>
+              <div
+                className="px-5 py-3 flex items-start gap-2 border-t"
+                style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
+              >
+                <Info className="h-3 w-3 mt-0.5 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                <p className="text-[9px] font-mono leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                  Click a row or <strong className="font-semibold">Trace</strong> to open the sidebar and inspect hop-by-hop messages.
+                  {manualLinks.length === 0 && ' If orders are unlinked, use the Manual Link button.'}
+                </p>
               </div>
             )}
+
           </div>
         </div>
+
       </div>
     )}
 
