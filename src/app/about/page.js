@@ -145,11 +145,11 @@ export default function AboutPage() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 px-4 py-8">
+    <div className="max-w-6xl mx-auto space-y-8 sm:space-y-10 px-2 sm:px-6 py-4 sm:py-10">
 
       {/* ── Hero Banner ── */}
       <div 
-        className="relative rounded-3xl p-8 md:p-10 overflow-hidden border shadow-2xl transition-all"
+        className="relative rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-10 overflow-hidden border shadow-2xl transition-all"
         style={{ 
           background: 'linear-gradient(135deg, var(--card) 0%, var(--primary-faint) 100%)',
           borderColor: 'var(--primary-border)' 
@@ -158,28 +158,28 @@ export default function AboutPage() {
         <div className="absolute top-0 right-0 h-64 w-64 bg-[var(--primary)] opacity-[0.07] rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 -left-10 h-48 w-48 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="relative z-10 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono font-semibold border"
+        <div className="relative z-10 space-y-5 sm:space-y-6">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-mono font-semibold border"
                style={{ background: 'var(--card)', borderColor: 'var(--primary-border)', color: 'var(--primary)' }}>
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Next-Generation Financial Protocol Operations</span>
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Next-Gen Protocol Operations</span>
           </div>
 
-          <div className="space-y-3 max-w-3xl">
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight" style={{ color: 'var(--foreground)' }}>
+          <div className="space-y-2 sm:space-y-3 max-w-3xl">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight" style={{ color: 'var(--foreground)' }}>
               About <span style={{ color: 'var(--primary)' }}>FIXify™</span> Diagnostics Platform
             </h1>
-            <p className="text-sm sm:text-base leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-xs sm:text-sm md:text-base leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               FIXify is a local-first, high-performance web console for financial systems integration engineers, support analysts, and quant traders. Designed from the ground up to unify session log analysis, multi-hop correlation, latency auditing, and compliance testing in a single desktop-grade environment.
             </p>
           </div>
 
           {/* Key Metrics Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 pt-3 sm:pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
             {stats.map((s, idx) => (
-              <div key={idx} className="p-3.5 rounded-xl border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
-                <span className="block text-xl font-bold font-mono" style={{ color: 'var(--primary)' }}>{s.value}</span>
-                <span className="block text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.label}</span>
+              <div key={idx} className="p-3 sm:p-3.5 rounded-xl border" style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
+                <span className="block text-lg sm:text-xl font-bold font-mono" style={{ color: 'var(--primary)' }}>{s.value}</span>
+                <span className="block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.label}</span>
               </div>
             ))}
           </div>
@@ -187,13 +187,13 @@ export default function AboutPage() {
       </div>
 
       {/* ── Feature Catalog Filter & Search ── */}
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-widest font-mono text-[var(--primary)]">
+            <h2 className="text-xs sm:text-sm font-bold uppercase tracking-widest font-mono text-[var(--primary)]">
               Integrated Toolsets &amp; Workspaces
             </h2>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            <p className="text-[11px] sm:text-xs text-[var(--text-muted)] mt-0.5">
               Explore the complete suite of diagnostics and productivity utilities built into FIXify.
             </p>
           </div>
@@ -206,19 +206,19 @@ export default function AboutPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search capabilities..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs font-mono outline-none border transition-colors"
+              className="w-full pl-8 pr-3 py-2 sm:py-1.5 rounded-xl text-xs font-mono outline-none border transition-colors"
               style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
             />
           </div>
         </div>
 
         {/* Category Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none max-w-full">
           {categories.map(cat => (
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border"
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border shrink-0 cursor-pointer"
               style={{
                 background: activeCategory === cat.id ? 'var(--primary)' : 'var(--card)',
                 color: activeCategory === cat.id ? '#ffffff' : 'var(--text-muted)',
@@ -231,20 +231,20 @@ export default function AboutPage() {
         </div>
 
         {/* Feature Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredFeatures.map((f, i) => (
             <div
               key={i}
-              className="p-6 rounded-2xl border flex flex-col justify-between transition-all hover:scale-[1.01] hover:shadow-xl group"
+              className="p-5 sm:p-6 rounded-2xl border flex flex-col justify-between transition-all hover:scale-[1.01] hover:shadow-xl group"
               style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
             >
-              <div className="space-y-4">
+              <div className="space-y-3.5 sm:space-y-4">
                 <div className="flex items-center justify-between">
                   <div
-                    className="h-10 w-10 rounded-xl flex items-center justify-center border transition-colors group-hover:border-[var(--primary-border)]"
+                    className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center border transition-colors group-hover:border-[var(--primary-border)]"
                     style={{ background: 'var(--primary-faint)', borderColor: 'var(--border)' }}
                   >
-                    <f.icon className="h-5 w-5" style={{ color: 'var(--primary)' }} />
+                    <f.icon className="h-4.5 w-4.5 sm:h-5 sm:w-5" style={{ color: 'var(--primary)' }} />
                   </div>
                   <span 
                     className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider"
@@ -254,11 +254,11 @@ export default function AboutPage() {
                   </span>
                 </div>
 
-                <div className="space-y-1.5">
-                  <h3 className="text-sm font-bold font-mono text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors">
+                <div className="space-y-1">
+                  <h3 className="text-xs sm:text-sm font-bold font-mono text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors">
                     {f.title}
                   </h3>
-                  <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                  <p className="text-[11px] sm:text-xs leading-relaxed text-[var(--text-muted)]">
                     {f.desc}
                   </p>
                 </div>
@@ -269,43 +269,43 @@ export default function AboutPage() {
       </div>
 
       {/* ── Architectural Guarantees & Security Blueprint ── */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-widest font-mono text-[var(--primary)]">
+          <h2 className="text-xs sm:text-sm font-bold uppercase tracking-widest font-mono text-[var(--primary)]">
             Architectural Guarantees
           </h2>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">
+          <p className="text-[11px] sm:text-xs text-[var(--text-muted)] mt-0.5">
             Engineered for high-throughput enterprise environments with zero data leakage.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <div className="p-6 rounded-2xl border space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+          <div className="p-5 sm:p-6 rounded-2xl border space-y-2.5 sm:space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--primary-faint)' }}>
               <Lock className="h-4 w-4 text-[var(--primary)]" />
             </div>
             <h4 className="text-xs font-bold font-mono text-[var(--foreground)] uppercase">Local-First Sandbox</h4>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+            <p className="text-[11px] sm:text-xs text-[var(--text-muted)] leading-relaxed">
               All parsed logs, CSV blotters, and calculated timeline nodes exist strictly in volatile browser RAM. Closing the tab immediately destroys all state.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl border space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="p-5 sm:p-6 rounded-2xl border space-y-2.5 sm:space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--primary-faint)' }}>
               <Zap className="h-4 w-4 text-[var(--primary)]" />
             </div>
             <h4 className="text-xs font-bold font-mono text-[var(--foreground)] uppercase">Background Web Workers</h4>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+            <p className="text-[11px] sm:text-xs text-[var(--text-muted)] leading-relaxed">
               Log parsing and multi-hop latency analytics execute asynchronously on isolated Web Worker threads, ensuring zero UI thread lag even on 100,000+ line logs.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl border space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+          <div className="p-5 sm:p-6 rounded-2xl border space-y-2.5 sm:space-y-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
             <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--primary-faint)' }}>
               <Shield className="h-4 w-4 text-[var(--primary)]" />
             </div>
             <h4 className="text-xs font-bold font-mono text-[var(--foreground)] uppercase">Zero Telemetry</h4>
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+            <p className="text-[11px] sm:text-xs text-[var(--text-muted)] leading-relaxed">
               No tracking cookies, third-party analytics scripts, or hidden external API calls. Your trade data and passwords never leave your workstation.
             </p>
           </div>
@@ -314,31 +314,31 @@ export default function AboutPage() {
 
       {/* ── Quick Cross-Navigation Banner ── */}
       <div
-        className="flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-2xl gap-4 border shadow-lg"
+        className="flex flex-col sm:flex-row sm:items-center justify-between p-5 sm:p-6 rounded-2xl gap-4 border shadow-lg"
         style={{ background: 'var(--card)', borderColor: 'var(--primary-border)' }}
       >
-        <div className="space-y-1">
-          <p className="text-sm font-bold text-[var(--foreground)]">Ready to audit your FIX logs?</p>
-          <p className="text-xs text-[var(--text-muted)]">Get started by loading a session log into the Processor workspace.</p>
+        <div className="space-y-0.5 text-left">
+          <p className="text-xs sm:text-sm font-bold text-[var(--foreground)]">Ready to audit your FIX logs?</p>
+          <p className="text-[11px] sm:text-xs text-[var(--text-muted)]">Get started by loading a session log into the Processor workspace.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
           <Link 
             href="/privacy" 
-            className="px-4 py-2 rounded-xl text-xs font-mono font-semibold border transition-all flex items-center gap-1.5"
+            className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-mono font-semibold border transition-all flex items-center justify-center gap-1.5"
             style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
           >
             <Shield className="h-3.5 w-3.5 text-[var(--primary)]" /> Privacy Policy
           </Link>
           <Link 
             href="/contact" 
-            className="px-4 py-2 rounded-xl text-xs font-mono font-semibold border transition-all flex items-center gap-1.5"
+            className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-mono font-semibold border transition-all flex items-center justify-center gap-1.5"
             style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
           >
             Support Desk
           </Link>
           <Link 
             href="/" 
-            className="fx-btn-primary py-2 px-4 text-xs font-semibold flex items-center gap-1.5"
+            className="w-full sm:w-auto fx-btn-primary py-2 px-4 text-xs font-semibold flex items-center justify-center gap-1.5"
           >
             Launch Console <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
