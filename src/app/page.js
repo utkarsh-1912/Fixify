@@ -398,7 +398,7 @@ export default function LogsProcessorPage() {
         // Fallback to storing lightweight entries without parsedLines to strictly fit localStorage 5MB quota
         const compactFiles = files.map(f => ({
           name: f.name,
-          content: f.content ? f.content.slice(0, 5000000) : '',
+          content: f.content ? f.content.slice(0, 500000) : '',
           parsedDelimiter: f.parsedDelimiter || delimiter,
           parsedLines: []
         }));
@@ -460,7 +460,7 @@ export default function LogsProcessorPage() {
       }
 
       const file = acceptedFiles[fileIndex];
-      const isLarge = file.size > 15000000;
+      const isLarge = file.size > 1500000;
       if (isLarge) {
         const confirmProceed = window.confirm(`Warning: The file "${file.name}" is very large (>1.5MB). FIXify will process all messages in memory, but will truncate the saved version in browser cache storage to prevent QuotaExceeded errors. Proceed?`);
         if (!confirmProceed) {
@@ -635,6 +635,21 @@ export default function LogsProcessorPage() {
       }
     }, 50);
   }, [files, inputMode, pastedText, delimiter, parseLinesChunked, completeLogProcessing]);
+
+  // Auto-process files or pasted text automatically on page load/mount
+  useEffect(() => {
+    if (!isLoaded) return;
+    
+    const hasFiles = inputMode === 'file' && files.length > 0;
+    const hasPastedText = inputMode === 'paste' && pastedText.trim() !== '';
+    const isProcessed = stats.totalMessages > 0;
+
+    const needsFileReparse = hasFiles && files.some(f => !f.parsedLines || f.parsedLines.length === 0);
+
+    if (((hasFiles && needsFileReparse) || (hasPastedText && !isProcessed)) && !isProcessing) {
+      processLogs();
+    }
+  }, [isLoaded, inputMode, files, pastedText, stats.totalMessages, isProcessing, processLogs]);
 
   const downloadFile = (fileObj) => {
     const content = fileObj.sortedContent || fileObj.parsedLines.map((l) => l.content).join('\n');
