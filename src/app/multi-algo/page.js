@@ -423,7 +423,7 @@ export default function MultiAlgoStudio() {
     const plotHeight = height - paddingTop - paddingBottom;
 
     // Extents
-    const closePrices = history.map(h => h.close);
+    const closePrices = (history || []).map(h => h.close);
     let allPrices = [...closePrices];
 
     // Overlay plan targets (SL / TP / Entry Range) in extents to prevent clipping
@@ -434,30 +434,35 @@ export default function MultiAlgoStudio() {
 
     // BB boundaries
     if (config.activeAlgos.bb && selectedDetails.signals?.historyArrays?.bb) {
-      const { upper, lower } = selectedDetails.signals.historyArrays.bb;
+      const { upper = [], lower = [] } = selectedDetails.signals.historyArrays.bb;
       allPrices = allPrices.concat(upper.filter(x => x !== null), lower.filter(x => x !== null));
     }
     // SMA boundaries
     if (config.activeAlgos.sma && selectedDetails.signals?.historyArrays?.smaShort) {
-      const { smaShort, smaLong } = selectedDetails.signals.historyArrays;
+      const { smaShort = [], smaLong = [] } = selectedDetails.signals.historyArrays;
       allPrices = allPrices.concat(smaShort.filter(x => x !== null), smaLong.filter(x => x !== null));
     }
 
-    const minPrice = Math.min(...allPrices) * 0.995;
-    const maxPrice = Math.max(...allPrices) * 1.005;
+    const minPrice = allPrices.length > 0 ? Math.min(...allPrices) * 0.995 : 0;
+    const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) * 1.005 : 100;
 
     // Coordinate Mappers
-    const getX = (index) => paddingLeft + (index / (len - 1)) * plotWidth;
-    const getY = (price) => height - paddingBottom - ((price - minPrice) / (maxPrice - minPrice)) * plotHeight;
+    const getX = (index) => paddingLeft + (index / Math.max(1, len - 1)) * plotWidth;
+    const getY = (price) => height - paddingBottom - ((price - minPrice) / Math.max(0.0001, maxPrice - minPrice)) * plotHeight;
 
-    // Price path points
-    const points = history.map((h, i) => `${getX(i)},${getY(h.close)}`).join(' ');
+    // Price path points & shaded gradient area points
+    const pricePoints = (history || []).map((h, i) => `${getX(i)},${getY(h.close)}`).join(' ');
+    const areaPoints = history && history.length > 0 ? [
+      `${paddingLeft},${height - paddingBottom}`,
+      ...(history.map((h, i) => `${getX(i)},${getY(h.close)}`)),
+      `${width - paddingRight},${height - paddingBottom}`
+    ].join(' ') : '';
 
     // SMA paths
     let smaShortPoints = '';
     let smaLongPoints = '';
     if (config.activeAlgos.sma && selectedDetails.signals?.historyArrays?.smaShort) {
-      const { smaShort, smaLong } = selectedDetails.signals.historyArrays;
+      const { smaShort = [], smaLong = [] } = selectedDetails.signals.historyArrays;
       smaShortPoints = smaShort
         .map((val, i) => val !== null ? `${getX(i)},${getY(val)}` : '')
         .filter(Boolean)
@@ -474,7 +479,7 @@ export default function MultiAlgoStudio() {
     let bbLowerPoints = '';
     let bbMiddlePoints = '';
     if (config.activeAlgos.bb && selectedDetails.signals?.historyArrays?.bb) {
-      const { upper, lower, middle } = selectedDetails.signals.historyArrays.bb;
+      const { upper = [], lower = [], middle = [] } = selectedDetails.signals.historyArrays.bb;
       const upperCoords = upper.map((val, i) => val !== null ? [getX(i), getY(val)] : null).filter(Boolean);
       const lowerCoords = lower.map((val, i) => val !== null ? [getX(i), getY(val)] : null).filter(Boolean);
       bbMiddlePoints = middle.map((val, i) => val !== null ? `${getX(i)},${getY(val)}` : '').filter(Boolean).join(' ');
@@ -483,11 +488,11 @@ export default function MultiAlgoStudio() {
       bbLowerPoints = lowerCoords.map(c => `${c[0]},${c[1]}`).join(' ');
 
       if (upperCoords.length > 0 && lowerCoords.length > 0) {
-        const areaPoints = [
+        const areaPts = [
           ...upperCoords.map(c => `${c[0]},${c[1]}`),
-          ...lowerCoords.reverse().map(c => `${c[0]},${c[1]}`)
+          ...[...lowerCoords].reverse().map(c => `${c[0]},${c[1]}`)
         ].join(' ');
-        bbArea = areaPoints;
+        bbArea = areaPts;
       }
     }
 
@@ -495,7 +500,7 @@ export default function MultiAlgoStudio() {
     const getRsiY = (rsiVal) => height - paddingBottom - (rsiVal / 100) * plotHeight;
     let rsiPoints = '';
     if (selectedDetails.signals?.historyArrays?.rsi) {
-      rsiPoints = selectedDetails.signals.historyArrays.rsi
+      rsiPoints = (selectedDetails.signals.historyArrays.rsi || [])
         .map((val, i) => val !== null ? `${getX(i)},${getRsiY(val)}` : '')
         .filter(Boolean)
         .join(' ');
@@ -506,13 +511,13 @@ export default function MultiAlgoStudio() {
     let signalPoints = '';
     let macdHistBars = [];
     if (selectedDetails.signals?.historyArrays?.macd) {
-      const { macdLine, signalLine, histogram } = selectedDetails.signals.historyArrays.macd;
+      const { macdLine = [], signalLine = [], histogram = [] } = selectedDetails.signals.historyArrays.macd;
       const validMacds = macdLine.filter(x => x !== null);
       const validSignals = signalLine.filter(x => x !== null);
       const maxMacdVal = Math.max(...validMacds, ...validSignals, 0.01) * 1.1;
       const minMacdVal = Math.min(...validMacds, ...validSignals, -0.01) * 1.1;
       
-      const getMacdY = (val) => height - paddingBottom - ((val - minMacdVal) / (maxMacdVal - minMacdVal)) * plotHeight;
+      const getMacdY = (val) => height - paddingBottom - ((val - minMacdVal) / Math.max(0.0001, maxMacdVal - minMacdVal)) * plotHeight;
 
       macdPoints = macdLine
         .map((val, i) => val !== null ? `${getX(i)},${getMacdY(val)}` : '')
@@ -541,24 +546,40 @@ export default function MultiAlgoStudio() {
     // Signal Annotation markers: Buy/Sell entry points
     const signalMarkers = [];
     if (selectedDetails.signals?.historyArrays) {
-      const { smaShort, smaLong, rsi } = selectedDetails.signals.historyArrays;
+      const { smaShort = [], smaLong = [], rsi = [] } = selectedDetails.signals.historyArrays;
       for (let i = 1; i < len; i++) {
+        const px = history[i]?.close || 0;
+        const xPos = getX(i);
+        const yPos = getY(px);
+
         // RSI crossovers
         if (rsi[i] !== null && rsi[i-1] !== null) {
           if (rsi[i-1] > config.rsiOversold && rsi[i] <= config.rsiOversold) {
-            signalMarkers.push({ index: i, type: 'BUY', label: 'RSI Oversold' });
+            signalMarkers.push({ index: i, x: xPos, y: yPos, type: 'BUY', label: 'RSI Oversold' });
           } else if (rsi[i-1] < config.rsiOverbought && rsi[i] >= config.rsiOverbought) {
-            signalMarkers.push({ index: i, type: 'SELL', label: 'RSI Overbought' });
+            signalMarkers.push({ index: i, x: xPos, y: yPos, type: 'SELL', label: 'RSI Overbought' });
           }
         }
         // SMA crossovers
         if (smaShort[i] !== null && smaLong[i] !== null && smaShort[i-1] !== null && smaLong[i-1] !== null) {
           if (smaShort[i-1] <= smaLong[i-1] && smaShort[i] > smaLong[i]) {
-            signalMarkers.push({ index: i, type: 'BUY', label: 'SMA Golden Cross' });
+            signalMarkers.push({ index: i, x: xPos, y: yPos, type: 'BUY', label: 'SMA Golden Cross' });
           } else if (smaShort[i-1] >= smaLong[i-1] && smaShort[i] < smaLong[i]) {
-            signalMarkers.push({ index: i, type: 'SELL', label: 'SMA Death Cross' });
+            signalMarkers.push({ index: i, x: xPos, y: yPos, type: 'SELL', label: 'SMA Death Cross' });
           }
         }
+      }
+    }
+
+    // Generate X Grid Ticks (time series date labels)
+    const xGridTicks = [];
+    const tickStep = Math.max(1, Math.floor(len / 6));
+    for (let i = 0; i < len; i += tickStep) {
+      if (history[i]) {
+        xGridTicks.push({
+          x: getX(i),
+          date: history[i].date
+        });
       }
     }
 
@@ -576,7 +597,9 @@ export default function MultiAlgoStudio() {
       getX,
       getY,
       getRsiY,
-      points,
+      pricePoints,
+      areaPoints,
+      points: pricePoints,
       smaShortPoints,
       smaLongPoints,
       bbArea,
@@ -588,6 +611,7 @@ export default function MultiAlgoStudio() {
       signalPoints,
       macdHistBars,
       signalMarkers,
+      xGridTicks,
       history
     };
   }, [selectedDetails, config]);
@@ -636,11 +660,13 @@ export default function MultiAlgoStudio() {
 
   // Calculate stats for paper trading open items
   const openPortfolioStats = useMemo(() => {
+    const val = portfolioData?.totalPortfolioValue || 0;
+    const pnl = portfolioData?.totalPnL || 0;
     return {
-      currentValue: portfolioData.totalPortfolioValue,
-      totalPnl: portfolioData.totalPnL,
-      pnlPercent: portfolioData.totalPortfolioValue > 0 
-        ? parseFloat(((portfolioData.totalPnL / portfolioData.totalPortfolioValue) * 100).toFixed(2)) 
+      currentValue: val,
+      totalPnl: pnl,
+      pnlPercent: val > 0 
+        ? parseFloat(((pnl / val) * 100).toFixed(2)) 
         : 0
     };
   }, [portfolioData]);
@@ -837,12 +863,12 @@ export default function MultiAlgoStudio() {
                 >
                   <div className="flex items-center gap-2 truncate">
                     <span className="font-bold">{sym}</span>
-                    {analyzedResults[sym] && (
+                    {analyzedResults[sym]?.signals?.sentiment && (
                       <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                        analyzedResults[sym].signals?.sentiment.includes('BUY') ? 'bg-emerald-950/40 text-emerald-400' :
-                        analyzedResults[sym].signals?.sentiment.includes('SELL') ? 'bg-red-950/40 text-red-400' : 'bg-zinc-800 text-zinc-400'
+                        (analyzedResults[sym].signals.sentiment || '').includes('BUY') ? 'bg-emerald-950/40 text-emerald-400' :
+                        (analyzedResults[sym].signals.sentiment || '').includes('SELL') ? 'bg-red-950/40 text-red-400' : 'bg-zinc-800 text-zinc-400'
                       }`}>
-                        {analyzedResults[sym].signals?.sentiment}
+                        {analyzedResults[sym].signals.sentiment}
                       </span>
                     )}
                   </div>
@@ -1031,13 +1057,14 @@ export default function MultiAlgoStudio() {
                       );
                     }
 
-                    const sig = data.signals;
-                    const changeColor = data.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400';
+                    const sig = data.signals || {};
+                    const rec = sig.recommendation || { entryMin: 0, entryMax: 0, sl: 0, tp: 0 };
+                    const changeColor = (data.changePercent || 0) >= 0 ? 'text-emerald-400' : 'text-red-400';
 
                     // Form vote bullets color dots
                     const getVoteDot = (algoKey) => {
                       if (!config.activeAlgos[algoKey]) return <span className="h-2 w-2 rounded-full bg-zinc-700/80" title={`${algoKey} disabled`} />;
-                      const vote = sig.signals[algoKey];
+                      const vote = sig.signals?.[algoKey];
                       if (!vote || vote.action === 'HOLD') return <span className="h-2 w-2 rounded-full bg-zinc-500" title={`${algoKey}: Hold`} />;
                       return vote.action === 'BUY' 
                         ? <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title={`${algoKey}: ${vote.detail}`} />
@@ -1055,10 +1082,10 @@ export default function MultiAlgoStudio() {
                           <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[130px]">{data.name}</div>
                         </td>
                         <td className="p-3 text-right font-mono font-bold">
-                          ${data.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ${(data.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td className={`p-3 text-right font-mono ${changeColor}`}>
-                          {data.changePercent >= 0 ? '+' : ''}{data.changePercent.toFixed(2)}%
+                          {(data.changePercent || 0) >= 0 ? '+' : ''}${(data.changePercent || 0).toFixed(2)}%
                         </td>
                         <td className="p-3 text-center">
                           <span className={`px-2 py-0.5 rounded font-mono font-bold text-[9px] ${
@@ -1068,7 +1095,7 @@ export default function MultiAlgoStudio() {
                             sig.sentiment === 'SELL' ? 'bg-red-950/40 text-red-400 border border-red-900/30' :
                             'bg-zinc-800 text-zinc-400'
                           }`}>
-                            {sig.sentiment} ({sig.confidence}%)
+                            {sig.sentiment || 'HOLD'} ({sig.confidence || 50}%)
                           </span>
                         </td>
                         <td className="p-3">
@@ -1080,12 +1107,12 @@ export default function MultiAlgoStudio() {
                           </div>
                         </td>
                         <td className="p-3 text-right font-mono text-[var(--text-muted)]">
-                          ${sig.recommendation.entryMin} - ${sig.recommendation.entryMax}
+                          ${rec.entryMin} - ${rec.entryMax}
                         </td>
                         <td className="p-3 text-right font-mono">
-                          <span className="text-red-400 font-semibold">${sig.recommendation.sl}</span>
+                          <span className="text-red-400 font-semibold">${rec.sl}</span>
                           <span className="text-zinc-600 mx-1">/</span>
-                          <span className="text-emerald-400 font-semibold">${sig.recommendation.tp}</span>
+                          <span className="text-emerald-400 font-semibold">${rec.tp}</span>
                         </td>
                       </tr>
                     );
@@ -1174,7 +1201,7 @@ export default function MultiAlgoStudio() {
                       Simulated Trades Chronology (Starting Capital: $10,000)
                     </div>
                     <div className="max-h-52 overflow-y-auto">
-                      {selectedDetails.backtest?.trades.length === 0 ? (
+                      {(!selectedDetails?.backtest?.trades || selectedDetails.backtest.trades.length === 0) ? (
                         <div className="p-6 text-center text-xs text-[var(--text-muted)]">
                           No trades triggered under the active parameter settings.
                         </div>
@@ -1192,7 +1219,7 @@ export default function MultiAlgoStudio() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-zinc-800/40 text-[var(--text-muted)]">
-                            {selectedDetails.backtest?.trades.map((t, idx) => (
+                            {(selectedDetails?.backtest?.trades || []).map((t, idx) => (
                               <tr key={idx} className="hover:bg-zinc-850/20">
                                 <td className="p-2">
                                   <span className={`px-1 py-0.2 rounded font-bold ${t.action === 'BUY' ? 'bg-emerald-950/40 text-emerald-400' : 'bg-red-950/40 text-red-400'}`}>
@@ -1275,7 +1302,7 @@ export default function MultiAlgoStudio() {
                           })}
 
                           {/* Time Grid X Axis ticks */}
-                          {chartProps.xGridTicks.map((tick, idx) => (
+                          {(chartProps?.xGridTicks || []).map((tick, idx) => (
                             <g key={idx} className="opacity-30">
                               <line
                                 x1={tick.x}
@@ -1410,18 +1437,18 @@ export default function MultiAlgoStudio() {
                         <>
                           <line
                             x1={chartProps.paddingLeft}
-                            y1={chartProps.getY(70, 0, 100)}
+                            y1={chartProps.getRsiY(70)}
                             x2={chartProps.width - chartProps.paddingRight}
-                            y2={chartProps.getY(70, 0, 100)}
+                            y2={chartProps.getRsiY(70)}
                             stroke="#ef4444"
                             strokeWidth="1"
                             strokeDasharray="3,3"
                           />
                           <line
                             x1={chartProps.paddingLeft}
-                            y1={chartProps.getY(30, 0, 100)}
+                            y1={chartProps.getRsiY(30)}
                             x2={chartProps.width - chartProps.paddingRight}
-                            y2={chartProps.getY(30, 0, 100)}
+                            y2={chartProps.getRsiY(30)}
                             stroke="#10b981"
                             strokeWidth="1"
                             strokeDasharray="3,3"
@@ -1466,7 +1493,7 @@ export default function MultiAlgoStudio() {
                       )}
 
                       {/* Vertical Hover Guides */}
-                      {hoverIndex !== null && (
+                      {hoverIndex !== null && chartProps.history?.[hoverIndex]?.close != null && (
                         <g>
                           <line
                             x1={chartProps.getX(hoverIndex)}
@@ -1585,19 +1612,19 @@ export default function MultiAlgoStudio() {
                     <div className="p-3.5 rounded-lg bg-[var(--background)]">
                       <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Recommended Entry</div>
                       <div className="text-xs font-mono font-bold text-[var(--foreground)]">
-                        ${selectedDetails.signals.recommendation.entryMin} - ${selectedDetails.signals.recommendation.entryMax}
+                        ${selectedDetails?.signals?.recommendation?.entryMin || 0} - ${selectedDetails?.signals?.recommendation?.entryMax || 0}
                       </div>
                     </div>
                     <div className="p-3.5 rounded-lg bg-[var(--background)]">
                       <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Stop Loss</div>
                       <div className="text-xs font-mono font-bold text-red-400">
-                        ${selectedDetails.signals.recommendation.sl}
+                        ${selectedDetails?.signals?.recommendation?.sl || 0}
                       </div>
                     </div>
                     <div className="p-3.5 rounded-lg bg-[var(--background)]">
                       <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">Take Profit Target</div>
                       <div className="text-xs font-mono font-bold text-emerald-400">
-                        ${selectedDetails.signals.recommendation.tp}
+                        ${selectedDetails?.signals?.recommendation?.tp || 0}
                       </div>
                     </div>
                   </div>
@@ -1653,18 +1680,18 @@ export default function MultiAlgoStudio() {
               <div className="flex items-center gap-2 text-xs font-mono">
                 <div className="px-3 py-1.5 rounded-lg border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="text-[8px] text-zinc-400 block uppercase font-bold">Total Portfolio Value</span>
-                  <span className="text-sm font-bold text-[var(--foreground)]">${portfolioData.totalPortfolioValue.toFixed(2)}</span>
+                  <span className="text-sm font-bold text-[var(--foreground)]">${(portfolioData?.totalPortfolioValue || 0).toFixed(2)}</span>
                 </div>
                 <div className="px-3 py-1.5 rounded-lg border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="text-[8px] text-zinc-400 block uppercase font-bold">Unrealized MTM PnL</span>
-                  <span className={`text-sm font-bold ${portfolioData.totalUnrealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {portfolioData.totalUnrealizedPnL >= 0 ? '+' : ''}${portfolioData.totalUnrealizedPnL.toFixed(2)}
+                  <span className={`text-sm font-bold ${(portfolioData?.totalUnrealizedPnL || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {(portfolioData?.totalUnrealizedPnL || 0) >= 0 ? '+' : ''}${(portfolioData?.totalUnrealizedPnL || 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="px-3 py-1.5 rounded-lg border bg-zinc-950/40" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="text-[8px] text-zinc-400 block uppercase font-bold">Realized PnL</span>
-                  <span className={`text-sm font-bold ${portfolioData.totalRealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {portfolioData.totalRealizedPnL >= 0 ? '+' : ''}${portfolioData.totalRealizedPnL.toFixed(2)}
+                  <span className={`text-sm font-bold ${(portfolioData?.totalRealizedPnL || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {(portfolioData?.totalRealizedPnL || 0) >= 0 ? '+' : ''}${(portfolioData?.totalRealizedPnL || 0).toFixed(2)}
                   </span>
                 </div>
                 {portfolioExecutions.length > 0 && (
@@ -1681,10 +1708,10 @@ export default function MultiAlgoStudio() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold font-mono uppercase text-[var(--foreground)]">Active Net Positions</span>
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">{portfolioData.positions.length} Active Assets</span>
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">{(portfolioData?.positions || []).length} Active Assets</span>
               </div>
 
-              {portfolioData.positions.length === 0 ? (
+              {(!portfolioData?.positions || portfolioData.positions.length === 0) ? (
                 <div className="p-6 text-center text-[var(--text-muted)] text-xs space-y-1.5 border rounded-xl" style={{ borderColor: 'var(--border-subtle)', background: 'var(--background)' }}>
                   <p className="font-semibold text-zinc-400">No active positions in portfolio ledger</p>
                   <p className="text-[10px]">Use the &quot;Assist BUY / SELL Order&quot; buttons above or import 35=8 Execution Reports below to record fills.</p>
@@ -1704,7 +1731,7 @@ export default function MultiAlgoStudio() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/40 text-xs" style={{ color: 'var(--foreground)' }}>
-                      {portfolioData.positions.map((pos, idx) => (
+                      {(portfolioData?.positions || []).map((pos, idx) => (
                         <tr key={idx} className="hover:bg-zinc-800/10">
                           <td className="p-3 font-mono font-bold">{pos.symbol}</td>
                           <td className="p-3 font-mono">
@@ -1712,14 +1739,14 @@ export default function MultiAlgoStudio() {
                               {pos.netQty > 0 ? `LONG +${pos.netQty}` : pos.netQty < 0 ? `SHORT ${pos.netQty}` : 'FLAT'}
                             </span>
                           </td>
-                          <td className="p-3 text-right font-mono">${pos.avgEntryPrice.toFixed(2)}</td>
-                          <td className="p-3 text-right font-mono">${pos.currentPrice.toFixed(2)}</td>
-                          <td className="p-3 text-right font-mono">${pos.marketValue.toFixed(2)}</td>
-                          <td className={`p-3 text-right font-mono font-bold ${pos.unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {pos.unrealizedPnL >= 0 ? '+' : ''}${pos.unrealizedPnL.toFixed(2)}
+                          <td className="p-3 text-right font-mono">${(pos.avgEntryPrice || 0).toFixed(2)}</td>
+                          <td className="p-3 text-right font-mono">${(pos.currentPrice || 0).toFixed(2)}</td>
+                          <td className="p-3 text-right font-mono">${(pos.marketValue || 0).toFixed(2)}</td>
+                          <td className={`p-3 text-right font-mono font-bold ${(pos.unrealizedPnL || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {(pos.unrealizedPnL || 0) >= 0 ? '+' : ''}${(pos.unrealizedPnL || 0).toFixed(2)}
                           </td>
-                          <td className={`p-3 text-right font-mono font-bold ${pos.returnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {pos.returnPct >= 0 ? '+' : ''}{pos.returnPct.toFixed(2)}%
+                          <td className={`p-3 text-right font-mono font-bold ${(pos.returnPct || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {(pos.returnPct || 0) >= 0 ? '+' : ''}${(pos.returnPct || 0).toFixed(2)}%
                           </td>
                         </tr>
                       ))}
