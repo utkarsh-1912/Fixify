@@ -162,8 +162,9 @@ export default function RoomChatPage({ params }) {
   const lastMessageIdRef = useRef(null);
   const pollingRef = useRef(null);
   const inputRef = useRef(null);
+  const isFetchingRef = useRef(false);
 
-  // Load configuration on mount
+  // Load configuration on mount & instant cache restoration
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
@@ -189,7 +190,15 @@ export default function RoomChatPage({ params }) {
       setRecentRooms([roomId]);
     }
 
-    // Auto join if room is matches
+    // Instant local cache restore for fast zero-delay room entry
+    const cachedMsgs = localStorage.getItem(`fixify_chat_cache_${roomId}`);
+    if (cachedMsgs) {
+      try {
+        setMessages(JSON.parse(cachedMsgs));
+      } catch (e) {}
+    }
+
+    // Auto join if room matches
     if (savedIsJoined && savedRoom === roomId && savedUser) {
       setIsJoined(true);
     } else {
@@ -286,8 +295,10 @@ export default function RoomChatPage({ params }) {
     }
   }, [isMuted, soundType]);
 
-  // Fetch messages handler
+  // Fetch messages handler with request concurrency guard
   const fetchMessages = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const res = await fetch(
         `/chat/api/messages?roomId=${encodeURIComponent(roomId)}&userId=${userId}&username=${encodeURIComponent(username)}`
@@ -296,12 +307,23 @@ export default function RoomChatPage({ params }) {
         const data = await res.json();
         if (data.messages) {
           setMessages((prev) => {
+            if (prev.length !== data.messages.length || (prev.length > 0 && prev[prev.length - 1].id !== data.messages[data.messages.length - 1].id)) {
+              return data.messages;
+            }
+            // Deep check for reaction updates
             if (JSON.stringify(prev) !== JSON.stringify(data.messages)) {
               return data.messages;
             }
             return prev;
           });
           saveCache(roomId, data.messages);
+        }
+        if (data.rooms) {
+          setRecentRooms((prev) => {
+            const merged = Array.from(new Set([roomId, ...prev, ...data.rooms])).slice(0, 15);
+            localStorage.setItem('fixify-chat-recentRooms', JSON.stringify(merged));
+            return merged;
+          });
         }
         if (data.analytics) {
           setAnalytics(data.analytics);
@@ -310,22 +332,11 @@ export default function RoomChatPage({ params }) {
       } else {
         setIsPollingActive(false);
       }
-
-      // Retrieve all active rooms dynamically from database/presence
-      const roomsRes = await fetch("/chat/api/messages");
-      if (roomsRes.ok) {
-        const roomsData = await roomsRes.json();
-        if (roomsData.rooms) {
-          setRecentRooms((prev) => {
-            const merged = Array.from(new Set([roomId, ...prev, ...roomsData.rooms])).slice(0, 15);
-            localStorage.setItem('fixify-chat-recentRooms', JSON.stringify(merged));
-            return merged;
-          });
-        }
-      }
     } catch (err) {
       console.error("Failed to fetch messages:", err);
       setIsPollingActive(false);
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [roomId, userId, username, saveCache]);
 
@@ -350,7 +361,7 @@ export default function RoomChatPage({ params }) {
     fetchMessages();
 
     if (pollingRef.current) clearInterval(pollingRef.current);
-    const pollInterval = isTabVisible ? 2500 : 30000;
+    const pollInterval = isTabVisible ? 2000 : 15000;
     pollingRef.current = setInterval(fetchMessages, pollInterval);
 
     return () => {

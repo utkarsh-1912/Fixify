@@ -242,11 +242,12 @@ export default function LogsProcessorPage() {
     }
   }, [files, inputMode, stats.totalMessages]);
 
-  // Load state on mount
+  // Load state on mount and restore workspace session
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const savedText = localStorage.getItem('fixify-logs-pastedText');
-    if (savedText) setPastedText(savedText);
+
+    let hasLocalData = false;
+
     const savedDelim = localStorage.getItem('fixify-logs-delimiter');
     if (savedDelim) setDelimiter(savedDelim || '|');
     const savedSort = localStorage.getItem('fixify-logs-sortOrder');
@@ -255,26 +256,64 @@ export default function LogsProcessorPage() {
     if (savedMode) setInputMode(savedMode || 'file');
     const savedSearch = localStorage.getItem('fixify-logs-searchTerm');
     if (savedSearch) setSearchTerm(savedSearch || '');
-    
+    const savedText = localStorage.getItem('fixify-logs-pastedText');
+    if (savedText && savedText.trim()) {
+      setPastedText(savedText);
+      hasLocalData = true;
+    }
+
     try {
       const savedStats = localStorage.getItem('fixify-logs-stats');
       if (savedStats) setStats(JSON.parse(savedStats));
       const savedFiles = localStorage.getItem('fixify-logs-files');
       if (savedFiles) {
         const parsed = JSON.parse(savedFiles);
-        const hydrated = parsed.map(file => ({
-          ...file,
-          parsedLines: file.parsedLines.map(line => ({
-            ...line,
-            timestampObj: new Date(line.timestampObj)
-          }))
-        }));
-        setFiles(hydrated);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          hasLocalData = true;
+          const hydrated = parsed.map(file => ({
+            ...file,
+            parsedLines: (file.parsedLines || []).map(line => ({
+              ...line,
+              timestampObj: line.timestampObj ? new Date(line.timestampObj) : new Date()
+            }))
+          }));
+          setFiles(hydrated);
+        }
       }
     } catch (e) {
       console.error("Failed to parse saved Logs Processor state", e);
     }
+
+    // Restore workspace session if local cache is empty or if workspace context sharing is active
+    if (!hasLocalData || isWorkspaceSharingEnabled()) {
+      const session = getWorkspaceSession();
+      if (session && session.rawText && session.rawText.trim()) {
+        setPastedText(session.rawText);
+        setInputMode('paste');
+      }
+    }
+
     setIsLoaded(true);
+  }, []);
+
+  // Listen for cross-tool workspace updates
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleWsUpdate = (e) => {
+      if (isWorkspaceSharingEnabled()) {
+        const session = e.detail || getWorkspaceSession();
+        if (session && session.rawText && session.rawText.trim()) {
+          setPastedText(session.rawText);
+          setInputMode('paste');
+        }
+      }
+    };
+    window.addEventListener('fixify-workspace-update', handleWsUpdate);
+    window.addEventListener('fixify-workspace-toggle', handleWsUpdate);
+    return () => {
+      window.removeEventListener('fixify-workspace-update', handleWsUpdate);
+      window.removeEventListener('fixify-workspace-toggle', handleWsUpdate);
+    };
   }, []);
 
   // Save states on change
@@ -282,7 +321,6 @@ export default function LogsProcessorPage() {
     if (!isLoaded || typeof window === 'undefined') return;
     try {
       if (pastedText.length > 1000000) {
-        // Truncate to 1MB when writing to cache
         localStorage.setItem('fixify-logs-pastedText', pastedText.slice(0, 1000000) + "\n\n... [Log Text Truncated in Local Cache to Save Storage Space]");
       } else {
         localStorage.setItem('fixify-logs-pastedText', pastedText);
@@ -342,28 +380,34 @@ export default function LogsProcessorPage() {
     try {
       const cacheableFiles = files.map(f => {
         const hasLargeContent = f.content && f.content.length > 1000000;
-        const hasLargeParsed = f.parsedLines && f.parsedLines.length > 3000;
-        if (hasLargeContent || hasLargeParsed) {
-          const truncatedContent = hasLargeContent 
+        const hasLargeParsed = f.parsedLines && f.parsedLines.length > 2000;
+        return {
+          name: f.name,
+          content: hasLargeContent 
             ? f.content.slice(0, 1000000) + "\n\n... [File Content Truncated in Local Cache to Save Storage Space]" 
-            : f.content;
-          const truncatedLines = hasLargeParsed 
-            ? f.parsedLines.slice(0, 3000) 
-            : f.parsedLines;
-          return {
-            ...f,
-            content: truncatedContent,
-            parsedLines: truncatedLines,
-            isTruncatedInCache: true
-          };
-        }
-        return f;
+            : f.content,
+          parsedDelimiter: f.parsedDelimiter || delimiter,
+          parsedLines: hasLargeParsed ? (f.parsedLines || []).slice(0, 2000) : (f.parsedLines || []),
+          isTruncatedInCache: hasLargeContent || hasLargeParsed
+        };
       });
-      localStorage.setItem('fixify-logs-files', JSON.stringify(cacheableFiles));
+
+      try {
+        localStorage.setItem('fixify-logs-files', JSON.stringify(cacheableFiles));
+      } catch (quotaErr) {
+        // Fallback to storing lightweight entries without parsedLines to strictly fit localStorage 5MB quota
+        const compactFiles = files.map(f => ({
+          name: f.name,
+          content: f.content ? f.content.slice(0, 500000) : '',
+          parsedDelimiter: f.parsedDelimiter || delimiter,
+          parsedLines: []
+        }));
+        localStorage.setItem('fixify-logs-files', JSON.stringify(compactFiles));
+      }
     } catch (e) {
       console.warn("Could not save files state", e);
     }
-  }, [files, isLoaded]);
+  }, [files, isLoaded, delimiter]);
 
   const parseLinesChunked = useCallback((lines, fileName, callback) => {
     const total = lines.length;
@@ -463,6 +507,13 @@ export default function LogsProcessorPage() {
     setPastedText('');
     setStats({ totalMessages: 0, validMessages: 0, checksumErrors: 0, bodyLengthErrors: 0, msgTypeCount: {}, checksumFailedSeqs: [], bodyLengthFailedSeqs: [] });
     setSelectedLineInfo(null);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('fixify-logs-files');
+        localStorage.removeItem('fixify-logs-pastedText');
+        localStorage.removeItem('fixify-logs-stats');
+      } catch (e) {}
+    }
   };
 
   const completeLogProcessing = useCallback((activeFiles) => {

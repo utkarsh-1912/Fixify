@@ -14,11 +14,12 @@ export async function GET(request) {
   const userId = searchParams.get("userId");
   const username = searchParams.get("username");
 
+  const activeRooms = Array.from(new Set([
+    ...Object.keys(global.chatMessagesDb || {}),
+    ...Object.keys(global.chatAnalyticsDb || {})
+  ]));
+
   if (!roomId) {
-    const activeRooms = Array.from(new Set([
-      ...Object.keys(global.chatMessagesDb || {}),
-      ...Object.keys(global.chatAnalyticsDb || {})
-    ]));
     return NextResponse.json({ rooms: activeRooms });
   }
 
@@ -69,10 +70,10 @@ export async function GET(request) {
     }
   }
 
-  // Scan for expired users (inactive for more than 8 seconds)
+  // Scan for expired users (inactive for more than 45 seconds)
   Object.keys(roomAnalytics.presentUsers).forEach(uid => {
     const u = roomAnalytics.presentUsers[uid];
-    if (now - u.lastSeen > 8000) {
+    if (now - u.lastSeen > 45000) {
       roomAnalytics.leftUsers[uid] = {
         username: u.username,
         ip: u.ip,
@@ -99,6 +100,7 @@ export async function GET(request) {
 
   return NextResponse.json({
     messages,
+    rooms: activeRooms,
     analytics: {
       present,
       left,
