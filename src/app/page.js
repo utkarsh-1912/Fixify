@@ -398,7 +398,7 @@ export default function LogsProcessorPage() {
         // Fallback to storing lightweight entries without parsedLines to strictly fit localStorage 5MB quota
         const compactFiles = files.map(f => ({
           name: f.name,
-          content: f.content ? f.content.slice(0, 500000) : '',
+          content: f.content ? f.content.slice(0, 5000000) : '',
           parsedDelimiter: f.parsedDelimiter || delimiter,
           parsedLines: []
         }));
@@ -460,7 +460,7 @@ export default function LogsProcessorPage() {
       }
 
       const file = acceptedFiles[fileIndex];
-      const isLarge = file.size > 1500000;
+      const isLarge = file.size > 15000000;
       if (isLarge) {
         const confirmProceed = window.confirm(`Warning: The file "${file.name}" is very large (>1.5MB). FIXify will process all messages in memory, but will truncate the saved version in browser cache storage to prevent QuotaExceeded errors. Proceed?`);
         if (!confirmProceed) {
