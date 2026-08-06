@@ -32,6 +32,7 @@ import {
   UserCog,
   Cpu,
   Database,
+  Globe2,
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 import { isWorkspaceSharingEnabled, setWorkspaceSharingEnabled } from '@/lib/workspaceSession';
@@ -65,6 +66,7 @@ export default function Navbar() {
     { href: '/correlation', label: 'Multi-Hop Tracker', icon: Network, short: 'Correlation', desc: 'Correlate transaction flows across multiple system layers and trace transit delays.', inMenu: false },
     { href: '/atdl', label: 'ATDL Renderer', icon: UserCog, short: 'ATDL', desc: 'Parse FIXatdl 1.1 strategy XML, render interactive parameter controls, and generate wire preview.', inMenu: false },
     { href: '/binary-decoder', label: 'Binary FAST/SBE Decoder', icon: Cpu, short: 'Binary', desc: 'Decode CME/Nasdaq FAST streams and SBE binary messages into standard tag-value maps.', inMenu: false },
+    { href: '/market-hours', label: 'Global Market Hours', icon: Globe2, short: 'Markets', desc: 'Live 24-hour timeline of trading sessions across 25+ global exchanges with rotating globe.', inMenu: false },
   ];
 
   const [wsShared, setWsShared] = useState(false);
