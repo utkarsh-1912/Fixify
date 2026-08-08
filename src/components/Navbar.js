@@ -434,14 +434,14 @@ export default function Navbar() {
                           onClick={() => { setMobileOpen(false); setMobileSearch(""); }}
                           className="flex items-start gap-3 p-3 rounded-xl transition-all border group"
                           style={{
-                            background: active ? 'rgba(250,253,254,0.06)' : 'rgba(24,24,27,0.4)',
-                            borderColor: active ? 'var(--primary-border)' : 'rgba(39,39,42,0.6)',
+                            background: active ? 'var(--primary-faint)' : 'var(--background)',
+                            borderColor: active ? 'var(--primary-border)' : 'var(--border)',
                           }}
                         >
                           <div
                             className="p-2 rounded-lg shrink-0 transition-colors"
                             style={{
-                              background: active ? 'var(--primary-faint)' : 'rgba(39,39,42,0.5)',
+                              background: active ? 'var(--primary-faint)' : 'var(--background)',
                               color: active ? 'var(--primary)' : 'var(--text-muted)',
                             }}
                           >
@@ -453,9 +453,6 @@ export default function Navbar() {
                               <span className={`text-xs font-bold truncate ${active ? 'text-emerald-400' : 'text-zinc-200 group-hover:text-white'}`}>
                                 {item.label}
                               </span>
-                              {active && (
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
-                              )}
                             </div>
                             <p className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5">
                               {item.desc}
