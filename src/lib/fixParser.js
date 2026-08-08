@@ -196,10 +196,26 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
     }
   }
 
-  // Split into tag=value pairs
+  // Standard repeating group counter tags mapped to group entry delimiter tags
+  const REPEATING_GROUP_COUNTERS = {
+    '453': '448', // NoPartyIDs -> PartyID
+    '268': '269', // NoMDEntries -> MDEntryType
+    '555': '600', // NoLegs -> LegSymbol
+    '215': '216', // NoRoutingIDs -> RoutingType
+    '73': '11',   // NoOrders -> ClOrdID
+    '146': '55',  // NoRelatedSym -> Symbol
+  };
+
+  // Split into tag=value pairs and parse AST repeating groups
   const fields = normalized.split('\x01').filter(Boolean);
   const tagList = [];
   const parsedTags = {};
+  const parsedGroups = {};
+
+  let activeGroupTag = null;
+  let activeEntryDelimiter = null;
+  let activeGroupEntries = [];
+  let currentEntryFields = null;
 
   fields.forEach((field) => {
     const eqIdx = field.indexOf('=');
@@ -208,15 +224,41 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
       const val = field.substring(eqIdx + 1);
       tagList.push({ tag, val, name: getTagName(tag) || `CustomTag_${tag}`, meaning: getValueMeaning(tag, val) || val });
       parsedTags[tag] = val;
+
+      // Group AST Parser Logic
+      if (REPEATING_GROUP_COUNTERS[tag]) {
+        if (activeGroupTag && currentEntryFields) {
+          activeGroupEntries.push(currentEntryFields);
+          parsedGroups[activeGroupTag] = activeGroupEntries;
+        }
+        activeGroupTag = tag;
+        activeEntryDelimiter = REPEATING_GROUP_COUNTERS[tag];
+        activeGroupEntries = [];
+        currentEntryFields = null;
+      } else if (activeGroupTag) {
+        if (tag === activeEntryDelimiter) {
+          if (currentEntryFields) {
+            activeGroupEntries.push(currentEntryFields);
+          }
+          currentEntryFields = { [tag]: val };
+        } else if (currentEntryFields) {
+          currentEntryFields[tag] = val;
+        }
+      }
     }
   });
+
+  if (activeGroupTag && currentEntryFields) {
+    activeGroupEntries.push(currentEntryFields);
+    parsedGroups[activeGroupTag] = activeGroupEntries;
+  }
 
   const errors = [];
   const warnings = [];
 
   if (tagList.length < 4) {
     errors.push("Message structure is too short to be a valid FIX message.");
-    return { isValid: false, errors, warnings, tags: parsedTags, tagList, separator: sep };
+    return { isValid: false, errors, warnings, tags: parsedTags, tagList, groups: parsedGroups, separator: sep };
   }
 
   // Header Validation rules
@@ -233,7 +275,7 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
     errors.push("Invalid structure: CheckSum (tag 10) must be the final field.");
   }
 
-  // Checksum calculation
+  // Checksum calculation (modulo 256 sum of bytes)
   const checksumField = tagList.find(t => t.tag === '10');
   let calculatedChecksumStr = '';
   if (checksumField) {
@@ -245,7 +287,6 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
       for (let i = 0; i < dataToCalculate.length; i++) {
         sum += dataToCalculate.charCodeAt(i);
       }
-      const calculatedChecksum = sum % 260; // Wait: standard is % 256! Let's check % 256.
       const standardCalculated = sum % 256;
       calculatedChecksumStr = standardCalculated.toString().padStart(3, '0');
 
@@ -282,6 +323,7 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
     warnings,
     tags: parsedTags,
     tagList,
+    groups: parsedGroups,
     separator: sep,
     msgType,
     msgTypeName,

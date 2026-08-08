@@ -66,9 +66,40 @@ export function parseQuickFixXml(xmlText) {
     });
   }
   
+  // Parse messages structure
+  const messagesParent = xmlDoc.getElementsByTagName("messages")[0];
+  const messages = [];
+  if (messagesParent) {
+    const msgNodes = messagesParent.getElementsByTagName("message");
+    for (let i = 0; i < msgNodes.length; i++) {
+      const mNode = msgNodes[i];
+      const mName = mNode.getAttribute("name");
+      const msgType = mNode.getAttribute("msgtype");
+      const msgCat = mNode.getAttribute("msgcat") || "app";
+
+      const msgFields = [];
+      const mFieldNodes = mNode.getElementsByTagName("field");
+      for (let j = 0; j < mFieldNodes.length; j++) {
+        const mf = mFieldNodes[j];
+        msgFields.push({
+          name: mf.getAttribute("name"),
+          required: mf.getAttribute("required") === "Y"
+        });
+      }
+
+      messages.push({
+        name: mName,
+        msgType,
+        msgCat,
+        fields: msgFields
+      });
+    }
+  }
+
   return {
     version,
-    fields
+    fields,
+    messages
   };
 }
 

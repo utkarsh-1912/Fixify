@@ -260,12 +260,22 @@ export default function FIXComparePage() {
         map2[`${tag}#${occurrences2[tag] - 1}`] = val;
       });
 
+      const HEADER_TAGS = new Set(['8', '9', '35', '49', '56', '34', '52', '115', '128', '50', '57']);
+      const TRAILER_TAGS = new Set(['10', '89', '93', '90', '91']);
+
       const allKeys = new Set([...Object.keys(map1), ...Object.keys(map2)]);
       const sortedKeys = Array.from(allKeys).sort((a, b) => {
-        const [tagA, occA] = a.split('#').map(Number);
-        const [tagB, occB] = b.split('#').map(Number);
-        if (tagA !== tagB) return tagA - tagB;
-        return occA - occB;
+        const [tagA, occA] = a.split('#');
+        const [tagB, occB] = b.split('#');
+        const numA = Number(tagA);
+        const numB = Number(tagB);
+
+        const catA = tagA === '8' ? 0 : tagA === '9' ? 1 : tagA === '35' ? 2 : HEADER_TAGS.has(tagA) ? 3 : TRAILER_TAGS.has(tagA) ? 9 : 5;
+        const catB = tagB === '8' ? 0 : tagB === '9' ? 1 : tagB === '35' ? 2 : HEADER_TAGS.has(tagB) ? 3 : TRAILER_TAGS.has(tagB) ? 9 : 5;
+
+        if (catA !== catB) return catA - catB;
+        if (numA !== numB) return numA - numB;
+        return Number(occA) - Number(occB);
       });
 
       const diff = sortedKeys.map(key => {
