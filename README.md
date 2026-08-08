@@ -1,6 +1,6 @@
-# ⚡ FIXify™ — Open-Source Financial Protocol & Market Diagnostics Suite
+# FIXify™ — Open-Source Financial Protocol & Market Diagnostics Suite
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2-black.svg?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.0-61dafb.svg?logo=react)](https://react.dev/)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-emerald.svg)]()
@@ -159,6 +159,6 @@ Contributions are welcome! If you'd like to report a bug or request a feature:
 
 ## 📄 License
 
-Distributed under the **MIT License**. See `LICENSE` for details.
+Distributed under the **GPL-3.0 License**. See `LICENSE` for details.
 
-Developed with ❤️ for the global financial engineering community.
+Developed with ❤️ for the global engineering community.

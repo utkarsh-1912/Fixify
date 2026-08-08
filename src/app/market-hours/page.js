@@ -563,7 +563,7 @@ export default function GlobalMarketHours() {
         </div>
 
         {/* View Switcher Toggle */}
-        <div className="flex items-center gap-0.5 border border-zinc-800 rounded-lg p-0.5">
+        <div className="flex items-center gap-0.5 border border-zinc-800 rounded-lg p-1">
           <button
             onClick={() => setViewMode("globe")}
             className="p-1 rounded transition-all"
@@ -573,7 +573,7 @@ export default function GlobalMarketHours() {
             }}
             title="Globe View"
           >
-            <Globe2 className="h-3.5 w-3.5" />
+            <Globe2 className="h-4.5 w-4.5" />
           </button>
           <button
             onClick={() => setViewMode("timeline")}
@@ -584,7 +584,7 @@ export default function GlobalMarketHours() {
             }}
             title="Timeline View"
           >
-            <BarChart3 className="h-3.5 w-3.5" />
+            <BarChart3 className="h-4.5 w-4.5" />
           </button>
         </div>
       </div>
@@ -693,8 +693,8 @@ export default function GlobalMarketHours() {
 
     return (
       <div className="flex flex-col lg:flex-row gap-5 items-stretch my-4">
-        {/* Globe Visualization Container - 60% Width */}
-        <div className="relative w-full lg:w-[60%] rounded-2xl flex items-center justify-center p-4 h-[600px]"
+        {/* Globe Visualization Container - 65% Width */}
+        <div className="relative w-full lg:w-[65%] rounded-2xl flex items-center justify-center p-4 h-[600px]"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
           
           <svg viewBox="0 0 800 800" className="w-full max-w-[650px] h-full">
@@ -782,8 +782,8 @@ export default function GlobalMarketHours() {
           </button>
         </div>
 
-        {/* Right Region Markets Sidebar - 40% Width */}
-        <div className="w-full lg:w-[40%] flex flex-col space-y-2 h-[600px] overflow-y-auto fx-custom-scroll pr-1">
+        {/* Right Region Markets Sidebar - 35% Width */}
+        <div className="w-full lg:w-[35%] flex flex-col space-y-2 h-[600px] overflow-y-auto fx-custom-scroll pr-1">
           
           {filteredMarkets.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl h-full border border-zinc-800 bg-zinc-900/40">
