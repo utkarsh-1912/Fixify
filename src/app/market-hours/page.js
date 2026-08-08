@@ -1115,7 +1115,7 @@ export default function GlobalMarketHours() {
                 {m.code}
               </span>
               <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <h2 className="text-xl font-bold flex items-center gap-2"  style={{ color: "var(--primary)" }} >
                   {m.name} — {m.fullName}
                 </h2>
                 <p className="text-xs text-zinc-400 flex items-center gap-2 mt-0.5">
@@ -1241,11 +1241,11 @@ export default function GlobalMarketHours() {
               }}
             >
               <Star className="h-3.5 w-3.5" style={{ fill: m.isPinned ? "#facc15" : "none" }} />
-              {m.isPinned ? "Pinned to Top" : "Pin Exchange to Top"}
+              {m.isPinned ? "Pinned" : "Pin Exchange"}
             </button>
             <button
               onClick={() => setSelectedMarketModal(null)}
-              className="fx-btn-primary py-1.5 px-4 text-xs"
+              className="fx-btn-primary py-1 px-4 text-xs"
             >
               Close
             </button>
