@@ -228,7 +228,7 @@ export default function AboutPage() {
               className="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border shrink-0 cursor-pointer"
               style={{
                 background: activeCategory === cat.id ? 'var(--primary)' : 'var(--card)',
-                color: activeCategory === cat.id ? '#ffffff' : 'var(--text-muted)',
+                color: activeCategory === cat.id ? 'var(--background)' : 'var(--text-muted)',
                 borderColor: activeCategory === cat.id ? 'var(--primary)' : 'var(--border)',
               }}
             >
