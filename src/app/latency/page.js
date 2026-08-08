@@ -247,12 +247,18 @@ const WORKER_CODE = `
     });
 
     const latencyValues = messages.map(m => m.hopLatency).filter(l => l !== null);
-    const rttValues = pairs.map(p => p.rttMicroseconds);
+    const sortedLatencies = [...latencyValues].sort((a, b) => a - b);
+    const getPercentile = (arr, pct) => {
+      if (!arr.length) return 0;
+      const idx = Math.min(Math.floor((pct / 100) * arr.length), arr.length - 1);
+      return arr[idx];
+    };
 
-    const hasLatency = latencyValues.length;
-    const avgHopLatency = hasLatency ? Math.round(latencyValues.reduce((a, b) => a + b, 0) / hasLatency) : 0;
-    const maxHopLatency = hasLatency ? Math.max(...latencyValues) : 0;
-    const minHopLatency = hasLatency ? Math.min(...latencyValues) : 0;
+    const p50HopLatency = getPercentile(sortedLatencies, 50);
+    const p90HopLatency = getPercentile(sortedLatencies, 90);
+    const p95HopLatency = getPercentile(sortedLatencies, 95);
+    const p99HopLatency = getPercentile(sortedLatencies, 99);
+    const clockSkewCount = latencyValues.filter(v => v < 0 || v > 120000000).length;
 
     const totalRttPairs = rttValues.length;
     const avgRtt = totalRttPairs ? Math.round(rttValues.reduce((a, b) => a + b, 0) / totalRttPairs) : 0;
@@ -266,6 +272,11 @@ const WORKER_CODE = `
         avgHopLatency,
         maxHopLatency,
         minHopLatency,
+        p50HopLatency,
+        p90HopLatency,
+        p95HopLatency,
+        p99HopLatency,
+        clockSkewCount,
         avgRtt,
         totalRttPairs
       }
@@ -286,6 +297,11 @@ export default function LatencyDashboard() {
     avgHopLatency: 0,
     maxHopLatency: 0,
     minHopLatency: 0,
+    p50HopLatency: 0,
+    p90HopLatency: 0,
+    p95HopLatency: 0,
+    p99HopLatency: 0,
+    clockSkewCount: 0,
     avgRtt: 0,
     totalRttPairs: 0
   });

@@ -84,44 +84,44 @@ const CONTINENTS = [
 
 const MARKETS = [
   // Americas
-  { id:"nyse", name:"NYSE", fullName:"New York Stock Exchange", region:"Americas", code:"US", lat:40.71, lng:-74.01, timezone:"America/New_York", tier:"major", weekendDays:[0,6], sessions:{preMarket:{start:4,end:9.5}, regular:{start:9.5,end:16}, postMarket:{start:16,end:20}} },
-  { id:"nasdaq", name:"NASDAQ", fullName:"NASDAQ Stock Market", region:"Americas", code:"US", lat:40.72, lng:-73.99, timezone:"America/New_York", tier:"major", weekendDays:[0,6], sessions:{preMarket:{start:4,end:9.5}, regular:{start:9.5,end:16}, postMarket:{start:16,end:20}} },
-  { id:"tsx", name:"TSX", fullName:"Toronto Stock Exchange", region:"Americas", code:"CA", lat:43.65, lng:-79.38, timezone:"America/Toronto", tier:"major", weekendDays:[0,6], sessions:{preMarket:{start:7,end:9.5}, regular:{start:9.5,end:16}, postMarket:{start:16,end:17}} },
-  { id:"bmv", name:"BMV", fullName:"Bolsa Mexicana de Valores", region:"Americas", code:"MX", lat:19.43, lng:-99.13, timezone:"America/Mexico_City", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:8.5,end:15}} },
-  { id:"b3", name:"B3", fullName:"B3 - Brasil Bolsa Balcão", region:"Americas", code:"BR", lat:-23.55, lng:-46.63, timezone:"America/Sao_Paulo", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:10,end:17.5}} },
-  { id:"bcba", name:"BCBA", fullName:"Buenos Aires Stock Exchange", region:"Americas", code:"AR", lat:-34.60, lng:-58.38, timezone:"America/Argentina/Buenos_Aires", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:11,end:17}} },
+  { id:"nyse", name:"NYSE", fullName:"New York Stock Exchange", region:"Americas", code:"US", lat:40.71, lng:-74.01, timezone:"America/New_York", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{preMarket:{start:4,end:9.5}, regular:{start:9.5,end:16}, postMarket:{start:16,end:20}} },
+  { id:"nasdaq", name:"NASDAQ", fullName:"NASDAQ Stock Market", region:"Americas", code:"US", lat:40.72, lng:-73.99, timezone:"America/New_York", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{preMarket:{start:4,end:9.5}, regular:{start:9.5,end:16}, postMarket:{start:16,end:20}} },
+  { id:"tsx", name:"TSX", fullName:"Toronto Stock Exchange", region:"Americas", code:"CA", lat:43.65, lng:-79.38, timezone:"America/Toronto", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{preMarket:{start:7,end:9.5}, regular:{start:9.5,end:16}, postMarket:{start:16,end:17}} },
+  { id:"bmv", name:"BMV", fullName:"Bolsa Mexicana de Valores", region:"Americas", code:"MX", lat:19.43, lng:-99.13, timezone:"America/Mexico_City", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:8.5,end:15}} },
+  { id:"b3", name:"B3", fullName:"B3 - Brasil Bolsa Balcão", region:"Americas", code:"BR", lat:-23.55, lng:-46.63, timezone:"America/Sao_Paulo", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:10,end:17.5}} },
+  { id:"bcba", name:"BCBA", fullName:"Buenos Aires Stock Exchange", region:"Americas", code:"AR", lat:-34.60, lng:-58.38, timezone:"America/Argentina/Buenos_Aires", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:11,end:17}} },
   
   // Europe
-  { id:"lse", name:"LSE", fullName:"London Stock Exchange", region:"Europe", code:"GB", lat:51.51, lng:-0.13, timezone:"Europe/London", tier:"major", weekendDays:[0,6], sessions:{preMarket:{start:7,end:8}, regular:{start:8,end:16.5}} },
-  { id:"euronext", name:"Euronext", fullName:"Euronext Paris", region:"Europe", code:"FR", lat:48.86, lng:2.35, timezone:"Europe/Paris", tier:"major", weekendDays:[0,6], sessions:{regular:{start:9,end:17.5}} },
-  { id:"xetra", name:"XETRA", fullName:"Deutsche Börse XETRA", region:"Europe", code:"DE", lat:50.11, lng:8.68, timezone:"Europe/Berlin", tier:"major", weekendDays:[0,6], sessions:{regular:{start:9,end:17.5}} },
-  { id:"six", name:"SIX", fullName:"SIX Swiss Exchange", region:"Europe", code:"CH", lat:47.38, lng:8.54, timezone:"Europe/Zurich", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9,end:17.5}} },
-  { id:"bme", name:"BME", fullName:"Bolsas y Mercados Españoles", region:"Europe", code:"ES", lat:40.42, lng:-3.70, timezone:"Europe/Madrid", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9,end:17.5}} },
-  { id:"borsa", name:"Borsa Italiana", fullName:"Borsa Italiana (Milan)", region:"Europe", code:"IT", lat:45.46, lng:9.19, timezone:"Europe/Rome", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9,end:17.42}} },
-  { id:"omx", name:"OMX", fullName:"Nasdaq Stockholm", region:"Europe", code:"SE", lat:59.33, lng:18.07, timezone:"Europe/Stockholm", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9,end:17.5}} },
-  { id:"moex", name:"MOEX", fullName:"Moscow Exchange", region:"Europe", code:"RU", lat:55.76, lng:37.62, timezone:"Europe/Moscow", tier:"minor", weekendDays:[0,6], sessions:{preMarket:{start:7,end:10}, regular:{start:10,end:18.83}} },
+  { id:"lse", name:"LSE", fullName:"London Stock Exchange", region:"Europe", code:"GB", lat:51.51, lng:-0.13, timezone:"Europe/London", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{preMarket:{start:7,end:8}, regular:{start:8,end:16.5}} },
+  { id:"euronext", name:"Euronext", fullName:"Euronext Paris", region:"Europe", code:"FR", lat:48.86, lng:2.35, timezone:"Europe/Paris", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:17.5}} },
+  { id:"xetra", name:"XETRA", fullName:"Deutsche Börse XETRA", region:"Europe", code:"DE", lat:50.11, lng:8.68, timezone:"Europe/Berlin", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:17.5}} },
+  { id:"six", name:"SIX", fullName:"SIX Swiss Exchange", region:"Europe", code:"CH", lat:47.38, lng:8.54, timezone:"Europe/Zurich", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:17.5}} },
+  { id:"bme", name:"BME", fullName:"Bolsas y Mercados Españoles", region:"Europe", code:"ES", lat:40.42, lng:-3.70, timezone:"Europe/Madrid", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:17.5}} },
+  { id:"borsa", name:"Borsa Italiana", fullName:"Borsa Italiana (Milan)", region:"Europe", code:"IT", lat:45.46, lng:9.19, timezone:"Europe/Rome", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:17.42}} },
+  { id:"omx", name:"OMX", fullName:"Nasdaq Stockholm", region:"Europe", code:"SE", lat:59.33, lng:18.07, timezone:"Europe/Stockholm", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:17.5}} },
+  { id:"moex", name:"MOEX", fullName:"Moscow Exchange", region:"Europe", code:"RU", lat:55.76, lng:37.62, timezone:"Europe/Moscow", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{preMarket:{start:7,end:10}, regular:{start:10,end:18.83}} },
   
   // Asia-Pacific
-  { id:"tse", name:"TSE", fullName:"Tokyo Stock Exchange", region:"Asia-Pacific", code:"JP", lat:35.68, lng:139.69, timezone:"Asia/Tokyo", tier:"major", weekendDays:[0,6], sessions:{regular:{start:9,end:15.5}} },
-  { id:"sse", name:"SSE", fullName:"Shanghai Stock Exchange", region:"Asia-Pacific", code:"CN", lat:31.23, lng:121.47, timezone:"Asia/Shanghai", tier:"major", weekendDays:[0,6], sessions:{regular:{start:9.5,end:15}} },
-  { id:"szse", name:"SZSE", fullName:"Shenzhen Stock Exchange", region:"Asia-Pacific", code:"CN", lat:22.54, lng:114.06, timezone:"Asia/Shanghai", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9.5,end:15}} },
-  { id:"hkex", name:"HKEX", fullName:"Hong Kong Exchanges", region:"Asia-Pacific", code:"HK", lat:22.32, lng:114.17, timezone:"Asia/Hong_Kong", tier:"major", weekendDays:[0,6], sessions:{preMarket:{start:9,end:9.5}, regular:{start:9.5,end:16}} },
-  { id:"sgx", name:"SGX", fullName:"Singapore Exchange", region:"Asia-Pacific", code:"SG", lat:1.28, lng:103.85, timezone:"Asia/Singapore", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9,end:17}} },
-  { id:"asx", name:"ASX", fullName:"Australian Securities Exchange", region:"Asia-Pacific", code:"AU", lat:-33.87, lng:151.21, timezone:"Australia/Sydney", tier:"major", weekendDays:[0,6], sessions:{preMarket:{start:7,end:10}, regular:{start:10,end:16}} },
-  { id:"nzx", name:"NZX", fullName:"New Zealand Exchange", region:"Asia-Pacific", code:"NZ", lat:-41.29, lng:174.78, timezone:"Pacific/Auckland", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:10,end:16.75}} },
-  { id:"krx", name:"KRX", fullName:"Korea Exchange", region:"Asia-Pacific", code:"KR", lat:37.57, lng:126.98, timezone:"Asia/Seoul", tier:"major", weekendDays:[0,6], sessions:{regular:{start:9,end:15.5}} },
+  { id:"tse", name:"TSE", fullName:"Tokyo Stock Exchange", region:"Asia-Pacific", code:"JP", lat:35.68, lng:139.69, timezone:"Asia/Tokyo", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:15.5}} },
+  { id:"sse", name:"SSE", fullName:"Shanghai Stock Exchange", region:"Asia-Pacific", code:"CN", lat:31.23, lng:121.47, timezone:"Asia/Shanghai", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9.5,end:15}} },
+  { id:"szse", name:"SZSE", fullName:"Shenzhen Stock Exchange", region:"Asia-Pacific", code:"CN", lat:22.54, lng:114.06, timezone:"Asia/Shanghai", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9.5,end:15}} },
+  { id:"hkex", name:"HKEX", fullName:"Hong Kong Exchanges", region:"Asia-Pacific", code:"HK", lat:22.32, lng:114.17, timezone:"Asia/Hong_Kong", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{preMarket:{start:9,end:9.5}, regular:{start:9.5,end:16}} },
+  { id:"sgx", name:"SGX", fullName:"Singapore Exchange", region:"Asia-Pacific", code:"SG", lat:1.28, lng:103.85, timezone:"Asia/Singapore", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:17}} },
+  { id:"asx", name:"ASX", fullName:"Australian Securities Exchange", region:"Asia-Pacific", code:"AU", lat:-33.87, lng:151.21, timezone:"Australia/Sydney", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{preMarket:{start:7,end:10}, regular:{start:10,end:16}} },
+  { id:"nzx", name:"NZX", fullName:"New Zealand Exchange", region:"Asia-Pacific", code:"NZ", lat:-41.29, lng:174.78, timezone:"Pacific/Auckland", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:10,end:16.75}} },
+  { id:"krx", name:"KRX", fullName:"Korea Exchange", region:"Asia-Pacific", code:"KR", lat:37.57, lng:126.98, timezone:"Asia/Seoul", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:15.5}} },
   
   // South Asia
-  { id:"nse", name:"NSE", fullName:"National Stock Exchange of India", region:"South Asia", code:"IN", lat:19.08, lng:72.88, timezone:"Asia/Kolkata", tier:"major", weekendDays:[0,6], sessions:{preMarket:{start:9,end:9.25}, regular:{start:9.25,end:15.5}} },
-  { id:"psx", name:"PSX", fullName:"Pakistan Stock Exchange", region:"South Asia", code:"PK", lat:24.86, lng:67.01, timezone:"Asia/Karachi", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9.5,end:15.5}} },
+  { id:"nse", name:"NSE", fullName:"National Stock Exchange of India", region:"South Asia", code:"IN", lat:19.08, lng:72.88, timezone:"Asia/Kolkata", tier:"major", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{preMarket:{start:9,end:9.25}, regular:{start:9.25,end:15.5}} },
+  { id:"psx", name:"PSX", fullName:"Pakistan Stock Exchange", region:"South Asia", code:"PK", lat:24.86, lng:67.01, timezone:"Asia/Karachi", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9.5,end:15.5}} },
   
   // Middle East
-  { id:"tadawul", name:"Tadawul", fullName:"Saudi Stock Exchange", region:"Middle East", code:"SA", lat:24.71, lng:46.67, timezone:"Asia/Riyadh", tier:"minor", weekendDays:[5,6], sessions:{regular:{start:10,end:15}} },
-  { id:"dfm", name:"DFM", fullName:"Dubai Financial Market", region:"Middle East", code:"AE", lat:25.20, lng:55.27, timezone:"Asia/Dubai", tier:"minor", weekendDays:[5,6], sessions:{regular:{start:10,end:14}} },
+  { id:"tadawul", name:"Tadawul", fullName:"Saudi Stock Exchange", region:"Middle East", code:"SA", lat:24.71, lng:46.67, timezone:"Asia/Riyadh", tier:"minor", weekendDays:[5,6], tradingDays:"Sun - Thu", sessions:{regular:{start:10,end:15}} },
+  { id:"dfm", name:"DFM", fullName:"Dubai Financial Market", region:"Middle East", code:"AE", lat:25.20, lng:55.27, timezone:"Asia/Dubai", tier:"minor", weekendDays:[5,6], tradingDays:"Sun - Thu", sessions:{regular:{start:10,end:14}} },
   
   // Africa
-  { id:"jse", name:"JSE", fullName:"Johannesburg Stock Exchange", region:"Africa", code:"ZA", lat:-26.20, lng:28.04, timezone:"Africa/Johannesburg", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9,end:17}} },
-  { id:"nse_ke", name:"NSE Kenya", fullName:"Nairobi Securities Exchange", region:"Africa", code:"KE", lat:-1.29, lng:36.82, timezone:"Africa/Nairobi", tier:"minor", weekendDays:[0,6], sessions:{regular:{start:9.5,end:15}} },
+  { id:"jse", name:"JSE", fullName:"Johannesburg Stock Exchange", region:"Africa", code:"ZA", lat:-26.20, lng:28.04, timezone:"Africa/Johannesburg", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9,end:17}} },
+  { id:"nse_ke", name:"NSE Kenya", fullName:"Nairobi Securities Exchange", region:"Africa", code:"KE", lat:-1.29, lng:36.82, timezone:"Africa/Nairobi", tier:"minor", weekendDays:[0,6], tradingDays:"Mon - Fri", sessions:{regular:{start:9.5,end:15}} },
 ];
 
 const EXCHANGE_KNOWLEDGEBASE = {
@@ -1023,10 +1023,10 @@ export default function GlobalMarketHours() {
             <div className="flex items-center pb-3 border-b text-[10px] font-mono" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
               <div className="w-[260px] flex-shrink-0" />
               <div className="flex-1 relative flex justify-between pr-4">
-                {Array.from({ length: 24 }, (_, i) => (
-                  <span key={i} className="text-center w-6">{String(i).padStart(2, "0")}</span>
+                {Array.from({ length: 25 }, (_, i) => (
+                  <span key={i} className="text-center w-5">{i === 24 ? "00" : String(i).padStart(2, "0")}</span>
                 ))}
-                <span className="text-[9px] font-sans font-semibold text-emerald-400 ml-2">
+                <span className="text-[9px] font-sans font-semibold text-emerald-400 ml-1">
                   {displayTZLabel}
                 </span>
               </div>
@@ -1098,6 +1098,8 @@ export default function GlobalMarketHours() {
     const holidayMonthName = MONTH_NAMES[hMonth - 1] || "";
     const formattedHolidayDate = `${holidayMonthName} ${hDay}`;
 
+    const isModalPinned = pinnedMarkets.has(m.id);
+
     return (
       <div
         onClick={() => setSelectedMarketModal(null)}
@@ -1124,12 +1126,22 @@ export default function GlobalMarketHours() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setSelectedMarketModal(null)}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => togglePin(m.id, e)}
+                className="p-1.5 rounded-lg text-amber-400 hover:bg-zinc-800 transition-all border border-amber-500/20 bg-amber-500/10 flex items-center gap-1 text-xs font-semibold"
+                title={isModalPinned ? "Unpin Market" : "Pin to Top"}
+              >
+                <Star className="h-4 w-4" style={{ fill: isModalPinned ? "#facc15" : "none" }} />
+                <span>{isModalPinned ? "Pinned" : "Pin"}</span>
+              </button>
+              <button
+                onClick={() => setSelectedMarketModal(null)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Scrollable Middle Content Body */}
@@ -1221,7 +1233,11 @@ export default function GlobalMarketHours() {
                   </div>
                 )}
                 <div className="flex justify-between text-zinc-400 pt-1.5 border-t border-zinc-800 text-[10px]">
+                  <span>Trading Schedule Days: <strong className="text-emerald-400 font-mono">{m.tradingDays || (m.weekendDays?.includes(5) ? "Sun - Thu" : "Mon - Fri")}</strong></span>
                   <span>Timezone Location: {m.timezone}</span>
+                </div>
+                <div className="flex justify-between text-zinc-400 text-[10px]">
+                  <span>Active Weekend Days: {m.weekendDays?.includes(5) ? "Friday & Saturday" : "Saturday & Sunday"}</span>
                   <span>DST Active: {m.isDst ? "Yes" : "No"}</span>
                 </div>
               </div>
@@ -1235,13 +1251,13 @@ export default function GlobalMarketHours() {
               onClick={(e) => togglePin(m.id, e)}
               className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border"
               style={{
-                background: m.isPinned ? "rgba(250,204,21,0.1)" : "var(--card)",
-                borderColor: m.isPinned ? "rgba(250,204,21,0.4)" : "var(--border)",
-                color: m.isPinned ? "#facc15" : "var(--foreground)",
+                background: isModalPinned ? "rgba(250,204,21,0.1)" : "var(--card)",
+                borderColor: isModalPinned ? "rgba(250,204,21,0.4)" : "var(--border)",
+                color: isModalPinned ? "#facc15" : "var(--foreground)",
               }}
             >
-              <Star className="h-3.5 w-3.5" style={{ fill: m.isPinned ? "#facc15" : "none" }} />
-              {m.isPinned ? "Pinned" : "Pin Exchange"}
+              <Star className="h-3.5 w-3.5" style={{ fill: isModalPinned ? "#facc15" : "none" }} />
+              {isModalPinned ? "Pinned to Top" : "Pin Exchange to Top"}
             </button>
             <button
               onClick={() => setSelectedMarketModal(null)}

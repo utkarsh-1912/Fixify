@@ -51,6 +51,9 @@ export default function LogSanitizerPage() {
   // Masking configuration
   const [maskCredentials, setMaskCredentials] = useState(true);
   const [maskCompIds, setMaskCompIds] = useState(true);
+  const [maskAccounts, setMaskAccounts] = useState(true);
+  const [maskIpAddress, setMaskIpAddress] = useState(true);
+  const [maskFinancialPii, setMaskFinancialPii] = useState(true);
   const [maskPrices, setMaskPrices] = useState(false);
   const [maskSizes, setMaskSizes] = useState(false);
   const [customTagsStr, setCustomTagsStr] = useState('');
@@ -161,6 +164,7 @@ export default function LogSanitizerPage() {
 
       const credentialTags = ['554', '96', '89', '91'];
       const compIdTags = ['49', '56', '115', '128'];
+      const accountTags = ['1', '50', '57', '142', '143', '109', '11'];
       const priceTags = ['44', '99', '31', '6'];
       const sizeTags = ['38', '32', '14', '151'];
 
@@ -207,6 +211,7 @@ export default function LogSanitizerPage() {
             let shouldMask = false;
             if (maskCredentials && credentialTags.includes(tag)) shouldMask = true;
             if (maskCompIds && compIdTags.includes(tag)) shouldMask = true;
+            if (maskAccounts && accountTags.includes(tag)) shouldMask = true;
             if (maskPrices && priceTags.includes(tag)) shouldMask = true;
             if (maskSizes && sizeTags.includes(tag)) shouldMask = true;
             if (customTags.includes(tag)) shouldMask = true;
@@ -216,6 +221,16 @@ export default function LogSanitizerPage() {
 
             if (shouldMask) {
               val = useHashing ? cyrb128(val + saltVal) : replacementStr;
+              totalMasked++;
+            }
+
+            if (maskIpAddress && /\b(?:\d{1,3}\.){3}\d{1,3}\b/.test(val)) {
+              val = val.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, 'xxx.xxx.xxx.xxx');
+              totalMasked++;
+            }
+
+            if (maskFinancialPii && /\b(?:\d[ -]*?){13,19}\b/.test(val)) {
+              val = val.replace(/\b(?:\d[ -]*?){13,19}\b/g, '****-****-****-****');
               totalMasked++;
             }
 

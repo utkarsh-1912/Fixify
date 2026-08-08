@@ -519,6 +519,95 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
 }
 
 const FIX_GUIDES = {
+  "nyse trading session": `### NYSE Trading Session Open: FIX Execution Latency & Order Routing Impact
+
+The NYSE market open (09:30:00 EST) is one of the highest message throughput events in global financial markets. Here is how it affects FIX protocol session layers and order routing:
+
+#### 1. Pre-Market Order Queuing vs. Opening Auction (35=D)
+- **Pre-Market Routing**: Orders submitted before 09:30 EST with \`TimeInForce\` Tag 59=2 (At the Opening) or Tag 59=0 (Day) are queued in the exchange order book or broker Smart Order Router (SOR).
+- **Opening Cross Uncrossing**: At 09:30:00 EST, the NYSE execution engine runs the Opening Auction. All accumulated orders are paired off in a single batch uncrossing transaction.
+
+#### 2. FIX Latency Spikes & Timestamp Delays (Tag 52 vs. Tag 60)
+- **TransactTime (Tag 60) vs SendingTime (Tag 52)**: During the opening cross, a massive volume of \`Execution Reports (35=8)\` is generated within milliseconds. 
+- **Queue Latency**: The delta between \`TransactTime (60)\` (when the trade matched in the matching engine) and \`SendingTime (52)\` (when the FIX engine serialized and sent the message) can spike from <100 microseconds to several milliseconds.
+- **Clock Skew Audits**: If \`SendingTime (52)\` lags behind system clock by more than maximum allowed threshold (typically 120s), counterparties will reject messages with Session Reject \`Tag 373=10\` (SendingTime accuracy problem).
+
+#### 3. Order Modification & Cancellation Queuing (35=F / 35=G)
+- **Pending Status**: Order Cancel Requests (\`35=F\`) sent right around 09:30:00 EST may return \`OrdStatus 39=6\` (Pending Cancel) or be rejected with \`ExecType 150=8\` / \`OrdRejReason 103=4\` ("Too late to enter / cancel").
+- **Execution vs Cancel Race**: If an execution occurs during the opening cross before the cancel request is processed, the exchange issues a filled Execution Report (\`39=2\` or \`39=1\`) and rejects the cancel request with an Order Cancel Reject (\`35=9\`).
+
+---
+*Response resolved by AURA (Market Session Analysis).*`,
+
+  "european market overlap": `### FIX Session Timing & Behavior During European & US Market Overlap
+
+The overlap period between European exchanges (LSE, Euronext, XETRA - closing between 16:30 - 17:30 CET / 10:30 - 11:30 EST) and US exchanges (NYSE, NASDAQ - opening at 09:30 EST) represents the peak liquidity window of the global trading day (13:30 UTC - 16:30 UTC).
+
+#### 1. Message Throughput & Network Congestion
+- **Volume Burst**: FIX message throughput increases 3x to 5x as institutional algorithms adjust positions, hedge cross-asset exposure, and execute FX benchmark fixes (e.g. 4:00 PM London Fix).
+- **Buffer Bloat & TCP Retransmissions**: High packet rates can saturate TCP socket buffers. FIX engines must monitor TCP send/receive queues to prevent socket buffer overflows.
+
+#### 2. Sequence Gap Recovery & Resend Requests (35=2)
+- **Out of Sequence Detection**: High throughput increases the probability of packet loss or delayed packet arrival across trans-Atlantic fiber/microwave routes.
+- **Resend Request Handling**: If a gap is detected, the engine issues a Resend Request (\`35=2\`). During peak overlap, incoming messages should set \`PossDupFlag (Tag 43=Y)\` and include \`OrigSendingTime (Tag 122)\` to prevent session disconnects.
+
+#### 3. Cross-Market Time Synchronization (PTP / NTP)
+- High-frequency FIX routers synchronization must adhere to MiFID II RTS 25 requirements (maximum 100-microsecond timestamp granularity relative to UTC) during cross-border execution reporting.
+
+---
+*Response resolved by AURA (European Overlap Analysis).*`,
+
+  "pre-market session preparation": `### Optimal FIX HeartBeat (Tag 108) & Pre-Market Session Preparation
+
+Preparing FIX sessions prior to pre-market session open (e.g., 04:00 EST for US Equities or 07:00 LSE) requires specific session layer parameter tuning:
+
+#### 1. Optimal HeartBeat Interval (Tag 108) Configuration
+- **Standard Session**: \`HeartBtInt (108) = 30\` (30 seconds) is the standard for low-volume or normal trading sessions.
+- **Pre-Market & High-Volume Preparation**: Recommended \`HeartBtInt (108) = 10 to 15\` seconds.
+  - *Why*: A lower heartbeat interval detects network link failures faster before market open, allowing network failover to secondary gateways before live order flow begins.
+- **Test Request Verification**: Ensure automated \`Test Request (35=1)\` probes verify that response \`Heartbeat (35=0)\` returns matching \`TestReqID (Tag 112)\` within 2x \`HeartBtInt\`.
+
+#### 2. Pre-Market Checklist for FIX Connectivity
+1. **Sequence Synchronization**: Issue \`Logon (35=A)\` and verify sequence numbers match counterparty expectations.
+2. **Data Dictionary Audit**: Confirm custom dialect tags and venue-specific enum values are loaded.
+3. **Session Reset Check**: Confirm whether sequence numbers reset to 1 overnight or follow custom session schedules.
+
+---
+*Response resolved by AURA (Session Preparation Guide).*`,
+
+  "sequence number reset": `### Sequence Number Reset (35=4) Requirements Before Monday Market Open
+
+Managing FIX sequence numbers across non-trading periods (weekends or holidays) is critical to prevent session disconnects on Monday morning.
+
+#### 1. Automatic Reset via Logon (ResetSeqNumFlag 141=Y)
+- **Daily/Weekly Reset Standard**: Most exchanges and brokers reset session sequence numbers to \`1\` at the start of a new trading day or week.
+- **Logon Message**: Send \`Logon (35=A)\` with \`ResetSeqNumFlag (Tag 141 = Y)\` and \`MsgSeqNum (Tag 34 = 1)\`.
+- **Counterparty Expectation**: Both initiator and acceptor set expected sequence numbers to 1.
+
+#### 2. Mid-Session or Administrative Reset Mode (35=4 with GapFillFlag=N)
+- **When to Use**: If sequence numbers fall out of sync over the weekend without an automatic reset.
+- **Sequence Reset (Reset Mode)**: Send \`MsgType 35=4\` with \`GapFillFlag (Tag 123 = N)\` or omitted, and \`NewSeqNo (Tag 36 = [next expected sequence])\`.
+- **Effect**: Forces the receiver to accept the new sequence number immediately without requesting missing intermediate messages.
+
+---
+*Response resolved by AURA (Sequence Reset Guide).*`,
+
+  "nyse time": `### NYSE Operating Hours & FIX Timestamping Standard
+
+The New York Stock Exchange (NYSE) operates on US Eastern Time (ET - America/New_York), converting between EST (UTC-5) and EDT (UTC-4) depending on Daylight Saving Time.
+
+#### 1. Operating Hours Summary
+- **Pre-Market Session**: 04:00 - 09:30 EST
+- **Regular Trading Session**: 09:30 - 16:00 EST (Core Market)
+- **Post-Market / After-Hours Session**: 16:00 - 20:00 EST
+
+#### 2. FIX Timestamp Formatting (Tag 52 & Tag 60)
+All FIX timestamp fields (\`SendingTime Tag 52\`, \`TransactTime Tag 60\`, \`OrigSendingTime Tag 122\`) **MUST be specified in UTC** in format \`YYYYMMDD-HH:MM:SS.sss\` per standard specification:
+- **Example**: 09:30 EST (Regular Open) is \`14:30:00.000 UTC\` (during EST) or \`13:30:00.000 UTC\` (during EDT).
+
+---
+*Response resolved by AURA (Market Time Analysis).*`,
+
   "tag 43": `**Tag 43 (PossDupFlag) Rules & Requirements**
 
 Tag 43 (PossDupFlag) is a standard header field used to flag potential duplicate transmissions.
@@ -532,121 +621,82 @@ Tag 43 (PossDupFlag) is a standard header field used to flag potential duplicate
 
   "possdupflag": `**Tag 43 (PossDupFlag) Rules & Requirements**
 
-Tag 43 (PossDupFlag) is a standard header field used to flag potential duplicate transmissions.
-
-- **When it is required/used**:
-  - Must be set to \`Y\` when resending a message with a sequence number that has already been sent (e.g., in response to a **Resend Request (35=2)** or when re-transmitting due to suspected connection issues).
-  - Failing to set Tag 43 to \`Y\` on a repeated sequence number will cause the receiver to reject the session due to a duplicate sequence error (Out of Sequence).
-- **Conditional Requirement**:
-  - When Tag 43 is set to \`Y\`, **Tag 122 (OrigSendingTime)** becomes **strictly required** by the FIX protocol standard to indicate the timestamp of the original transmission.
-  - Tag 52 (SendingTime) should contain the timestamp of the current retransmission.`,
-
-  "possdup": `**Tag 43 (PossDupFlag) Rules & Requirements**
-
-Tag 43 (PossDupFlag) is a standard header field used to flag potential duplicate transmissions.
-
-- **When it is required/used**:
-  - Must be set to \`Y\` when resending a message with a sequence number that has already been sent (e.g., in response to a **Resend Request (35=2)** or when re-transmitting due to suspected connection issues).
-  - Failing to set Tag 43 to \`Y\` on a repeated sequence number will cause the receiver to reject the session due to a duplicate sequence error (Out of Sequence).
-- **Conditional Requirement**:
-  - When Tag 43 is set to \`Y\`, **Tag 122 (OrigSendingTime)** becomes **strictly required** by the FIX protocol standard to indicate the timestamp of the original transmission.
-  - Tag 52 (SendingTime) should contain the timestamp of the current retransmission.`,
+Tag 43 (PossDupFlag) is a standard header field used to flag potential duplicate transmissions.`,
 
   "custom fields": `**Custom Fields in the FIX Protocol**
 
 Under the FIX protocol, custom tags (also known as User-Defined Fields or UDFs) are used to transmit proprietary business data that is not part of the standard FIX specification.
 
-- **Reserved Tag Range**: Tags **5000 to 9999** are officially reserved for user-defined custom fields. (Some platforms or engines also support ranges like 10000+).
+- **Reserved Tag Range**: Tags **5000 to 9999** are officially reserved for user-defined custom fields.
 - **Structure**: Custom fields follow the standard key-value format (e.g., \`5001=Value\`).
-- **Data Dictionary**: Since they are custom, standard FIX parsers will not recognize them out of the box. You must define them in your engine's XML Data Dictionary (e.g., QuickFIX XML schema) so that the engine knows their data type, valid values, and validation rules.`,
+- **Data Dictionary**: Define them in your engine's XML Data Dictionary (e.g., QuickFIX XML schema) so that the engine knows their data type and validation rules.`,
 
   "custom tags": `**Custom Tags in the FIX Protocol**
 
-Under the FIX protocol, custom tags (also known as User-Defined Fields or UDFs) are used to transmit proprietary business data that is not part of the standard FIX specification.
-
-- **Reserved Tag Range**: Tags **5000 to 9999** are officially reserved for user-defined custom fields. (Some platforms or engines also support ranges like 10000+).
-- **Structure**: Custom fields follow the standard key-value format (e.g., \`5001=Value\`).
-- **Data Dictionary**: Since they are custom, standard FIX parsers will not recognize them out of the box. You must define them in your engine's XML Data Dictionary (e.g., QuickFIX XML schema) so that the engine knows their data type, valid values, and validation rules.`,
+Under the FIX protocol, custom tags (also known as User-Defined Fields or UDFs) are used to transmit proprietary business data that is not part of the standard FIX specification.`,
 
   "upload a quickfix xml": `**Uploading a QuickFIX XML Data Dictionary**
 
 In FIXify, you can upload a custom QuickFIX XML Data Dictionary to define proprietary custom tags, messages, and enum values.
 
-1. **Navigate to the Tags Reference Page** (click on **Tags** or **Tags Reference** in the top navigation bar, or go to \`/fixtags\`).
-2. **Select your XML Data Dictionary file** (typically has a \`.xml\` extension, such as \`FIX44.xml\` or custom specifications).
-3. **Upload or drag-and-drop** the file into the upload zone on the Tags Reference page.
-4. **Parsing**: The platform will parse the message types, custom fields, components, and enum values automatically.
-5. **Usage**: Once loaded, all other pages (such as the Logs Processor, Interactive Payload Mutator, and Chat Interpreter) will automatically resolve your custom tags and display their names and enum meanings instead of just showing raw numbers.`,
+1. Navigate to the **Tags Reference Page** (\`/fixtags\`).
+2. Select your XML Data Dictionary file (\`.xml\` extension).
+3. Upload or drag-and-drop the file into the upload zone.
+4. Parsing runs automatically to resolve custom tags across all tools.`,
 
   "xml data dictionary": `**QuickFIX XML Data Dictionaries in FIXify**
 
-In FIXify, you can upload a custom QuickFIX XML Data Dictionary to define proprietary custom tags, messages, and enum values.
-
-1. **Navigate to the Tags Reference Page** (click on **Tags** or **Tags Reference** in the top navigation bar, or go to \`/fixtags\`).
-2. **Select your XML Data Dictionary file** (typically has a \`.xml\` extension, such as \`FIX44.xml\` or custom specifications).
-3. **Upload or drag-and-drop** the file into the upload zone on the Tags Reference page.
-4. **Parsing**: The platform will parse the message types, custom fields, components, and enum values automatically.
-5. **Usage**: Once loaded, all other pages (such as the Logs Processor, Interactive Payload Mutator, and Chat Interpreter) will automatically resolve your custom tags and display their names and enum meanings instead of just showing raw numbers.`,
-
-  "where are custom tags defined": `**Where Custom Tags are Defined**
-
-1. **Protocol Level**: User-defined custom tags are specified in the range **5000 to 9999** by the FIX Protocol standard.
-2. **Data Dictionary**: In practice, custom tags are defined in a **QuickFIX XML Data Dictionary** (or equivalent XML schema file) used by the FIX engine.
-3. **In FIXify**: You can define and upload custom tags by going to the **Tags Reference** page (\`/fixtags\`) and uploading your custom XML data dictionary. Once uploaded, the custom tags will be stored in your browser's local storage and resolved across all tools in FIXify.`,
+In FIXify, you can upload a custom QuickFIX XML Data Dictionary to define proprietary custom tags, messages, and enum values.`,
 
   "when should sequence reset": `**When Sequence Reset (35=4) should be sent**
 
 A Sequence Reset (35=4) message is used to recover from sequence gaps or to reset sequence numbers. There are two modes:
 
 1. **Gap Fill Mode (GapFillFlag 123=Y)**:
-   - **When to send**: In response to a **Resend Request (35=2)**, when the sender wants to skip transmitting administrative messages (like Heartbeats, Test Requests, or Logons) or stale application messages (like old market data).
-   - **SeqNum**: Sent with the next expected sequence number in the session sequence.
-   - **NewSeqNo (Tag 36)**: Tells the receiver the next sequence number to expect after skipping the gap.
-
+   - In response to a **Resend Request (35=2)**, when the sender wants to skip transmitting administrative messages or stale application messages.
 2. **Reset Mode (GapFillFlag 123=N or absent)**:
-   - **When to send**: Used to recover from unrecoverable sequence discrepancies or to establish a new baseline (e.g., start of day, or after manual database intervention).
-   - **NewSeqNo (Tag 36)**: Tells the receiver to immediately set their expected sequence number to the new value.`,
+   - Used to recover from unrecoverable sequence discrepancies or to establish a new baseline.`,
 
   "35=4": `**Sequence Reset Message (MsgType 35=4)**
 
-A Sequence Reset (35=4) message is used to recover from sequence gaps or to reset sequence numbers. There are two modes:
+A Sequence Reset (35=4) message is used to recover from sequence gaps or to reset sequence numbers.`,
 
-1. **Gap Fill Mode (GapFillFlag 123=Y)**:
-   - **When to send**: In response to a **Resend Request (35=2)**, when the sender wants to skip transmitting administrative messages (like Heartbeats, Test Requests, or Logons) or stale application messages (like old market data).
-   - **SeqNum**: Sent with the next expected sequence number in the session sequence.
-   - **NewSeqNo (Tag 36)**: Tells the receiver the next sequence number to expect after skipping the gap.
+  "logon": `**FIX Logon Session Flow (MsgType 35=A)**
 
-2. **Reset Mode (GapFillFlag 123=N or absent)**:
-   - **When to send**: Used to recover from unrecoverable sequence discrepancies or to establish a new baseline (e.g., start of day, or after manual database intervention).
-   - **NewSeqNo (Tag 36)**: Tells the receiver to immediately set their expected sequence number to the new value.`,
+The Logon message is transmitted by both initiator (client) and acceptor (server) to establish a FIX session.
+- **Tag 98 (EncryptMethod)**: Encryption method (0 = None).
+- **Tag 108 (HeartBtInt)**: Heartbeat interval in seconds (e.g. 30).
+- **Tag 141 (ResetSeqNumFlag)**: Reset sequence numbers to 1 if set to 'Y'.`,
 
-  "dialect enums": `**Standard vs. Custom Dialect Enums in FIX**
+  "heartbeat": `**FIX Heartbeat (MsgType 35=0)**
 
-- **Standard Enums**: Pre-defined by the official FIX specification (e.g., Tag 40 \`2=Limit\`, \`1=Market\`; Tag 54 \`1=Buy\`, \`2=Sell\`).
-- **Custom Dialect Enums**: Proprietary values defined by a specific broker or exchange (e.g., Tag 9900 \`A=OptionSpecial\`, \`B=ComboSpecial\`).
-- **Resolving Custom Enums in FIXify**: Upload your custom XML data dictionary under the **Tags Reference** page (\`/fixtags\`). The parser will read the custom fields and their corresponding enums, automatically resolving them in the message inspector panels instead of displaying raw codes.`,
+Heartbeat messages are transmitted at the HeartBtInt interval during periods of inactivity to verify link connectivity.
+- If responding to a **Test Request (35=1)**, the Heartbeat must include the matching **TestReqID (Tag 112)** to verify sequence integrity.`,
 
-  "standard vs custom": `**Standard vs. Custom Dialect Enums in FIX**
+  "sequence": `**FIX Sequence Reset / Sequence Gap Recovery (MsgType 35=4)**
 
-- **Standard Enums**: Pre-defined by the official FIX specification (e.g., Tag 40 \`2=Limit\`, \`1=Market\`; Tag 54 \`1=Buy\`, \`2=Sell\`).
-- **Custom Dialect Enums**: Proprietary values defined by a specific broker or exchange (e.g., Tag 9900 \`A=OptionSpecial\`, \`B=ComboSpecial\`).
-- **Resolving Custom Enums in FIXify**: Upload your custom XML data dictionary under the **Tags Reference** page (\`/fixtags\`). The parser will read the custom fields and their corresponding enums, automatically resolving them in the message inspector panels instead of displaying raw codes.`,
+Used to recover from missed message sequence gaps or skip past administrative messages.
+- **Tag 36 (NewSeqNo)**: The next expected MsgSeqNum.
+- **Tag 123 (GapFillFlag)**: \`Y\` (Gap Fill) or \`N\` (Reset).`,
 
-  "trading": `**Electronic Trading & FIX Routing**\n\nElectronic trading relies on FIX (Financial Information eXchange) messages to route orders and confirm executions in real-time.\n- **Order Entry**: A client sends a **New Order Single (35=D)** specifying the price (44), size (38), symbol (55), side (54), and order type (40).\n- **Execution Reports**: The exchange or broker responds with **Execution Reports (35=8)** representing order status changes (39) like New, Partially Filled, Filled, Canceled, or Rejected.\n- **Order Modification**: Clients can cancel or replace active orders via **Order Cancel Request (35=F)** and **Order Cancel/Replace Request (35=G)**.`,
+  "checksum": `**FIX Checksum Calculation (Tag 10)**
 
-  "logon": `**FIX Logon Session Flow (MsgType 35=A)**\n\nThe Logon message is transmitted by both the initiator (client) and acceptor (server) to establish a FIX session.\n- **Tag 98 (EncryptMethod)**: Encryption method (typically 0 = None / Plaintext).\n- **Tag 108 (HeartBtInt)**: Heartbeat interval in seconds (e.g., 30).\n- **Tag 141 (ResetSeqNumFlag)**: Reset sequence numbers to 1 if set to 'Y'.\n\n*Establish Session sequence:* \nInitiator --(35=A, Seq 1)--> Acceptor\nInitiator <--(35=A, Seq 1)-- Acceptor (Session Established)`,
-  
-  "heartbeat": `**FIX Heartbeat (MsgType 35=0)**\n\nHeartbeat messages are transmitted at the HeartBtInt interval during periods of inactivity to verify link connectivity.\n- If responding to a **Test Request (35=1)**, the Heartbeat must include the matching **TestReqID (Tag 112)** to verify sequence integrity.`,
-  
-  "sequence": `**FIX Sequence Reset / Sequence Gap Recovery (MsgType 35=4)**\n\nUsed to recover from missed message sequence gaps or skip past administrative messages.\n- **Tag 36 (NewSeqNo)**: The next expected MsgSeqNum.\n- **Tag 123 (GapFillFlag)**: \n  - \`Y\` (Gap Fill): Skip sequence numbers for administrative messages.\n  - \`N\` or absent (Reset): Hard sequence reset (forces sequence numbers to NewSeqNo).`,
-  
-  "checksum": `**FIX Checksum Calculation (Tag 10)**\n\nEvery standard FIX message must terminate with Tag 10 containing a 3-character checksum.\n- It is calculated by summing the binary ASCII values of all characters in the raw message up to (but excluding) the checksum field itself.\n- The sum is then modulo 256 and formatted as a 3-digit padded string (e.g., \`10=084\`).\n- Standard SOH delimiters (\\x01) are included in the checksum sum.`,
-  
-  "body": `**FIX BodyLength Calculation (Tag 9)**\n\nTag 9 represents the total length of the message body in bytes.\n- It is calculated by counting the number of characters starting immediately *after* the SOH delimiter of Tag 9 and ending immediately *before* the start of Tag 10 (Checksum).`,
-  
-  "resend": `**FIX Resend Request (MsgType 35=2)**\n\nSent when a sequence number gap is detected (e.g., incoming MsgSeqNum is higher than expected).\n- **Tag 7 (BeginSeqNo)**: The first sequence number requested.\n- **Tag 16 (EndSeqNo)**: The last sequence number requested (use 0 for infinity / all subsequent).`,
+Every standard FIX message must terminate with Tag 10 containing a 3-character checksum.
+- It is calculated by summing the binary ASCII values of all characters in the raw message modulo 256.`,
 
-  "fix protocol": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
+  "body": `**FIX BodyLength Calculation (Tag 9)**
+
+Tag 9 represents the total length of the message body in bytes starting immediately after Tag 9 SOH and ending before Tag 10.`,
+
+  "resend": `**FIX Resend Request (MsgType 35=2)**
+
+Sent when a sequence number gap is detected.
+- **Tag 7 (BeginSeqNo)**: The first sequence number requested.
+- **Tag 16 (EndSeqNo)**: The last sequence number requested (use 0 for all subsequent).`,
+
+  "fix protocol": `**FIX (Financial Information eXchange) Protocol**
+
+The FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.`,
   
   "fix": `**FIX (Financial Information eXchange) Protocol**\n\nThe FIX Protocol is an industry-standard, open-source electronic communications protocol developed for real-time exchange of securities transactions and market data.\nIt is widely used by buy-side and sell-side institutions, stock exchanges, brokers, and investment funds to automate electronic trading, order routing, and trade execution.\n\n- **Session Layer**: Manages logon (35=A), logout (35=5), heartbeats (35=0), sequence synchronization, and retransmissions.\n- **Application Layer**: Carries business data like New Order Single (35=D), Execution Report (35=8), and Order Cancel/Replace (35=G).`,
 
@@ -1629,6 +1679,11 @@ How can I help you today? You can:
           for (const [topic, text] of Object.entries(FIX_GUIDES)) {
             if (topic === "fix" || topic === "fix protocol") continue; // skip general/broad guides
             if (lowercaseQuery.includes(topic)) {
+              // Avoid matching simple single-word topics when the user asks a longer complex question
+              const isSingleWordTopic = !topic.includes(" ");
+              if (isSingleWordTopic && lowercaseQuery.length > 25) {
+                continue;
+              }
               specificGuideMatch = text;
               break;
             }
