@@ -33,6 +33,7 @@ import {
   Cpu,
   Database,
   Globe2,
+  InfoIcon,
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 import { isWorkspaceSharingEnabled, setWorkspaceSharingEnabled } from '@/lib/workspaceSession';
@@ -478,9 +479,13 @@ export default function Navbar() {
               <SettingsIcon className="h-4 w-4 text-zinc-400" />
               <span>App Settings</span>
             </button>
-            <div className="text-[10px] font-mono text-zinc-400">
-              FIXify v2.5 · 21 Tools
-            </div>
+            <button
+              onClick={() => { window.location.href = '/about'; setMobileOpen(false); }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 text-zinc-200 transition-colors"
+            >
+              <InfoIcon className="h-4 w-4 text-zinc-400" />
+              <span>About</span>
+            </button>
           </div>
         </div>
       )}

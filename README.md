@@ -1,4 +1,4 @@
-# FIXify™ — Open-Source Financial Protocol & Market Diagnostics Suite
+# FIXify™ — Financial Protocol & Market Diagnostics Suite
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2-black.svg?logo=next.js)](https://nextjs.org/)
@@ -7,7 +7,7 @@
 [![Telemetry](https://img.shields.io/badge/Telemetry-Zero-brightgreen.svg)]()
 [![Build](https://img.shields.io/badge/Build-Passing-success.svg)]()
 
-> **FIXify** is an enterprise-grade, local-first open-source diagnostic suite and Next.js protocol workstation built for financial market integration engineers, FIX protocol developers, algorithmic traders, and support analysts.
+> **FIXify** is an enterprise-grade, local-first diagnostic suite and Next.js protocol workstation built for financial market integration engineers, FIX protocol developers, algorithmic traders, and support analysts.
 
 ---
 

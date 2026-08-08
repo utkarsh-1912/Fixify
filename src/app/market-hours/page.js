@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Globe2, Clock, Search, BarChart3, X, Pause, Play, Star, ArrowRightLeft,
-  RotateCcw, Info, Cpu, ShieldCheck, Database, Zap, BookOpen, Building2, Maximize2
+  RotateCcw, Info, Cpu, ShieldCheck, Database, Zap, BookOpen, Building2, Maximize2,
+  MapPinIcon
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1286,7 +1287,7 @@ export default function GlobalMarketHours() {
             <Globe2 className="h-6 w-6" style={{ color: "var(--primary)" }} />
             Global Market Hours
           </h1>
-          <p className="fx-page-subtitle flex flex-wrap items-center gap-3">
+          <p className="fx-page-subtitle flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-2 h-2 rounded-full" style={{ background: SESSION_COLORS.regular, animation: "live-pulse 1.5s ease-in-out infinite" }} />
               <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-400">LIVE</span>
@@ -1296,6 +1297,7 @@ export default function GlobalMarketHours() {
               {mounted ? formatUTCTime(currentTime) : "00:00:00 UTC"}
             </span>
             <span className="font-mono text-xs text-zinc-400" suppressHydrationWarning>
+              <MapPinIcon className="inline h-3 w-3 mr-1" />
               Local: {mounted ? formatLocalTime(currentTime) : "00:00:00 AM"}
             </span>
           </p>
