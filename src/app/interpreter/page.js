@@ -18,11 +18,13 @@ import {
   User,
   Bot,
   Zap,
-  CloudLightning
+  CloudLightning,
+  Globe2
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
 import TagDetailsModal from "@/components/TagDetailsModal";
 import SohVisualizer from "@/components/SohVisualizer";
+import { getWorkspaceSession } from "@/lib/workspaceSession";
 
 export default function InterpreterPage() {
   const [messages, setMessages] = useState([
@@ -70,6 +72,15 @@ export default function InterpreterPage() {
           { label: "Standard vs Dialect enums", query: "difference between standard and custom dialect enums" }
         ];
       }
+    }
+
+    if (suggestionAlgo === "markets") {
+      return [
+        { label: "Analyze NYSE Session Impact", query: "how does NYSE trading session open affect FIX execution latency and order routing?" },
+        { label: "LSE & Euronext Overlap Rules", query: "explain FIX session timing behavior during European market overlap" },
+        { label: "Pre-Market FIX Heartbeat Intervals", query: "what are optimal HeartBeat 108 values for pre-market session preparation?" },
+        { label: "Weekend Sequence Reset Rules", query: "explain sequence number reset 35=4 requirements before Monday market open" }
+      ];
     }
 
     if (suggestionAlgo === "flow") {
@@ -132,6 +143,21 @@ export default function InterpreterPage() {
   };
   const [showSidebar, setShowSidebar] = useState(false);
   const [modelDetails, setModelDetails] = useState(null);
+  const [marketContext, setMarketContext] = useState(null);
+
+  // Sync workspace session context (e.g. from Global Market Hours)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const checkContext = () => {
+      const session = getWorkspaceSession();
+      if (session && session.source === 'Global Market Hours') {
+        setMarketContext(session.rawText);
+      }
+    };
+    checkContext();
+    window.addEventListener('fixify-workspace-update', checkContext);
+    return () => window.removeEventListener('fixify-workspace-update', checkContext);
+  }, []);
 
   // Load state on mount
   useEffect(() => {
@@ -543,7 +569,23 @@ export default function InterpreterPage() {
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 items-stretch">
         
         {/* Chat stream area */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 space-y-2">
+          {/* Market Hours Synced Context Banner */}
+          {marketContext && (
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-mono bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <div className="flex items-center gap-2 truncate">
+                <Globe2 className="h-4 w-4 shrink-0 text-emerald-400 animate-pulse" />
+                <span className="truncate">Market Session Context Synced</span>
+              </div>
+              <button
+                onClick={() => setInput("Explain current global market hours impact on FIX order routing and execution latency")}
+                className="text-[10px] uppercase tracking-wider font-bold underline hover:text-emerald-300 ml-2 shrink-0"
+              >
+                Analyze Market Impact
+              </button>
+            </div>
+          )}
+
           <div
             className="flex-1 overflow-y-auto p-4 space-y-4 rounded-2xl min-h-0"
             style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
@@ -733,7 +775,7 @@ export default function InterpreterPage() {
                 <div className="space-y-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Engine Algorithm:</span>
                   <div className="flex items-center gap-1 bg-zinc-950/40 p-1 rounded-lg border border-zinc-800" style={{ borderColor: 'var(--border)' }}>
-                    {['history', 'dialect', 'flow'].map((algo) => (
+                    {['history', 'markets', 'dialect', 'flow'].map((algo) => (
                       <button
                         key={algo}
                         type="button"

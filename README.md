@@ -1,54 +1,164 @@
-# Fixify
+# ⚡ FIXify™ — Open-Source Financial Protocol & Market Diagnostics Suite
 
-Fixify is a high-performance, developer-first diagnostic suite and Next.js local workspace toolkit designed for trading integration engineers, support analysts, and FIX protocol developers.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2-black.svg?logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.0-61dafb.svg?logo=react)](https://react.dev/)
+[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local--First-emerald.svg)]()
+[![Telemetry](https://img.shields.io/badge/Telemetry-Zero-brightgreen.svg)]()
+[![Build](https://img.shields.io/badge/Build-Passing-success.svg)]()
 
-## Advanced Platform Features
+> **FIXify** is an enterprise-grade, local-first open-source diagnostic suite and Next.js protocol workstation built for financial market integration engineers, FIX protocol developers, algorithmic traders, and support analysts.
 
-- **Logs Processor & Comparator**: Paste multi-message FIX session logs. Compare logs side-by-side using *Hide Administrative* and *Show Differences Only* checkboxes. Audits sequence gaps, Logon establishment order, and duplicates (tag 34). Features an interactive side-drawer inspector with a visual SOH character detector.
-- **Missing Fills Analyzer**: Compare raw FIX execution reports against blotter databases (CSV/TSV/Excel) to instantly isolate missing fills. Supports substring ExecID matching, fuzzy timestamp matching, customizable fill criteria, bidirectional session filters, and dynamic CSV downloads.
-- **FIX Security & Compliance Auditor**: Audit logs for plaintext credentials leakage (passwords/signatures), sequence number replay threats, delimiters/SOH injection attacks, and sequence hijacking. Features an interactive compliance score gauge, grading details tooltip, and remediation config builder.
-- **Log Sanitizer & Anonymizer**: Scrub credentials, CompIDs, prices, and sizes from raw FIX logs before transmission. Automatically recalculates BodyLength (Tag 9) and Checksum (Tag 10) dynamically to maintain valid log structures.
-- **Interactive Payload Generator**: Construct valid FIX messages via form schemas supporting Logon, Heartbeat, Execution Reports, and Cancel/Rejects. Performs real-time checksum/length audits and outputs in SOH Visual, Pipe (|), Hex, or JSON.
-- **Multi-Algo Technical Trade Studio**: Search symbols using yahoo-finance data proxying, select technical indicator signals (SMA, EMA, RSI, Bollinger Bands, MACD), backtest strategies on historical P&L, overlay Entry/SL/TP levels on SVG timelines, and track open trades in a local ledger.
-- **QuickFIX XML Dialect Manager**: Upload custom dialect schemas to parse and explore custom fields and tag dictionaries. Plugs directly into the timeline, generator, and AI chat.
-- **SOH Character Detector & Previews**: Integrates `SohVisualizer` globally (Drawers, Modals, Chat history) to separate tags and highlight headers. Renders real-time visual previews under all paste textareas across the suite, supporting caret-A (`^A`) notation.
-- **FIXi Interpreter**: Interactive chat diagnostics utilizing local offline **AURA** intelligence or Google Gemini 2.5 Flash. Features animated gradient text effects on keyword mentions, multi-line submissions, batch tag lookup cards, and styled details drawers.
-- **Latency Hop Visualizer**: Measures offset differences between `SendingTime` (tag 52) and `TransactTime` (tag 60). Features percentile outlier filters (99th/95th/90th bounds), background worker parsing, and responsive viewport tooltip clamping.
-- **XML Formatter**: Format schemas using DOM Parser or Regex engines. Jump to nodes using match chevrons, and speed up work with global developer hotkeys (`Ctrl+F`, `Escape`, `F3`, `Ctrl+S`, `Ctrl+Enter`).
-- **Kanban Tasks Board**: Local-first Kanban board featuring priorities, subtasks, blockers, comments, timelines, and slide-out side drawers.
-- **Code Sandbox**: Execute Python, C++, and Java FIX parser templates with custom inputs/outputs.
-- **Interactive Flowcharts**: Auto-generate state flow diagrams from parsed FIX messages to inspect sequences and tags.
-- **Secure Room Chat**: End-to-end encrypted local chat using AES browser encryption, Socket.IO rooms, and WebRTC peer signaling. Pinned and chat messages containing FIX payloads are automatically visualised.
-- **FIX Tags Dictionary**: Search and browse complete tag references across standard FIX versions (4.0, 4.2, 4.4, 5.0, FIXT 1.1) and custom uploaded dialects with pagination support.
-- **Interactive Whiteboard**: Sketch topologies, workflows, and session sequences on an in-browser whiteboard featuring undo/redo, text tools, and custom color presets.
+---
 
-## Tech Stack
+## 🌟 Key Highlights
 
-- **Framework**: Next.js 15 (App Router)
-- **UI Core**: React 19, Vanilla CSS Custom Variables, and Lucide icons
-- **State & Layout**: Drag-and-drop via `@dnd-kit`, React Flow, Dagre
-- **Editor & Formatting**: Monaco Editor, DOM parsers, custom regex walkthroughs
-- **Signaling & P2P**: Socket.IO, WebRTC peer channels
+- **🔒 100% Client-Side Sandbox**: Zero cloud uploads. All raw logs, session keys, execution reports, and blotter CSVs are parsed locally inside volatile browser RAM.
+- **🌍 Global Market Hours 3D Globe**: Real-time orthographic SVG 3D globe with solar terminator shading, Daylight Saving Time (DST) tracking, per-exchange holiday calendars, and countdown timers across 28 global exchanges.
+- **⚡ Microsecond Latency Hop Tracking**: Hop-by-hop latency breakdown and transit duration calculation between `SendingTime` (Tag 52) and `TransactTime` (Tag 60) with p50/p95/p99 percentile SLA distributions.
+- **🛡️ FIX Security & Compliance Auditor**: Automated vulnerability scanner for plaintext credential leaks (Tags 35=A, 554, 553), SOH delimiter injection, sequence reset replay attacks, and CompID hijacking.
+- **📁 Multi-Hop Order Correlation Engine**: Correlate complex multi-leg order execution trees across Client Gateway ➔ OMS ➔ Exchange venue routes using `ClOrdID`, `OrigClOrdID`, `OrderID`, and `ExecID` chain links.
 
-## Getting Started
+---
 
-Install packages:
+## 🧰 Integrated Toolsets
 
-```bash
-npm install
+| Category | Tool / Feature | Description |
+| :--- | :--- | :--- |
+| **Market Intelligence** | **Global Market Hours** | 3D orthographic SVG globe & 24h timeline table for 28 exchanges with per-market holidays & DST calculations. |
+| **Log Analysis** | **Log Comparator & Parser** | Side-by-side session log diffing with FQL query filtering, tag-by-tag inspection, and administrative message toggle. |
+| **Diagnostics** | **Latency Hop Analyzer** | Microsecond timestamp offset tracking, p50/p95/p99 SLA percentile distributions, and SLA budget alerts. |
+| **Reconciliation** | **Missing Fills Reconciliation** | Reconcile raw FIX Execution Reports against blotter CSV/Excel files with fuzzy matching and auto-delimiter detection. |
+| **Tracking** | **Multi-Hop Order Correlation** | Trace orders across system hops (Gateway ➔ OMS ➔ Exchange) using ClOrdID, OrigClOrdID, OrderID, and ExecID links. |
+| **Security** | **FIX Security Auditor** | Audit session logs for credential leaks, SOH injections, sequence replay threats, and sequence hijacking. |
+| **Privacy** | **Log Sanitizer & Anonymizer** | Mask sensitive passwords, CompIDs, prices, and sizes while auto-recalculating BodyLength (Tag 9) & Checksum (Tag 10). |
+| **Simulation** | **Interactive Payload Generator** | Compose valid wire payloads (Logon, New Order, Fill, Cancel) with real-time length calculation & checksum generation. |
+| **Quantitative** | **Multi-Algo Technical Studio** | Backtest technical indicators (SMA, EMA, RSI, Bollinger, MACD) on historical market data and manage local trade ledgers. |
+| **Dictionary** | **Custom Dialect Manager** | Upload QuickFIX XML dictionaries to inspect proprietary tags (5000-9999) integrated across all suite tools. |
+| **Intelligence** | **FIXi AI Interpreter** | Interactive diagnostic agent powered by local offline AURA rules or Google Gemini 2.5 Flash for protocol error resolution. |
+| **Developer** | **Code Sandbox Playground** | Execute C++, Python, and Java FIX parser code templates in a client-side Web Worker sandbox. |
+| **Collaboration** | **Encrypted Desk Chat** | End-to-end encrypted team chat rooms with zero server logging and automatic FIX payload visualizer rendering. |
+| **Formatting** | **XML & Schemas Formatter** | Format, pretty-print, and sanitize XML dictionaries and FIXatdl files with instant SOH-to-pipe conversions. |
+| **Monitoring** | **Live Session Stream Monitor** | Simulate live FIX session socket streaming with dynamic timelines, customizable latency spikes, and sequence gap alerts. |
+| **Reference** | **FIX Tags Dictionary** | Interactive specification lookup across standard FIX versions (4.0, 4.1, 4.2, 4.3, 4.4, 5.0, FIXT 1.1) and custom dialects. |
+
+---
+
+## 🏛️ Architecture & Security Guarantees
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        FIXify Client Environment                       │
+│                                                                        │
+│  ┌────────────────────┐   ┌────────────────────┐   ┌────────────────┐  │
+│  │   UI Core Thread   │   │ Web Worker Parser  │   │ Local Storage  │  │
+│  │  React 19 / Next   │◄──┤  Background Worker │◄──┤  Preferences   │  │
+│  └─────────┬──────────┘   └────────────────────┘   └────────────────┘  │
+│            │                                                           │
+│            ▼                                                           │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                     Volatile Browser Memory                      │  │
+│  │  (Zero Server Uploads · Zero Tracking · Immediate Memory Wipe)   │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-Run the development server locally:
+1. **Zero Data Transmission**: All file uploads, log pastes, and CSV parsing happen 100% inside your local browser tab.
+2. **Web Worker Concurrency**: Heavy log parsing and microsecond latency calculations run on isolated background Web Worker threads to keep the UI at 60 FPS.
+3. **Themes & Preferences**: Support for 5 built-in themes (Dark Default, Light, Matrix, Midnight, Corporate) with persistent layout state.
 
-```bash
-npm run dev
+---
+
+## ⚙️ Getting Started
+
+### Prerequisites
+
+- **Node.js**: v18.0.0 or higher
+- **npm**: v9.0.0 or higher
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/utkarsh-1912/Fixify.git
+   cd Fixify
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Launch the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open your browser and navigate to:
+   ```
+   http://localhost:3000
+   ```
+
+---
+
+## 💻 Available Scripts
+
+- `npm run dev` — Starts local development server with Turbopack / HMR.
+- `npm run build` — Compiles and builds production optimized package (verifies TypeScript & routes).
+- `npm run start` — Starts static production server.
+- `npm run lint` — Runs ESLint and checks code formatting rules.
+
+---
+
+## 📁 Workspace Layout
+
+```
+Fixify/
+├── src/
+│   ├── app/                    # Next.js App Router Page Routes
+│   │   ├── market-hours/       # Global Market Hours 3D Globe & Timeline Table
+│   │   ├── interpreter/        # FIXi AI Protocol Interpreter & Chat
+│   │   ├── latency/            # Microsecond Latency Hop Visualizer
+│   │   ├── compare/            # Side-by-Side FIX Log Comparator
+│   │   ├── missing-fills/      # ExecReport vs Blotter Reconciliation
+│   │   ├── correlation/        # Multi-Hop Order Chain Tracking
+│   │   ├── security-auditor/   # Credential & Sequence Security Scanner
+│   │   ├── log-sanitizer/      # PII & Price Scrubbing Engine
+│   │   ├── payload-generator/  # FIX Wire Payload Composer
+│   │   ├── multi-algo/         # Technical Indicator Studio & Backtester
+│   │   ├── custom-dialect/     # QuickFIX XML Dialect Manager
+│   │   ├── fixtags/            # Specification Tag Reference
+│   │   ├── binary-decoder/     # FAST & ITCH Binary Packet Decoder
+│   │   ├── atdl/               # FIXatdl Algorithmic Schema Builder
+│   │   ├── live-streaming/     # Socket Stream Simulation Sandbox
+│   │   ├── coderunner/         # Client-Side Code Execution Sandbox
+│   │   ├── flowchart/          # FIX Message State Diagram Generator
+│   │   ├── xml/                # XML Formatter & Schema Validator
+│   │   ├── chat/               # End-to-End Encrypted Team Desk Chat
+│   │   ├── tasks/              # Kanban Milestone Management Board
+│   │   ├── draw/               # Architecture Whiteboard Canvas
+│   │   └── about/              # Platform Capabilities Overview
+│   ├── components/             # Reusable UI Components (Navbar, Drawers, SoxVisualizer)
+│   └── lib/                    # Core FIX Parsers, Calculators & Dialect Engines
+├── public/                     # Static Assets & Icons
+└── package.json                # Project Dependencies & Scripts
 ```
 
-Open `http://localhost:3000` in your web browser.
+---
 
-## Available Scripts
+## 🤝 Contributing
 
-- `npm run dev` / `npm.cmd run dev` (PowerShell fallback) - Run dev server
-- `npm run build` - Compile production package
-- `npm run start` - Run static compiled server
-- `npm run lint` - Validate styling and code rules
+Contributions are welcome! If you'd like to report a bug or request a feature:
+1. Open an issue on [GitHub Issues](https://github.com/utkarsh-1912/Fixify/issues).
+2. Fork the repository and create a feature branch (`git checkout -b feature/amazing-feature`).
+3. Commit your changes (`git commit -m 'Add amazing feature'`).
+4. Push to your branch (`git push origin feature/amazing-feature`).
+5. Open a Pull Request.
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See `LICENSE` for details.
+
+Developed with ❤️ for the global financial engineering community.

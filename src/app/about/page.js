@@ -5,7 +5,7 @@ import {
   Info, Shield, Zap, Package, ChevronRight, Activity, Terminal, Code, 
   ArrowRightLeft, ShieldAlert, EyeOff, Layers, TrendingUp, FileCode, 
   MessageSquare, BookOpen, Cpu, GitBranch, Columns, CheckCircle2, Lock,
-  Sparkles, Radio, Database, ArrowUpRight, Search
+  Sparkles, Radio, Database, ArrowUpRight, Search, Globe2
 } from "lucide-react";
 import Link from "next/link";
 
@@ -28,6 +28,13 @@ export default function AboutPage() {
   ];
 
   const features = [
+    {
+      category: 'analysis',
+      icon: Globe2,
+      title: 'Global Market Hours Globe',
+      badge: 'Real-Time',
+      desc: 'Interactive orthographic 3D SVG globe with solar terminator shading, DST tracking, 28 global stock exchanges, local time countdowns, and knowledgebase specs.',
+    },
     {
       category: 'analysis',
       icon: Columns,

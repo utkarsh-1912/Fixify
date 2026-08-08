@@ -221,6 +221,25 @@ body.font-family-serif { font-family: Georgia, Cambria, "Times New Roman", Times
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
+.fx-custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--card);
+}
+.fx-custom-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.fx-custom-scroll::-webkit-scrollbar-track {
+  background: var(--card);
+}
+.fx-custom-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+.fx-custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
 /* ─── Scrollbars Hidden──────────────────────────────────────────────────── */
 .scrollbar-hidden {-ms-overflow-style: none; /* IE/Edge */ scrollbar-width: none; /* Firefox */}
 .scrollbar-hidden::-webkit-scrollbar {  display: none;}

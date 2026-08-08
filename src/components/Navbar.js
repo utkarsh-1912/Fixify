@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from "next/link";
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -39,6 +39,7 @@ import { isWorkspaceSharingEnabled, setWorkspaceSharingEnabled } from '@/lib/wor
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -79,6 +80,51 @@ export default function Navbar() {
     window.addEventListener('fixify-workspace-toggle', handleToggle);
     return () => window.removeEventListener('fixify-workspace-toggle', handleToggle);
   }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOpen]);
+
+  // Grouped mobile tools catalog
+  const mobileToolCategories = useMemo(() => {
+    const filterItem = (item) => {
+      if (!mobileSearch) return true;
+      const q = mobileSearch.toLowerCase();
+      return (
+        item.label.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        item.short.toLowerCase().includes(q)
+      );
+    };
+
+    return [
+      {
+        title: "Core FIX Tools",
+        items: navItems.filter(i => ['/', '/compare', '/xml', '/interpreter', '/fixtags', '/custom-dialect'].includes(i.href)).filter(filterItem)
+      },
+      {
+        title: "Analytics & Security",
+        items: navItems.filter(i => ['/latency', '/missing-fills', '/security-auditor', '/correlation', '/log-sanitizer'].includes(i.href)).filter(filterItem)
+      },
+      {
+        title: "Simulators & Markets",
+        items: navItems.filter(i => ['/market-hours', '/multi-algo', '/live-streaming', '/payload-generator', '/atdl', '/binary-decoder'].includes(i.href)).filter(filterItem)
+      },
+      {
+        title: "Utilities & Workspaces",
+        items: navItems.filter(i => ['/flowchart', '/coderunner', '/tasks', '/chat'].includes(i.href)).filter(filterItem)
+      }
+    ].filter(cat => cat.items.length > 0);
+  }, [navItems, mobileSearch]);
 
   // Apply saved settings and track page visits on mount/pathchange
   useEffect(() => {
@@ -327,35 +373,117 @@ export default function Navbar() {
             </div>
           </div>
         </div>
-
-        {/* Mobile drawer */}
-        {mobileOpen && (
-          <div
-            className="xl:hidden py-2 px-4 space-y-0.5 max-h-[calc(100vh-3.5rem)] overflow-y-auto scrollbar-thin"
-            style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}
-          >
-            {navItems.filter(item => item.inMenu !== false).map(item => {
-              const active = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
-                  style={{
-                    color: active ? 'var(--primary)' : 'var(--text-muted)',
-                    background: active ? 'var(--primary-faint)' : 'transparent',
-                  }}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  <span>{item.label}</span>
-                  {active && <ChevronRight className="h-3.5 w-3.5 ml-auto" />}
-                </Link>
-              );
-            })}
-          </div>
-        )}
       </header>
+
+      {/* Upgraded Mobile Navigation Overlay Menu */}
+      {mobileOpen && (
+        <div className="xl:hidden fixed inset-0 z-50 flex flex-col bg-zinc-950/95 backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-200">
+          {/* Mobile Drawer Header: Inline Search Bar + Close Button */}
+          <div className="flex items-center gap-3 px-4 h-16 border-b border-zinc-800/80 bg-zinc-900/80 shrink-0">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <input
+                type="text"
+                value={mobileSearch}
+                onChange={(e) => setMobileSearch(e.target.value)}
+                placeholder="Search all 21 FIXify tools..."
+                className="w-full pl-10 pr-9 py-2.5 bg-zinc-950/80 text-zinc-100 placeholder:text-zinc-500 text-xs rounded-xl border border-zinc-800 focus:outline-none focus:border-emerald-500/50 transition-all"
+                autoFocus
+              />
+              {mobileSearch && (
+                <button onClick={() => setMobileSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => { setMobileOpen(false); setMobileSearch(""); }}
+              className="p-2.5 rounded-xl text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 transition-colors shrink-0"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Mobile Menu Categorized Tool Items Container */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-thin">
+            {mobileToolCategories.length === 0 ? (
+              <div className="text-center py-10 text-zinc-500 text-xs font-mono">
+                No tools matching "{mobileSearch}"
+              </div>
+            ) : (
+              mobileToolCategories.map((category) => (
+                <div key={category.title} className="space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 px-2 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>{category.title}</span>
+                    <span className="ml-auto text-[9px] font-mono text-zinc-400 bg-zinc-800/60 px-1.5 py-0.2 rounded">
+                      {category.items.length}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {category.items.map((item) => {
+                      const active = pathname === item.href;
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => { setMobileOpen(false); setMobileSearch(""); }}
+                          className="flex items-start gap-3 p-3 rounded-xl transition-all border group"
+                          style={{
+                            background: active ? 'rgba(250,253,254,0.06)' : 'rgba(24,24,27,0.4)',
+                            borderColor: active ? 'var(--primary-border)' : 'rgba(39,39,42,0.6)',
+                          }}
+                        >
+                          <div
+                            className="p-2 rounded-lg shrink-0 transition-colors"
+                            style={{
+                              background: active ? 'var(--primary-faint)' : 'rgba(39,39,42,0.5)',
+                              color: active ? 'var(--primary)' : 'var(--text-muted)',
+                            }}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-xs font-bold truncate ${active ? 'text-emerald-400' : 'text-zinc-200 group-hover:text-white'}`}>
+                                {item.label}
+                              </span>
+                              {active && (
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
+                              )}
+                            </div>
+                            <p className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5">
+                              {item.desc}
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Bottom Quick Controls Tray */}
+          <div className="p-3.5 border-t border-zinc-800/80 bg-zinc-900/80 flex items-center justify-between text-xs text-zinc-400">
+            <button
+              onClick={() => { setSettingsOpen(true); setMobileOpen(false); }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 text-zinc-200 transition-colors"
+            >
+              <SettingsIcon className="h-4 w-4 text-zinc-400" />
+              <span>App Settings</span>
+            </button>
+            <div className="text-[10px] font-mono text-zinc-400">
+              FIXify v2.5 · 21 Tools
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Settings modal */}
       {settingsOpen && (
