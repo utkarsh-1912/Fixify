@@ -74,12 +74,46 @@ const EXCHANGE_HOLIDAYS = {
 };
 
 const CONTINENTS = [
-  { name: "NA", pts: [[60,-140],[65,-168],[72,-158],[71,-100],[58,-82],[48,-55],[43,-65],[25,-80],[25,-97],[20,-105],[30,-115],[33,-117],[48,-124],[54,-130],[60,-140]] },
-  { name: "SA", pts: [[10,-72],[10,-62],[5,-52],[-3,-41],[-13,-38],[-23,-43],[-33,-52],[-42,-63],[-55,-68],[-53,-73],[-42,-73],[-22,-70],[-5,-77],[2,-80],[10,-72]] },
-  { name: "EU", pts: [[36,-10],[36,0],[43,5],[45,13],[40,26],[42,29],[46,37],[55,28],[60,30],[70,28],[71,26],[65,14],[63,5],[58,-5],[50,-10],[43,-9],[36,-10]] },
-  { name: "AF", pts: [[37,10],[33,32],[10,42],[5,45],[-2,42],[-12,40],[-25,35],[-35,20],[-35,18],[-28,16],[-12,14],[5,1],[5,-10],[15,-17],[35,-1],[37,10]] },
-  { name: "AS", pts: [[42,30],[40,45],[25,57],[25,66],[10,78],[22,88],[10,99],[1,104],[-7,106],[5,119],[20,110],[23,120],[35,127],[40,130],[50,140],[60,148],[68,170],[75,100],[70,70],[55,60],[50,40],[42,30]] },
-  { name: "AU", pts: [[-12,130],[-15,132],[-18,141],[-28,153],[-33,152],[-38,147],[-38,140],[-35,137],[-32,115],[-22,114],[-12,130]] },
+  // North America
+  { name: "North America", pts: [
+    [71,-156],[70,-141],[69,-131],[60,-139],[58,-135],[54,-133],[48,-124],[38,-123],[34,-118],[32,-114],[30,-115],[23,-110],[20,-105],[16,-93],[15,-90],[14,-87],[10,-83],[8,-77],[10,-75],[14,-83],[18,-88],[21,-89],[25,-80],[25,-97],[29,-89],[25,-80],[30,-81],[35,-75],[41,-70],[44,-64],[47,-53],[52,-55],[58,-63],[60,-64],[62,-72],[66,-85],[70,-95],[72,-110],[71,-130],[71,-156]
+  ]},
+  // Greenland
+  { name: "Greenland", pts: [
+    [78,-69],[82,-42],[81,-12],[76,-19],[68,-26],[60,-43],[65,-53],[72,-56],[78,-69]
+  ]},
+  // South America
+  { name: "South America", pts: [
+    [12,-72],[10,-62],[8,-53],[5,-51],[0,-48],[-5,-35],[-8,-35],[-12,-37],[-18,-39],[-23,-42],[-30,-50],[-34,-53],[-42,-64],[-50,-68],[-55,-66],[-54,-71],[-50,-74],[-42,-74],[-33,-71],[-20,-70],[-12,-77],[-5,-81],[0,-80],[5,-77],[10,-75],[12,-72]
+  ]},
+  // Unified Eurasia (Europe + Asia seamlessly connected)
+  { name: "Eurasia", pts: [
+    [36,-9],[43,-9],[44,-1],[47,-2],[48,4],[54,8],[58,11],[65,12],[70,20],[71,28],[70,40],[73,80],[75,100],[73,125],[70,140],[60,165],[55,160],[50,140],[45,135],[40,120],[30,121],[22,114],[20,108],[10,104],[1,104],[5,100],[12,99],[22,89],[15,80],[8,77],[20,73],[25,68],[30,62],[25,56],[22,59],[15,53],[12,44],[15,42],[25,36],[30,32],[37,42],[40,26],[38,24],[36,22],[37,15],[40,18],[44,12],[43,6],[38,0],[36,-9]
+  ]},
+  // British Isles
+  { name: "UK & Ireland", pts: [
+    [50,-5],[54,-3],[58,-6],[58,-3],[52,1],[50,-5]
+  ]},
+  // Africa
+  { name: "Africa", pts: [
+    [35,-6],[35,10],[32,25],[31,32],[28,34],[22,37],[12,43],[11,51],[9,51],[4,48],[1,42],[-5,39],[-11,40],[-16,38],[-25,35],[-33,27],[-34,18],[-30,17],[-22,14],[-15,12],[-5,9],[5,-3],[5,-10],[10,-14],[15,-17],[21,-17],[28,-13],[35,-6]
+  ]},
+  // Madagascar
+  { name: "Madagascar", pts: [
+    [-12,49],[-16,50],[-25,47],[-25,44],[-15,46],[-12,49]
+  ]},
+  // Japan
+  { name: "Japan", pts: [
+    [31,130],[34,136],[36,139],[40,140],[45,142],[43,144],[38,141],[35,135],[31,130]
+  ]},
+  // Australia Mainland
+  { name: "Australia", pts: [
+    [-12,131],[-14,136],[-12,142],[-18,146],[-24,153],[-30,153],[-38,147],[-38,140],[-35,135],[-34,122],[-32,115],[-26,113],[-20,114],[-15,124],[-12,131]
+  ]},
+  // New Zealand
+  { name: "New Zealand", pts: [
+    [-34,172],[-38,178],[-41,175],[-46,168],[-46,166],[-41,172],[-37,175],[-34,172]
+  ]},
 ];
 
 const MARKETS = [
@@ -137,6 +171,301 @@ const EXCHANGE_KNOWLEDGEBASE = {
   nse: { mic:"XNSE", city:"Mumbai, India", currency:"INR", index:"NIFTY 50", settlement:"T+1", fixVersion:"FIX 4.2 / FIX 4.4", protocols:"NEAT / TAP Binary Interface", latency:"< 50 μs", notes:"World's largest derivatives exchange by volume. Operates T+1 settlement cycle with pre-open session (09:00-09:15)." },
   asx: { mic:"XASX", city:"Sydney, Australia", currency:"AUD", index:"S&P/ASX 200", settlement:"T+2", fixVersion:"FIX 4.4 / FIX 5.0", protocols:"ASX Trade (Nasdaq NFF)", latency:"< 100 μs", notes:"Leading Asia-Pacific venue. Single price opening auction staggered by alphabetic code between 10:00-10:09 AEST." },
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SVG VECTOR COUNTRY FLAG COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function CountryFlag({ code, className = "h-3.5 w-5 rounded-sm shadow-sm border border-zinc-700 shrink-0" }) {
+  const flags = {
+    US: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#bd3d44"/>
+        <path stroke="#fff" strokeWidth="37" d="M0 55h640M0 129h640M0 203h640M0 277h640M0 351h640M0 425h640"/>
+        <rect width="286" height="258" fill="#192f5d"/>
+        <circle cx="40" cy="30" r="8" fill="#fff"/>
+        <circle cx="100" cy="30" r="8" fill="#fff"/>
+        <circle cx="160" cy="30" r="8" fill="#fff"/>
+        <circle cx="220" cy="30" r="8" fill="#fff"/>
+        <circle cx="70" cy="70" r="8" fill="#fff"/>
+        <circle cx="130" cy="70" r="8" fill="#fff"/>
+        <circle cx="190" cy="70" r="8" fill="#fff"/>
+        <circle cx="40" cy="110" r="8" fill="#fff"/>
+        <circle cx="100" cy="110" r="8" fill="#fff"/>
+        <circle cx="160" cy="110" r="8" fill="#fff"/>
+        <circle cx="220" cy="110" r="8" fill="#fff"/>
+        <circle cx="70" cy="150" r="8" fill="#fff"/>
+        <circle cx="130" cy="150" r="8" fill="#fff"/>
+        <circle cx="190" cy="150" r="8" fill="#fff"/>
+        <circle cx="40" cy="190" r="8" fill="#fff"/>
+        <circle cx="100" cy="190" r="8" fill="#fff"/>
+        <circle cx="160" cy="190" r="8" fill="#fff"/>
+        <circle cx="220" cy="190" r="8" fill="#fff"/>
+      </svg>
+    ),
+    GB: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#012169"/>
+        <path stroke="#fff" strokeWidth="60" d="M0 0l640 480M640 0L0 480"/>
+        <path stroke="#C8102E" strokeWidth="40" d="M0 0l640 480M640 0L0 480"/>
+        <path stroke="#fff" strokeWidth="100" d="M320 0v480M0 240h640"/>
+        <path stroke="#C8102E" strokeWidth="60" d="M320 0v480M0 240h640"/>
+      </svg>
+    ),
+    JP: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#fff"/>
+        <circle cx="320" cy="240" r="140" fill="#bc002d"/>
+      </svg>
+    ),
+    DE: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect y="320" width="640" height="160" fill="#ffce00"/>
+        <rect y="160" width="640" height="160" fill="#dd0000"/>
+        <rect width="640" height="160" fill="#000"/>
+      </svg>
+    ),
+    IN: (
+      <svg className={className} viewBox="0 0 600 400" preserveAspectRatio="none">
+        <rect width="600" height="133.3" fill="#FF9933"/>
+        <rect y="133.3" width="600" height="133.3" fill="#FFFFFF"/>
+        <rect y="266.6" width="600" height="133.4" fill="#138808"/>
+        <circle cx="300" cy="200" r="40" fill="none" stroke="#000080" strokeWidth="6"/>
+        <circle cx="300" cy="200" r="8" fill="#000080"/>
+        {Array.from({ length: 24 }).map((_, i) => {
+          const angle = (i * 15 * Math.PI) / 180;
+          const x2 = 300 + 40 * Math.cos(angle);
+          const y2 = 200 + 40 * Math.sin(angle);
+          return <line key={i} x1="300" y1="200" x2={x2} y2={y2} stroke="#000080" strokeWidth="2.5" />;
+        })}
+      </svg>
+    ),
+    CA: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="160" height="480" fill="#ff0000"/>
+        <rect x="480" width="160" height="480" fill="#ff0000"/>
+        <rect x="160" width="320" height="480" fill="#fff"/>
+        <path fill="#ff0000" d="M320 100l25 65h65l-50 40 20 65-60-40-60 40 20-65-50-40h65z"/>
+      </svg>
+    ),
+    FR: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="213" height="480" fill="#002395"/>
+        <rect x="213" width="214" height="480" fill="#fff"/>
+        <rect x="427" width="213" height="480" fill="#ed2939"/>
+      </svg>
+    ),
+    CN: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#ee1c25"/>
+        <circle cx="120" cy="120" r="40" fill="#ffde00"/>
+        <circle cx="200" cy="60" r="12" fill="#ffde00"/>
+        <circle cx="240" cy="100" r="12" fill="#ffde00"/>
+        <circle cx="240" cy="160" r="12" fill="#ffde00"/>
+        <circle cx="200" cy="200" r="12" fill="#ffde00"/>
+      </svg>
+    ),
+    HK: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#de2910"/>
+        <circle cx="320" cy="240" r="100" fill="#fff"/>
+        <circle cx="320" cy="240" r="70" fill="#de2910"/>
+      </svg>
+    ),
+    SG: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="240" fill="#ed2939"/>
+        <rect y="240" width="640" height="240" fill="#fff"/>
+        <circle cx="120" cy="120" r="60" fill="#fff"/>
+        <circle cx="140" cy="120" r="55" fill="#ed2939"/>
+      </svg>
+    ),
+    AU: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#00008b"/>
+        <path stroke="#fff" strokeWidth="40" d="M0 0l320 240M320 0L0 240M160 0v240M0 120h320"/>
+        <path stroke="#ff0000" strokeWidth="24" d="M160 0v240M0 120h320"/>
+        <circle cx="480" cy="120" r="18" fill="#fff"/>
+        <circle cx="560" cy="200" r="18" fill="#fff"/>
+        <circle cx="420" cy="280" r="18" fill="#fff"/>
+        <circle cx="520" cy="360" r="18" fill="#fff"/>
+      </svg>
+    ),
+    NZ: (
+      <svg className={className} viewBox="0 0 600 400" preserveAspectRatio="none">
+        <rect width="600" height="400" fill="#00247D"/>
+        {/* Top-Left Union Jack Canton */}
+        <g clipPath="url(#nz-canton)">
+          <clipPath id="nz-canton">
+            <rect width="300" height="200"/>
+          </clipPath>
+          <rect width="300" height="200" fill="#00247D"/>
+          <path stroke="#FFFFFF" strokeWidth="35" d="M0 0l300 200M300 0L0 200"/>
+          <path stroke="#CC142B" strokeWidth="20" d="M0 0l300 200M300 0L0 200"/>
+          <path stroke="#FFFFFF" strokeWidth="60" d="M150 0v200M0 100h300"/>
+          <path stroke="#CC142B" strokeWidth="35" d="M150 0v200M0 100h300"/>
+        </g>
+        {/* Southern Cross 4 Red Stars with White Borders */}
+        {/* Top star */}
+        <polygon points="450,55 454,67 467,67 456,75 460,87 450,79 440,87 444,75 433,67 446,67" fill="#CC142B" stroke="#FFFFFF" strokeWidth="2.5"/>
+        {/* Bottom star */}
+        <polygon points="450,285 455,301 472,301 458,311 463,327 450,317 437,327 442,311 428,301 445,301" fill="#CC142B" stroke="#FFFFFF" strokeWidth="2.5"/>
+        {/* Left star */}
+        <polygon points="380,165 384,177 397,177 386,185 390,197 380,189 370,197 374,185 363,177 376,177" fill="#CC142B" stroke="#FFFFFF" strokeWidth="2.5"/>
+        {/* Right star */}
+        <polygon points="515,145 519,157 532,157 521,165 525,177 515,169 505,177 509,165 498,157 511,157" fill="#CC142B" stroke="#FFFFFF" strokeWidth="2.5"/>
+      </svg>
+    ),
+    KR: (
+      <svg className={className} viewBox="0 0 600 400" preserveAspectRatio="none">
+        <rect width="600" height="400" fill="#FFFFFF"/>
+        <g transform="translate(300, 200) rotate(-33.69)">
+          <path fill="#CD2E3A" d="M -100,0 A 100,100 0 0,1 100,0 A 50,50 0 0,1 0,0 A 50,50 0 0,0 -100,0 Z"/>
+          <path fill="#0047A0" d="M 100,0 A 100,100 0 0,1 -100,0 A 50,50 0 0,1 0,0 A 50,50 0 0,0 100,0 Z"/>
+        </g>
+        <g transform="translate(170, 113) rotate(-33.69)" fill="#000">
+          <rect x="-30" y="-22" width="60" height="8"/>
+          <rect x="-30" y="-7" width="60" height="8"/>
+          <rect x="-30" y="8" width="60" height="8"/>
+        </g>
+        <g transform="translate(430, 287) rotate(-33.69)" fill="#000">
+          <rect x="-30" y="-22" width="26" height="8"/>
+          <rect x="4" y="-22" width="26" height="8"/>
+          <rect x="-30" y="-7" width="26" height="8"/>
+          <rect x="4" y="-7" width="26" height="8"/>
+          <rect x="-30" y="8" width="26" height="8"/>
+          <rect x="4" y="8" width="26" height="8"/>
+        </g>
+        <g transform="translate(430, 113) rotate(33.69)" fill="#000">
+          <rect x="-30" y="-22" width="26" height="8"/>
+          <rect x="4" y="-22" width="26" height="8"/>
+          <rect x="-30" y="-7" width="60" height="8"/>
+          <rect x="-30" y="8" width="26" height="8"/>
+          <rect x="4" y="8" width="26" height="8"/>
+        </g>
+        <g transform="translate(170, 287) rotate(33.69)" fill="#000">
+          <rect x="-30" y="-22" width="60" height="8"/>
+          <rect x="-30" y="-7" width="26" height="8"/>
+          <rect x="4" y="-7" width="26" height="8"/>
+          <rect x="-30" y="8" width="60" height="8"/>
+        </g>
+      </svg>
+    ),
+    BR: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#009c3b"/>
+        <path fill="#ffdf00" d="M320 40L600 240 320 440 40 240z"/>
+        <circle cx="320" cy="240" r="110" fill="#002776"/>
+        <path fill="none" stroke="#fff" strokeWidth="12" d="M210 240a130 130 0 0 1 220-40"/>
+      </svg>
+    ),
+    MX: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="213" height="480" fill="#006847"/>
+        <rect x="213" width="214" height="480" fill="#fff"/>
+        <rect x="427" width="213" height="480" fill="#ce1126"/>
+        <circle cx="320" cy="240" r="30" fill="#a0522d"/>
+      </svg>
+    ),
+    AR: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="160" fill="#74acdf"/>
+        <rect y="320" width="640" height="160" fill="#74acdf"/>
+        <rect y="160" width="640" height="160" fill="#fff"/>
+        <circle cx="320" cy="240" r="35" fill="#f6b40e"/>
+      </svg>
+    ),
+    ES: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="120" fill="#c60b1e"/>
+        <rect y="360" width="640" height="120" fill="#c60b1e"/>
+        <rect y="120" width="640" height="240" fill="#ffc400"/>
+      </svg>
+    ),
+    IT: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="213" height="480" fill="#009246"/>
+        <rect x="213" width="214" height="480" fill="#fff"/>
+        <rect x="427" width="213" height="480" fill="#ce2b37"/>
+      </svg>
+    ),
+    CH: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#d52b1e"/>
+        <path fill="#fff" d="M260 100h120v280H260zm-110 110h340v120H150z"/>
+      </svg>
+    ),
+    SE: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#006aa7"/>
+        <path fill="#fecc00" d="M180 0h80v480h-80zM0 200h640v80H0z"/>
+      </svg>
+    ),
+    RU: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="160" fill="#fff"/>
+        <rect y="160" width="640" height="160" fill="#0039a6"/>
+        <rect y="320" width="640" height="160" fill="#d52b1e"/>
+      </svg>
+    ),
+    PK: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect x="160" width="480" height="480" fill="#004120"/>
+        <rect width="160" height="480" fill="#fff"/>
+        <circle cx="400" cy="240" r="100" fill="#fff"/>
+        <circle cx="430" cy="220" r="90" fill="#004120"/>
+      </svg>
+    ),
+    SA: (
+      <svg className={className} viewBox="0 0 600 400" preserveAspectRatio="none">
+        <rect width="600" height="400" fill="#006C35"/>
+        {/* Arabic Calligraphic Shahada Text */}
+        <text x="300" y="190" textAnchor="middle" fill="#FFFFFF" fontSize="62" fontFamily="serif" fontWeight="bold" letterSpacing="4">
+          لا إله إلا الله
+        </text>
+        <text x="300" y="245" textAnchor="middle" fill="#FFFFFF" fontSize="38" fontFamily="serif" fontWeight="bold" letterSpacing="2">
+          محمد رسول الله
+        </text>
+        {/* White Horizontal Sword pointing left */}
+        <g fill="#FFFFFF">
+          <rect x="140" y="295" width="310" height="12" rx="3"/>
+          <path d="M 140,301 L 115,291 L 115,311 Z"/>
+          <circle cx="455" cy="301" r="12"/>
+          <rect x="425" y="283" width="10" height="36" rx="2"/>
+        </g>
+      </svg>
+    ),
+    AE: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect x="160" width="480" height="160" fill="#00732f"/>
+        <rect x="160" y="160" width="480" height="160" fill="#fff"/>
+        <rect x="160" y="320" width="480" height="160" fill="#000"/>
+        <rect width="160" height="480" fill="#ff0000"/>
+      </svg>
+    ),
+    ZA: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="480" fill="#007a3d"/>
+        <rect width="640" height="160" fill="#e03c31"/>
+        <rect y="320" width="640" height="160" fill="#002395"/>
+        <path fill="#ffb81c" d="M0 120l180 120L0 360z"/>
+      </svg>
+    ),
+    KE: (
+      <svg className={className} viewBox="0 0 640 480">
+        <rect width="640" height="140" fill="#000"/>
+        <rect y="170" width="640" height="140" fill="#bb0000"/>
+        <rect y="340" width="640" height="140" fill="#006600"/>
+      </svg>
+    ),
+  };
+
+  return flags[code] || (
+    <span className="text-[10px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-zinc-900 text-emerald-400 border border-zinc-700 shrink-0">
+      {code}
+    </span>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS & SOLAR MATH
@@ -311,7 +640,8 @@ function projectPoint(lat, lng, centerLng, cx, cy, radius) {
   const cosC = Math.cos(latR) * Math.cos(dlng);
   const x = cx + radius * Math.cos(latR) * Math.sin(dlng);
   const y = cy - radius * Math.sin(latR);
-  return { x, y, visible: cosC > 0 };
+  const edgeOpacity = Math.max(0, Math.min(1, (cosC - 0.05) / 0.3));
+  return { x, y, cosC, edgeOpacity, visible: cosC > 0.05 };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -344,8 +674,19 @@ export default function GlobalMarketHours() {
 
   useEffect(() => {
     if (isPaused || viewMode !== "globe") return;
-    const id = setInterval(() => setGlobeRotation((r) => (r + 0.4) % 360), 100);
-    return () => clearInterval(id);
+    let animFrameId;
+    let lastTimestamp = performance.now();
+
+    const animate = (now) => {
+      if (now - lastTimestamp >= 30) {
+        setGlobeRotation((r) => (r + 0.35) % 360);
+        lastTimestamp = now;
+      }
+      animFrameId = requestAnimationFrame(animate);
+    };
+
+    animFrameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animFrameId);
   }, [isPaused, viewMode]);
 
   useEffect(() => {
@@ -608,26 +949,35 @@ export default function GlobalMarketHours() {
     </div>
   );
 
-  // ─── GLOBE VIEW ──────────────────────────────────────────────────────
+  // ─── GLOBE VIEW (MEMOIZED FOR 60 FPS PERFORMANCE) ─────────────────
 
-  const renderGlobe = () => {
+  const globeProjections = useMemo(() => {
     const cx = 400, cy = 400, R = 290;
     const centerLng = globeRotation;
 
     const continentPaths = CONTINENTS.map((cont) => {
       const segments = [];
       let currentSeg = [];
+      let totalCosC = 0;
+      let visiblePtsCount = 0;
+
       cont.pts.forEach((p) => {
         const proj = projectPoint(p[0], p[1], centerLng, cx, cy, R);
         if (proj.visible) {
           currentSeg.push(`${proj.x.toFixed(1)},${proj.y.toFixed(1)}`);
+          totalCosC += proj.cosC;
+          visiblePtsCount++;
         } else {
           if (currentSeg.length > 1) segments.push(currentSeg);
           currentSeg = [];
         }
       });
       if (currentSeg.length > 1) segments.push(currentSeg);
-      return segments;
+      
+      const avgCosC = visiblePtsCount > 0 ? totalCosC / visiblePtsCount : 0;
+      const continentOpacity = Math.max(0, Math.min(1, (avgCosC - 0.05) / 0.3));
+
+      return { name: cont.name, segments, opacity: continentOpacity };
     });
 
     const latLines = [];
@@ -640,6 +990,31 @@ export default function GlobalMarketHours() {
       }
       if (pts.length > 1) latLines.push(pts);
     }
+
+    const lngLines = [];
+    for (let lng = 0; lng < 360; lng += 30) {
+      const pts = [];
+      for (let lat = -90; lat <= 90; lat += 3) {
+        const proj = projectPoint(lat, lng, centerLng, cx, cy, R);
+        if (proj.visible) pts.push(`${proj.x.toFixed(1)},${proj.y.toFixed(1)}`);
+        else {
+          if (pts.length > 1) lngLines.push(pts);
+          pts.length = 0;
+        }
+      }
+      if (pts.length > 1) lngLines.push(pts);
+    }
+
+    const marketDots = filteredMarkets.map((m) => {
+      const proj = projectPoint(m.lat, m.lng, centerLng, cx, cy, R);
+      return { ...m, ...proj, dotSize: m.tier === "major" ? 6 : 4.5 };
+    }).filter((m) => m.visible);
+
+    return { cx, cy, R, centerLng, continentPaths, latLines, lngLines, marketDots };
+  }, [globeRotation, filteredMarkets]);
+
+  const renderGlobe = () => {
+    const { cx, cy, R, continentPaths, latLines, lngLines, marketDots } = globeProjections;
 
     const handleGlobeMouseDown = (e) => {
       setIsDraggingGlobe(true);
@@ -671,25 +1046,6 @@ export default function GlobalMarketHours() {
       setDragStartX(e.touches[0].clientX);
     };
 
-    const lngLines = [];
-    for (let lng = 0; lng < 360; lng += 30) {
-      const pts = [];
-      for (let lat = -90; lat <= 90; lat += 3) {
-        const proj = projectPoint(lat, lng, centerLng, cx, cy, R);
-        if (proj.visible) pts.push(`${proj.x.toFixed(1)},${proj.y.toFixed(1)}`);
-        else {
-          if (pts.length > 1) lngLines.push(pts);
-          pts.length = 0;
-        }
-      }
-      if (pts.length > 1) lngLines.push(pts);
-    }
-
-    const marketDots = filteredMarkets.map((m) => {
-      const proj = projectPoint(m.lat, m.lng, centerLng, cx, cy, R);
-      return { ...m, ...proj, dotSize: m.tier === "major" ? 6 : 4.5 };
-    }).filter((m) => m.visible);
-
     const pinnedList = filteredMarkets.filter((m) => m.isPinned);
 
     return (
@@ -700,16 +1056,22 @@ export default function GlobalMarketHours() {
           
           <svg viewBox="0 0 800 800" className="w-full max-w-[650px] h-full">
             <defs>
-              <radialGradient id="globe-bg" cx="40%" cy="35%" r="60%">
-                <stop offset="0%" stopColor="#27272a" />
-                <stop offset="70%" stopColor="#18181b" />
-                <stop offset="100%" stopColor="#09090b" />
+              <radialGradient id="globe-bg" cx="35%" cy="30%" r="70%">
+                <stop offset="0%" stopColor="#1e3a5f" />
+                <stop offset="45%" stopColor="#0f172a" />
+                <stop offset="85%" stopColor="#090d16" />
+                <stop offset="100%" stopColor="#020617" />
               </radialGradient>
               <radialGradient id="atmosphere" cx="50%" cy="50%" r="50%">
-                <stop offset="88%" stopColor="transparent" />
-                <stop offset="97%" stopColor="rgba(16,185,129,0.06)" />
-                <stop offset="100%" stopColor="rgba(16,185,129,0.18)" />
+                <stop offset="85%" stopColor="transparent" />
+                <stop offset="95%" stopColor="rgba(56,189,248,0.15)" />
+                <stop offset="100%" stopColor="rgba(56,189,248,0.35)" />
               </radialGradient>
+              <linearGradient id="sun-glare" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.12)" />
+                <stop offset="40%" stopColor="rgba(255,255,255,0.02)" />
+                <stop offset="100%" stopColor="transparent" />
+              </linearGradient>
               <filter id="dot-glow">
                 <feGaussianBlur stdDeviation="3" result="blur" />
                 <feMerge>
@@ -739,16 +1101,34 @@ export default function GlobalMarketHours() {
               <polyline key={`lng-${i}`} points={pts.join(" ")} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
             ))}
 
-            {/* Continent Outlines */}
-            {continentPaths.map((segs, ci) =>
-              segs.map((seg, si) => (
-                <polyline key={`cont-${ci}-${si}`} points={seg.join(" ")} fill="none" stroke="rgba(16,185,129,0.3)" strokeWidth="1.4" strokeLinejoin="round" />
+            {/* Continent Landmass Polylines with Smooth Horizon Opacity */}
+            {continentPaths.map((contObj, ci) =>
+              contObj.segments.map((seg, si) => (
+                <polyline
+                  key={`cont-poly-${ci}-${si}`}
+                  points={seg.join(" ")}
+                  fill="none"
+                  stroke="rgba(52,211,153,0.7)"
+                  strokeWidth="1.2"
+                  strokeLinejoin="round"
+                  opacity={contObj.opacity}
+                  style={{ transition: "opacity 0.15s ease-out" }}
+                />
               ))
             )}
 
-            {/* Market Dots */}
+            {/* Specular Lighting Overlay */}
+            <circle cx={cx} cy={cy} r={R} fill="url(#sun-glare)" pointerEvents="none" />
+
+            {/* Market Dots with Edge Fading & Collision-Free Labels */}
             {marketDots.map((m) => (
-              <g key={m.id} onClick={() => setSelectedMarketModal(m)} onMouseEnter={() => setHoveredMarket(m.id)} onMouseLeave={() => setHoveredMarket(null)} style={{ cursor: "pointer" }}>
+              <g
+                key={m.id}
+                onClick={() => setSelectedMarketModal(m)}
+                onMouseEnter={() => setHoveredMarket(m.id)}
+                onMouseLeave={() => setHoveredMarket(null)}
+                style={{ cursor: "pointer", opacity: m.edgeOpacity, transition: "opacity 0.15s ease-out" }}
+              >
                 {m.status === "regular" && (
                   <circle cx={m.x} cy={m.y} r={m.dotSize + 4} fill="none" stroke={m.color} strokeWidth="1.5" opacity="0.5"
                     style={{ animation: "pulse-ring 2s ease-out infinite" }} />
@@ -756,10 +1136,10 @@ export default function GlobalMarketHours() {
                 <circle cx={m.x} cy={m.y} r={m.dotSize + 2} fill={m.color} opacity={m.isDay ? 0.35 : 0.15} filter="url(#dot-glow)" />
                 <circle cx={m.x} cy={m.y} r={m.dotSize} fill={m.color} stroke={m.isPinned ? "#facc15" : "rgba(255,255,255,0.4)"} strokeWidth={m.isPinned ? 1.5 : 0.5} />
 
-                {(hoveredMarket === m.id || m.tier === "major" || m.isPinned) && (
+                {(hoveredMarket === m.id || (m.cosC > 0.35 && (m.tier === "major" || m.isPinned))) && (
                   <g>
                     <rect x={m.x + m.dotSize + 6} y={m.y - 11} width={m.name.length * 7.5 + 16} height={22} rx={5}
-                      fill="rgba(9,9,11,0.9)" stroke={m.isPinned ? "#facc15" : m.color} strokeWidth={m.isPinned ? 1 : 0.5} />
+                      fill="rgba(9,9,11,0.92)" stroke={m.isPinned ? "#facc15" : m.color} strokeWidth={m.isPinned ? 1 : 0.5} />
                     <text x={m.x + m.dotSize + 12} y={m.y + 4} fill="white" fontSize="11" fontFamily="monospace" fontWeight="600">
                       {m.isPinned ? "★ " : ""}{m.name}
                     </text>
@@ -772,14 +1152,14 @@ export default function GlobalMarketHours() {
             <circle cx={cx} cy={cy} r={R + 1} fill="url(#atmosphere)" />
           </svg>
 
-          {/* Rotation Toggle */}
+          {/* Rotation Toggle Centered */}
           <button
             onClick={(e) => { e.stopPropagation(); setIsPaused(!isPaused); }}
-            className="absolute bottom-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-mono uppercase tracking-wider transition-all pointer-events-auto"
-            style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all pointer-events-auto shadow-xl backdrop-blur-md z-10"
+            style={{ background: "var(--background)", border: "1px solid var(--primary-border)", color: "var(--primary)" }}
           >
-            {isPaused ? <Play className="h-3 w-3 text-emerald-400" /> : <Pause className="h-3 w-3 text-amber-400" />}
-            <span>{isPaused ? "Resume Rotation" : "Auto Rotating"}</span>
+            {isPaused ? <Play className="h-3.5 w-3.5 text-emerald-400" /> : <Pause className="h-3.5 w-3.5 text-amber-400" />}
+            <span className="font-semibold">{isPaused ? "Resume Rotation" : "Auto Rotating"}</span>
           </button>
         </div>
 
@@ -818,9 +1198,7 @@ export default function GlobalMarketHours() {
                         <button onClick={(e) => togglePin(m.id, e)} className="hover:scale-110 transition-transform flex-shrink-0">
                           <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
                         </button>
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 shrink-0">
-                          {m.code}
-                        </span>
+                        <CountryFlag code={m.code} className="h-4 w-6 rounded shadow-sm border border-zinc-700 shrink-0" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold truncate text-zinc-100">{m.name}</span>
@@ -870,9 +1248,7 @@ export default function GlobalMarketHours() {
                           <button onClick={(e) => togglePin(m.id, e)} className="hover:scale-110 transition-transform flex-shrink-0">
                             <Star className="h-3.5 w-3.5 text-zinc-600 hover:text-amber-400" />
                           </button>
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 shrink-0">
-                            {m.code}
-                          </span>
+                          <CountryFlag code={m.code} className="h-4 w-6 rounded shadow-sm border border-zinc-700 shrink-0" />
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-bold truncate text-zinc-100">{m.name}</span>
@@ -977,9 +1353,7 @@ export default function GlobalMarketHours() {
             <button onClick={(e) => togglePin(m.id, e)} className="hover:scale-110 transition-transform flex-shrink-0">
               <Star className="h-3.5 w-3.5" style={{ color: m.isPinned ? "#facc15" : "var(--text-faint)", fill: m.isPinned ? "#facc15" : "none" }} />
             </button>
-            <span className="text-[10px] font-mono font-bold px-1 py-0.2 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 shrink-0">
-              {m.code}
-            </span>
+            <CountryFlag code={m.code} className="h-4 w-6 rounded shadow-sm border border-zinc-700 shrink-0" />
             <span className="text-xs font-bold truncate text-zinc-100">{m.name}</span>
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: m.color }} />
             <span className="text-[9px] font-mono font-bold uppercase truncate" style={{ color: m.color }}>
@@ -1111,33 +1485,30 @@ export default function GlobalMarketHours() {
         >
           
           {/* Fixed Header */}
-          <div className="flex items-start justify-between border-b border-zinc-800 p-5 flex-shrink-0 bg-zinc-950">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-mono font-bold px-2 py-1 rounded bg-zinc-800 text-emerald-400 border border-zinc-700">
-                {m.code}
-              </span>
-              <div>
-                <h2 className="text-xl font-bold flex items-center gap-2"  style={{ color: "var(--primary)" }} >
-                  {m.name} — {m.fullName}
+          <div className="flex items-start justify-between border-b border-zinc-800 p-4 sm:p-5 flex-shrink-0 bg-zinc-950 gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+              <CountryFlag code={m.code} className="h-6 w-9 rounded border border-zinc-700 shadow-md shrink-0" />
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-xl font-bold leading-snug break-words" style={{ color: "var(--primary)" }}>
+                  {m.name} <span className="text-zinc-400 font-normal text-sm sm:text-lg">— {m.fullName}</span>
                 </h2>
-                <p className="text-xs text-zinc-400 flex items-center gap-2 mt-0.5">
-                  <Building2 className="h-3.5 w-3.5 text-zinc-500" />
-                  {kb.city} · MIC: <span className="font-mono text-emerald-400">{kb.mic}</span> · Region: {m.region}
+                <p className="text-[11px] sm:text-xs text-zinc-400 flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                  <span className="flex items-center gap-1">
+                    <Building2 className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                    {kb.city}
+                  </span>
+                  <span className="text-zinc-600">·</span>
+                  <span>MIC: <span className="font-mono text-emerald-400">{kb.mic}</span></span>
+                  <span className="text-zinc-600">·</span>
+                  <span>Region: <span className="text-zinc-300 font-medium">{m.region}</span></span>
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={(e) => togglePin(m.id, e)}
-                className="p-1.5 rounded-lg text-amber-400 hover:bg-zinc-800 transition-all border border-amber-500/20 bg-amber-500/10 flex items-center gap-1 text-xs font-semibold"
-                title={isModalPinned ? "Unpin Market" : "Pin to Top"}
-              >
-                <Star className="h-4 w-4" style={{ fill: isModalPinned ? "#facc15" : "none" }} />
-                <span>{isModalPinned ? "Pinned" : "Pin"}</span>
-              </button>
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 onClick={() => setSelectedMarketModal(null)}
                 className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
+                title="Close Modal"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1257,7 +1628,7 @@ export default function GlobalMarketHours() {
               }}
             >
               <Star className="h-3.5 w-3.5" style={{ fill: isModalPinned ? "#facc15" : "none" }} />
-              {isModalPinned ? "Pinned to Top" : "Pin Exchange to Top"}
+              {isModalPinned ? "Pinned" : "Pin Exchange"}
             </button>
             <button
               onClick={() => setSelectedMarketModal(null)}
