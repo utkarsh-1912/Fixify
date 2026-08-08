@@ -121,20 +121,43 @@ export default function FIXDictionaryPage() {
     setCurrentPage(1);
   }, [searchQuery, selectedVersion]);
 
-  // Filter fields based on search query
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [copiedTag, setCopiedTag] = useState(null);
+
+  const CATEGORY_TAG_MAP = {
+    header: [8, 9, 10, 34, 49, 56, 52, 115, 128, 50, 57],
+    session: [35, 98, 108, 141, 7, 16, 123, 36, 112, 2],
+    orders: [11, 41, 55, 54, 38, 40, 44, 99, 59, 21, 15, 207],
+    exec: [37, 17, 150, 39, 151, 14, 6, 103, 373, 198, 19],
+    parties: [453, 448, 447, 452, 802, 803],
+  };
+
+  // Filter fields based on search query and category
   const filteredFields = useMemo(() => {
     const fields = currentDict.fields || [];
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return fields;
-
-    const matchesQuery = (text, q) => {
-      if (!text) return false;
-      const normalizedText = String(text).toLowerCase().replace(/_/g, ' ');
-      const normalizedQuery = String(q).toLowerCase().replace(/_/g, ' ');
-      return normalizedText.includes(normalizedQuery);
-    };
 
     return fields.filter((f) => {
+      // Category filter
+      if (categoryFilter !== "all") {
+        const tagNum = Number(f.tag);
+        if (categoryFilter === "custom") {
+          if (tagNum < 5000 && !f.isCustom) return false;
+        } else {
+          const allowed = CATEGORY_TAG_MAP[categoryFilter] || [];
+          if (!allowed.includes(tagNum)) return false;
+        }
+      }
+
+      if (!query) return true;
+
+      const matchesQuery = (text, q) => {
+        if (!text) return false;
+        const normalizedText = String(text).toLowerCase().replace(/_/g, ' ');
+        const normalizedQuery = String(q).toLowerCase().replace(/_/g, ' ');
+        return normalizedText.includes(normalizedQuery);
+      };
+
       if (
         f.tag.toString().includes(query) ||
         matchesQuery(f.name, query) ||
@@ -153,7 +176,14 @@ export default function FIXDictionaryPage() {
 
       return false;
     });
-  }, [currentDict, searchQuery]);
+  }, [currentDict, searchQuery, categoryFilter]);
+
+  const handleCopyTag = (e, tagNum) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(String(tagNum));
+    setCopiedTag(tagNum);
+    setTimeout(() => setCopiedTag(null), 1800);
+  };
 
   const effectivePageSize = pageSize === "all" ? Math.max(1, filteredFields.length) : Number(pageSize);
   const totalPages = Math.ceil(filteredFields.length / effectivePageSize) || 1;
@@ -164,8 +194,6 @@ export default function FIXDictionaryPage() {
     const start = (currentPage - 1) * effectivePageSize;
     return filteredFields.slice(start, start + effectivePageSize);
   }, [filteredFields, currentPage, pageSize, effectivePageSize]);
-
-
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto">
@@ -179,7 +207,7 @@ export default function FIXDictionaryPage() {
             <span>FIX Dictionary Explorer</span>
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Lookup tag specifications, data types, usage notes, and allowed enum values.
+            Lookup tag specifications, data types, usage notes, and allowed enum values across standard & custom dialects.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -192,53 +220,63 @@ export default function FIXDictionaryPage() {
 
       {/* Toolbar Filter */}
       <div
-        className="flex flex-col md:flex-row gap-4 p-4 rounded-xl items-stretch md:items-center"
+        className="flex flex-col gap-3 p-4 rounded-xl items-stretch"
         style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
       >
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search by Tag ID, Field Name, or Data Type..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-zinc-950/50 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-xl text-xs font-mono text-zinc-300 transition-colors"
-            style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
-          />
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search by Tag ID (e.g. 35, 11), Field Name (e.g. ClOrdID), or Data Type..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-zinc-950/50 border border-zinc-800 focus:border-[var(--primary)] outline-none rounded-xl text-xs font-mono text-zinc-300 transition-colors"
+              style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+            />
+          </div>
+
+          {/* Version dropdown */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider shrink-0">FIX Version:</span>
+            <select
+              value={selectedVersion}
+              onChange={(e) => setSelectedVersion(e.target.value)}
+              className="px-3.5 py-2 border border-zinc-850 rounded-xl text-xs font-mono outline-none cursor-pointer text-zinc-350 focus:border-[var(--primary)]"
+              style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
+            >
+              {versionsList.map((v) => (
+                <option key={v.value} value={v.value}>{v.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Page Size select */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider shrink-0">Page Size:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(e.target.value === "all" ? "all" : Number(e.target.value))}
-            className="px-2.5 py-1.5 border border-zinc-850 rounded-xl text-xs font-mono outline-none cursor-pointer text-zinc-350"
-            style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
-          >
-            <option value={30}>30</option>
-            <option value={60}>60</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-            <option value="all">All ({filteredFields.length})</option>
-          </select>
-        </div>
-
-        {/* Version dropdown */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider shrink-0">FIX Version:</span>
-          <select
-            value={selectedVersion}
-            onChange={(e) => setSelectedVersion(e.target.value)}
-            className="px-3.5 py-2 border border-zinc-850 rounded-xl text-xs font-mono outline-none cursor-pointer text-zinc-350 focus:border-[var(--primary)]"
-            style={{ background: 'var(--background)', border: '1px solid var(--border)' }}
-          >
-            {versionsList.map((v) => (
-              <option key={v.value} value={v.value}>{v.label}</option>
-            ))}
-          </select>
+        {/* Category Chips Filter */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-zinc-800/60 text-xs font-mono">
+          {[
+            { id: "all", label: "All Tags" },
+            { id: "header", label: "Header / Trailer" },
+            { id: "session", label: "Session" },
+            { id: "orders", label: "Order Entry" },
+            { id: "exec", label: "Execution Fills" },
+            { id: "parties", label: "Parties" },
+            { id: "custom", label: "Custom Dialect Tags" },
+          ].map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setCategoryFilter(cat.id)}
+              className={`px-2.5 py-1 rounded-lg transition-all text-[11px] font-semibold whitespace-nowrap border ${
+                categoryFilter === cat.id
+                  ? "bg-[var(--primary-faint)] text-[var(--primary)] border-[var(--primary-border)]"
+                  : "bg-zinc-900/50 text-zinc-400 border-zinc-800 hover:text-zinc-200"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -249,53 +287,76 @@ export default function FIXDictionaryPage() {
         </span>
       </div>
 
-      {/* Grid List */}
+      {/* Grid List with Improvised Cards */}
       {displayedFields.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {displayedFields.map((f) => (
-            <div
-              key={f.tag}
-              onClick={() => setActiveTag(f.tag)}
-              className="p-4 rounded-xl cursor-pointer hover:-translate-y-0.5 transition-all flex items-center justify-between group"
-              style={{
-                background: 'var(--card)',
-                border: '1px solid var(--border)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--primary-border)';
-                e.currentTarget.style.background = 'var(--card-hover)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)';
-                e.currentTarget.style.background = 'var(--card)';
-              }}
-            >
-              <div className="space-y-1.5 truncate">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-extrabold text-[var(--primary)]">
-                    {f.tag}
-                  </span>
-                  <span className="font-bold text-xs truncate max-w-[140px]" style={{ color: 'var(--foreground)' }}>
-                    {f.name}
-                  </span>
-                </div>
-                <div className="flex gap-1.5 items-center">
-                  <span className="text-[9px] font-mono font-bold bg-zinc-150 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded uppercase">
-                    {f.type}
-                  </span>
-                  {f.values && f.values.length > 0 && (
-                    <span className="text-[9px] font-mono font-bold bg-[var(--primary-faint)] text-[var(--primary)] px-1.5 py-0.5 rounded border border-[var(--primary-border)] uppercase">
-                      {f.values.length} Enums
+          {displayedFields.map((f) => {
+            const hasEnums = f.values && f.values.length > 0;
+            const isCopied = copiedTag === f.tag;
+            return (
+              <div
+                key={f.tag}
+                onClick={() => setActiveTag(f.tag)}
+                className="p-4 rounded-xl cursor-pointer hover:-translate-y-1 transition-all flex flex-col justify-between group relative overflow-hidden"
+                style={{
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--primary-border)';
+                  e.currentTarget.style.background = 'var(--card-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.background = 'var(--card)';
+                }}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-black px-2 py-0.5 rounded bg-zinc-900 text-[var(--primary)] border border-[var(--primary-border)] shadow-sm">
+                        {f.tag}
+                      </span>
+                      <span className="font-bold text-xs truncate max-w-[130px]" style={{ color: 'var(--foreground)' }}>
+                        {f.name}
+                      </span>
+                    </div>
+                    <button
+                      onClick={(e) => handleCopyTag(e, f.tag)}
+                      className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400"
+                      title="Copy Tag Number"
+                    >
+                      {isCopied ? <span className="text-[9px] font-mono text-emerald-400 font-bold">Copied!</span> : <span className="text-[10px] font-mono font-semibold">#{f.tag}</span>}
+                    </button>
+                  </div>
+
+                  <div className="flex gap-1.5 items-center flex-wrap">
+                    <span className="text-[9px] font-mono font-bold bg-zinc-900 border border-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded uppercase">
+                      {f.type || "String"}
                     </span>
-                  )}
+                    {hasEnums && (
+                      <span className="text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase">
+                        {f.values.length} Enums
+                      </span>
+                    )}
+                    {Number(f.tag) >= 5000 && (
+                      <span className="text-[9px] font-mono font-bold bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20 uppercase">
+                        Custom
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 mt-2 border-t border-zinc-800/40 text-[10px] font-mono text-zinc-500">
+                  <span>View Details & Schema</span>
+                  <ChevronRight 
+                    className="h-3.5 w-3.5 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"
+                    style={{ color: 'var(--primary)' }}
+                  />
                 </div>
               </div>
-              <ChevronRight 
-                className="h-4 w-4 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"
-                style={{ color: 'var(--primary)' }}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div 
@@ -314,12 +375,30 @@ export default function FIXDictionaryPage() {
         </div>
       )}
 
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-zinc-900 text-xs font-mono text-zinc-500">
-          <div>
+      {/* Bottom Pagination & Page Size Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-zinc-850 text-xs font-mono text-zinc-500">
+        <div className="flex items-center gap-3">
+          <span>
             Page {currentPage} of {totalPages}
+          </span>
+
+          {/* Page Size select moved to bottom */}
+          <div className="flex items-center gap-1.5 pl-3 border-l border-zinc-800">
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(e.target.value === "all" ? "all" : Number(e.target.value))}
+              className="px-2 py-1 border border-zinc-800 rounded-lg text-xs font-mono outline-none cursor-pointer text-zinc-300 bg-zinc-900 focus:border-[var(--primary)]"
+            >
+              <option value={30}>30</option>
+              <option value={60}>60</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+              <option value="all">All ({filteredFields.length})</option>
+            </select>
           </div>
+        </div>
+
+        {totalPages > 1 && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(1)}
@@ -351,7 +430,7 @@ export default function FIXDictionaryPage() {
                       {isGap && <span className="px-1 text-zinc-650">...</span>}
                       <button
                         onClick={() => setCurrentPage(page)}
-                        className={`px-2.5 py-1 rounded-md text-xs transition-all ${currentPage === page ? 'bg-[var(--primary)] text-black font-extrabold' : 'hover:bg-zinc-800 text-zinc-400'}`}
+                        className={`px-2.5 py-1 rounded-md text-xs transition-all ${currentPage === page ? 'bg-[var(--primary)] text-[var(--background)] font-extrabold' : 'hover:bg-zinc-800 text-zinc-400'}`}
                       >
                         {page}
                       </button>
@@ -379,8 +458,8 @@ export default function FIXDictionaryPage() {
               <ChevronsRight className="h-4 w-4" />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Shared Tag Details Modal */}
       {activeTag && (

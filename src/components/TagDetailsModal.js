@@ -116,6 +116,15 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
     normalize(val.enum).includes(normalize(enumSearch)) ||
     normalize(val.description).includes(normalize(enumSearch))
   );
+  const [copiedText, setCopiedText] = useState(false);
+
+  const handleCopyTagSyntax = () => {
+    const sampleVal = enums.length > 0 ? enums[0].enum : 'VALUE';
+    const syntax = `${tagStr}=${sampleVal}`;
+    navigator.clipboard.writeText(syntax);
+    setCopiedText(true);
+    setTimeout(() => setCopiedText(false), 1800);
+  };
 
   return (
     <div 
@@ -134,7 +143,7 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
         >
           <div className="flex items-center gap-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>
             <BookOpen className="h-4 w-4" style={{ color: 'var(--primary)' }} />
-            <span>Tag Dictionary Lookup</span>
+            <span>Tag Specification</span>
           </div>
           <button
             onClick={onClose}
@@ -168,6 +177,14 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
                 )}
               </div>
             </div>
+
+            <button
+              onClick={handleCopyTagSyntax}
+              className="px-2.5 py-1 rounded-lg border text-xs font-mono font-semibold flex items-center gap-1.5 transition-all bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-emerald-400 shrink-0"
+              title="Copy Sample Tag Syntax"
+            >
+              {copiedText ? <span className="text-emerald-400">Copied!</span> : <span>Copy #{tagStr}</span>}
+            </button>
           </div>
 
           {/* Description */}
