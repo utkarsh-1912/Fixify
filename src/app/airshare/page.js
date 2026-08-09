@@ -1458,7 +1458,7 @@ export default function AirSharePage() {
               {qrSvgString ? (
                 <div dangerouslySetInnerHTML={{ __html: qrSvgString }} className="w-44 h-44 flex items-center justify-center bg-white rounded-xl overflow-hidden" />
               ) : (
-                <div className="w-40 h-40 flex items-center justify-center bg-white rounded-xl border text-[10px] text-zinc-400">
+                <div className="w-44 h-44 flex items-center justify-center bg-white rounded-xl border text-[10px] text-zinc-400">
                   Generating QR...
                 </div>
               )}
