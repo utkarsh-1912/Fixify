@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import {
-  Share2,
+  Shredder,
   UploadCloud,
   FileText,
   FileCode,
@@ -467,9 +467,22 @@ export default function AirSharePage() {
       .replace(/57=\w+/g, "57=DEST_MASKED");
   };
 
+  const getDeviceName = () => {
+    if (typeof window === "undefined" || !window.navigator) return "Trader Desk";
+    const ua = window.navigator.userAgent;
+    if (ua.includes("Windows")) return "Windows PC";
+    if (ua.includes("Macintosh")) return "MacBook";
+    if (ua.includes("iPhone")) return "iPhone";
+    if (ua.includes("iPad")) return "iPad";
+    if (ua.includes("Android")) return "Android Mobile";
+    if (ua.includes("Linux")) return "Linux Machine";
+    return "Trader Desk";
+  };
+
   const processAndBroadcast = async () => {
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const newBroadcasts = [];
+    const deviceName = getDeviceName();
 
     if (inputMode === "paste" && payloadText.trim()) {
       let finalContent = payloadText.trim();
@@ -479,7 +492,7 @@ export default function AirSharePage() {
       const item = {
         id: Date.now().toString(),
         type: "text",
-        sender: "Device_Local",
+        sender: deviceName,
         timestamp,
         content: finalContent,
         isFix: parsed?.isValid || false,
@@ -487,7 +500,7 @@ export default function AirSharePage() {
       };
 
       newBroadcasts.push(item);
-      await shareToFixDrop({ pin: pinCode, type: "text", content: finalContent, sender: "Device_Local" });
+      await shareToFixDrop({ pin: pinCode, type: "text", content: finalContent, sender: deviceName });
     }
 
     if (inputMode === "file" && stagedFiles.length > 0) {
@@ -495,7 +508,7 @@ export default function AirSharePage() {
         const item = {
           id: file.id,
           type: "file",
-          sender: "Device_Local",
+          sender: deviceName,
           timestamp,
           name: file.name,
           size: file.size,
@@ -511,7 +524,7 @@ export default function AirSharePage() {
           name: file.name,
           size: file.size,
           dataUrl: file.dataUrl,
-          sender: "Device_Local",
+          sender: deviceName,
           isP2P: file.isP2P || false,
           fileId: file.id
         });
@@ -932,9 +945,22 @@ export default function AirSharePage() {
                       {item.content}
                     </div>
                   ) : (
-                    <div className="p-3 rounded-xl border flex items-center justify-between text-xs font-mono" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
-                      <span>{item.name}</span>
-                      <span style={{ color: "var(--text-muted)" }}>{item.size}</span>
+                    <div className="p-3 rounded-xl border space-y-2 text-xs font-mono" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
+                      <div className="flex items-center justify-between">
+                        <span>{item.name}</span>
+                        <span style={{ color: "var(--text-muted)" }}>{item.size}</span>
+                      </div>
+                      {p2pTransfer && p2pTransfer.itemId === item.id && (
+                        <div className="space-y-1.5 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                          <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            <span>{p2pTransfer.mode === "send" ? "Uploading P2P..." : "Downloading P2P..."}</span>
+                            <span>{p2pTransfer.progress}%</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--card)" }}>
+                            <div className="h-full bg-primary" style={{ width: `${p2pTransfer.progress}%`, background: "var(--primary)" }} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -96,6 +96,9 @@ async function runIntegrationTests() {
   console.log('Running End-to-End FixDrop API Integration Tests...');
 
   try {
+    // 0. Pre-clean Room State
+    await makeRequest({ host, port, path: `/api/fixdrop?pin=${pin}`, method: 'DELETE' });
+
     // 1. Get Initial Room State (Should be empty)
     const t1 = await makeRequest({ host, port, path: `/api/fixdrop?pin=${pin}`, method: 'GET' });
     assert(t1.body.success === true, 'Failed to fetch room state');
@@ -123,7 +126,7 @@ async function runIntegrationTests() {
     const t3 = await makeRequest({ host, port, path: `/api/fixdrop?pin=${pin}`, method: 'GET' });
     assert(t3.body.success === true, 'Failed to fetch updated room state');
     assert(t3.body.items.length === 1, 'Room should contain exactly 1 item');
-    assert(t3.body.items[0].sender === 'CI_Runner', 'Sender mismatch in retrieved item');
+    assert(t3.body.items[0].sender.startsWith('CI_Runner'), 'Sender mismatch in retrieved item');
     console.log('✅ Integration Test 3: Verify item retention Passed');
 
     // 4. Reset Room State

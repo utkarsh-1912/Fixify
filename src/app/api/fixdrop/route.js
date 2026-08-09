@@ -57,10 +57,16 @@ export async function POST(request) {
     }
 
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    // Extract caller client IP
+    const rawIp = request.headers.get("x-forwarded-for")?.split(",")[0] || request.socket?.remoteAddress || "127.0.0.1";
+    const cleanIp = rawIp === "::1" || rawIp === "::ffff:127.0.0.1" ? "127.0.0.1" : rawIp;
+    const finalSender = sender.includes("(") ? sender : `${sender} (${cleanIp})`;
+
     const newItem = {
       id: Date.now().toString() + "_" + Math.random().toString(36).substring(2, 6),
       type,
-      sender,
+      sender: finalSender,
       timestamp,
       content: content || "",
       name: name || null,
