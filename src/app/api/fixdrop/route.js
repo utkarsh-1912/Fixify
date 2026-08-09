@@ -67,6 +67,7 @@ export async function POST(request) {
       id: Date.now().toString() + "_" + Math.random().toString(36).substring(2, 6),
       type,
       sender: finalSender,
+      senderId: body.senderId || null,
       timestamp,
       content: content || "",
       name: name || null,
@@ -94,6 +95,27 @@ export async function POST(request) {
 export async function DELETE(request) {
   const { searchParams } = new URL(request.url);
   const pin = searchParams.get("pin") || "7492";
+  const itemId = searchParams.get("itemId");
+  const senderId = searchParams.get("senderId");
+
+  if (itemId) {
+    const currentItems = roomStores.get(pin) || [];
+    const item = currentItems.find(i => i.id === itemId);
+    if (!item) {
+      return NextResponse.json({ success: false, error: "Item not found" }, { status: 404 });
+    }
+    // Verify ownership
+    if (item.senderId && item.senderId !== senderId) {
+      return NextResponse.json({ success: false, error: "Unauthorized: You can only delete your own items" }, { status: 403 });
+    }
+    const updatedItems = currentItems.filter(i => i.id !== itemId);
+    roomStores.set(pin, updatedItems);
+    return NextResponse.json({
+      success: true,
+      message: `Item deleted successfully`,
+      totalCount: updatedItems.length
+    });
+  }
 
   roomStores.delete(pin);
   signalingStores.delete(pin);

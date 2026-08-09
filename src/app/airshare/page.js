@@ -638,6 +638,24 @@ export default function AirSharePage() {
     }
   };
 
+  const handleDeleteItem = async (itemId) => {
+    try {
+      const res = await fetch(`/api/fixdrop?pin=${pinCode}&itemId=${itemId}&senderId=${myPeerId.current}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSharedItems((prev) => prev.filter((i) => i.id !== itemId));
+        setSelectedItemIds((prev) => prev.filter((id) => id !== itemId));
+      } else {
+        alert(data.error || "Failed to delete item.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error deleting item: " + e.message);
+    }
+  };
+
   const getDeviceName = () => {
     if (typeof window === "undefined" || !window.navigator) return "Trader Desk";
     const ua = window.navigator.userAgent;
@@ -664,6 +682,7 @@ export default function AirSharePage() {
         id: Date.now().toString(),
         type: "text",
         sender: deviceName,
+        senderId: myPeerId.current,
         timestamp,
         content: finalContent,
         isFix: parsed?.isValid || false,
@@ -671,7 +690,7 @@ export default function AirSharePage() {
       };
 
       newBroadcasts.push(item);
-      await shareToFixDrop({ pin: pinCode, type: "text", content: finalContent, sender: deviceName });
+      await shareToFixDrop({ pin: pinCode, type: "text", content: finalContent, sender: deviceName, senderId: myPeerId.current });
     }
 
     if (inputMode === "file" && stagedFiles.length > 0) {
@@ -680,6 +699,7 @@ export default function AirSharePage() {
           id: file.id,
           type: "file",
           sender: deviceName,
+          senderId: myPeerId.current,
           timestamp,
           name: file.name,
           size: file.size,
@@ -696,6 +716,7 @@ export default function AirSharePage() {
           size: file.size,
           dataUrl: file.dataUrl,
           sender: deviceName,
+          senderId: myPeerId.current,
           isP2P: file.isP2P || false,
           fileId: file.id
         });
@@ -1127,13 +1148,16 @@ export default function AirSharePage() {
                         </a>
                       )}
 
-                      <button
-                        onClick={() => setSharedItems(sharedItems.filter((i) => i.id !== item.id))}
-                        className="p-1.5 rounded-lg transition-all cursor-pointer"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {(!item.senderId || item.senderId === myPeerId.current) && (
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-1.5 rounded-lg transition-all cursor-pointer hover:text-red-500"
+                          style={{ color: "var(--text-muted)" }}
+                          title="Delete Payload"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
