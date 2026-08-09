@@ -12,7 +12,6 @@ import {
   Check,
   Download,
   QrCode,
-  Key,
   RefreshCw,
   ArrowRight,
   ArrowLeft,
@@ -274,7 +273,6 @@ export default function AirSharePage() {
       <div className="fx-page-header flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2.5" style={{ color: 'var(--foreground)' }}>
-            <Share2 className="h-6 w-6" style={{ color: "var(--primary)" }} />
             <span>FixDrop Instant Transfer</span>
             <button
               onClick={() => setInfoModalOpen(true)}
