@@ -77,9 +77,17 @@ export default function AirSharePage() {
     const bundles = [];
     let currentBundle = null;
 
+    const getBaseSender = (sender) => {
+      if (!sender) return "Device";
+      return sender.split(" (")[0].trim();
+    };
+
     for (const item of sharedItems) {
       const itemSenderId = item.senderId || null;
-      if (currentBundle && currentBundle.sender === item.sender && currentBundle.senderId === itemSenderId) {
+      const itemBaseSender = getBaseSender(item.sender);
+      const currentBaseSender = currentBundle ? getBaseSender(currentBundle.sender) : null;
+
+      if (currentBundle && currentBaseSender === itemBaseSender && (currentBundle.senderId === itemSenderId || !currentBundle.senderId || !itemSenderId)) {
         currentBundle.items.push(item);
       } else {
         currentBundle = {
@@ -826,8 +834,9 @@ export default function AirSharePage() {
             isP2P: file.isP2P || false,
             fileId: file.id
           });
-          if (broadcastResult?.item?.dataUrl) {
-            item.dataUrl = broadcastResult.item.dataUrl;
+          if (broadcastResult?.item) {
+            item.sender = broadcastResult.item.sender || item.sender;
+            item.dataUrl = broadcastResult.item.dataUrl || item.dataUrl;
           }
           return item;
         });
@@ -1472,7 +1481,7 @@ export default function AirSharePage() {
       )}
       {p2pTransfer && (
         <div
-          className="fixed bottom-6 right-6 z-50 w-80 p-4 rounded-2xl border shadow-2xl space-y-2.5 animate-fadeIn"
+          className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-80 z-50 p-3.5 sm:p-4 rounded-2xl border shadow-2xl space-y-2.5 animate-fadeIn max-w-md mx-auto sm:mx-0 backdrop-blur-md"
           style={{ background: "var(--card)", borderColor: "var(--border)" }}
         >
           {/* Toaster Header with X Close Button */}
