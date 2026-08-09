@@ -23,6 +23,71 @@ const FIX_SPECS = {
 
 const GREETING_WORDS = new Set(["hi", "hello", "hey", "hola", "yo", "greetings", "good morning", "good afternoon", "good evening", "welcome"]);
 
+const MARKETS_LIST = [
+  { id: "nyse", name: "NYSE", fullName: "New York Stock Exchange", region: "Americas", timezone: "America/New_York", mic: "XNYS", city: "New York, USA", currency: "USD", index: "S&P 500 / DJIA", settlement: "T+1", fixVersion: "FIX 4.2 / FIX 4.4 / FIX 5.0", protocols: "NYSE Pillar / FAST", latency: "< 50 μs", sessions: { preMarket: { start: 4, end: 9.5 }, regular: { start: 9.5, end: 16 }, postMarket: { start: 16, end: 20 } } },
+  { id: "nasdaq", name: "NASDAQ", fullName: "NASDAQ Stock Market", region: "Americas", timezone: "America/New_York", mic: "XNAS", city: "New York, USA", currency: "USD", index: "NASDAQ 100", settlement: "T+1", fixVersion: "FIX 4.2 / FIX 5.0", protocols: "OUCH / ITCH", latency: "< 30 μs", sessions: { preMarket: { start: 4, end: 9.5 }, regular: { start: 9.5, end: 16 }, postMarket: { start: 16, end: 20 } } },
+  { id: "tsx", name: "TSX", fullName: "Toronto Stock Exchange", region: "Americas", timezone: "America/Toronto", mic: "XTSE", city: "Toronto, Canada", currency: "CAD", index: "S&P/TSX Composite", settlement: "T+1", fixVersion: "FIX 4.2", protocols: "TSX QuantumFeed", latency: "< 100 μs", sessions: { preMarket: { start: 7, end: 9.5 }, regular: { start: 9.5, end: 16 }, postMarket: { start: 16, end: 17 } } },
+  { id: "bmv", name: "BMV", fullName: "Bolsa Mexicana de Valores", region: "Americas", timezone: "America/Mexico_City", mic: "XMEX", city: "Mexico City, Mexico", currency: "MXN", index: "S&P/BMV IPC", settlement: "T+2", fixVersion: "FIX 4.4", protocols: "BMV Sentra", latency: "< 500 μs", sessions: { regular: { start: 8.5, end: 15 } } },
+  { id: "b3", name: "B3", fullName: "B3 São Paulo", region: "Americas", timezone: "America/Sao_Paulo", mic: "BVMF", city: "São Paulo, Brazil", currency: "BRL", index: "Ibovespa", settlement: "T+2", fixVersion: "FIX 4.4", protocols: "PUMA Trading System", latency: "< 150 μs", sessions: { regular: { start: 10, end: 17.5 } } },
+  { id: "lse", name: "LSE", fullName: "London Stock Exchange", region: "Europe", timezone: "Europe/London", mic: "XLON", city: "London, UK", currency: "GBP / GBX", index: "FTSE 100", settlement: "T+2", fixVersion: "FIX 4.4 / FIX 5.0 SP2", protocols: "MillenniumIT / MITCH", latency: "< 40 μs", sessions: { preMarket: { start: 7, end: 8 }, regular: { start: 8, end: 16.5 } } },
+  { id: "euronext", name: "Euronext", fullName: "Euronext Paris", region: "Europe", timezone: "Europe/Paris", mic: "XPAR", city: "Paris, France", currency: "EUR", index: "CAC 40", settlement: "T+2", fixVersion: "FIX 5.0 SP2", protocols: "Optiq OEG", latency: "< 50 μs", sessions: { regular: { start: 9, end: 17.5 } } },
+  { id: "xetra", name: "XETRA", fullName: "Deutsche Börse XETRA", region: "Europe", timezone: "Europe/Berlin", mic: "XETR", city: "Frankfurt, Germany", currency: "EUR", index: "DAX 40", settlement: "T+2", fixVersion: "FIX 5.0 (T7)", protocols: "T7 ETI / ETI FIX / MDI", latency: "< 25 μs", sessions: { regular: { start: 9, end: 17.5 } } },
+  { id: "six", name: "SIX", fullName: "SIX Swiss Exchange", region: "Europe", timezone: "Europe/Zurich", mic: "XSWX", city: "Zurich, Switzerland", currency: "CHF", index: "SMI", settlement: "T+2", fixVersion: "FIX 5.0 (T7)", protocols: "SIX OTI / MDI", latency: "< 35 μs", sessions: { regular: { start: 9, end: 17.5 } } },
+  { id: "tse", name: "TSE", fullName: "Tokyo Stock Exchange", region: "Asia-Pacific", timezone: "Asia/Tokyo", mic: "XJPX", city: "Tokyo, Japan", currency: "JPY", index: "NIKKEI 225", settlement: "T+2", fixVersion: "FIX 4.2 / FIX 4.4", protocols: "Arrowhead", latency: "< 200 μs", sessions: { regular: { start: 9, end: 15.5 } } },
+  { id: "sse", name: "SSE", fullName: "Shanghai Stock Exchange", region: "Asia-Pacific", timezone: "Asia/Shanghai", mic: "XSHG", city: "Shanghai, China", currency: "CNY", index: "SSE Composite", settlement: "T+1", fixVersion: "FIX 4.4", protocols: "STEP Protocol", latency: "< 1 ms", sessions: { regular: { start: 9.5, end: 15 } } },
+  { id: "hkex", name: "HKEX", fullName: "Hong Kong Exchanges", region: "Asia-Pacific", timezone: "Asia/Hong_Kong", mic: "XHKG", city: "Hong Kong", currency: "HKD", index: "Hang Seng Index", settlement: "T+2", fixVersion: "FIX 4.4", protocols: "HKEX Orion (OTP-C)", latency: "< 100 μs", sessions: { preMarket: { start: 9, end: 9.5 }, regular: { start: 9.5, end: 16 } } },
+  { id: "sgx", name: "SGX", fullName: "Singapore Exchange", region: "Asia-Pacific", timezone: "Asia/Singapore", mic: "XSES", city: "Singapore", currency: "SGD", index: "STI", settlement: "T+2", fixVersion: "FIX 4.4", protocols: "SGX REACH", latency: "< 200 μs", sessions: { regular: { start: 9, end: 17 } } },
+  { id: "asx", name: "ASX", fullName: "Australian Securities Exchange", region: "Asia-Pacific", timezone: "Australia/Sydney", mic: "XASX", city: "Sydney, Australia", currency: "AUD", index: "S&P/ASX 200", settlement: "T+2", fixVersion: "FIX 4.4 / FIX 5.0", protocols: "ASX Trade", latency: "< 100 μs", sessions: { preMarket: { start: 7, end: 10 }, regular: { start: 10, end: 16 } } },
+  { id: "krx", name: "KRX", fullName: "Korea Exchange", region: "Asia-Pacific", timezone: "Asia/Seoul", mic: "XKRX", city: "Seoul, South Korea", currency: "KRW", index: "KOSPI", settlement: "T+2", fixVersion: "FIX 4.4", protocols: "KRX Extranet", latency: "< 150 μs", sessions: { regular: { start: 9, end: 15.5 } } },
+  { id: "nse", name: "NSE", fullName: "National Stock Exchange of India", region: "South Asia", timezone: "Asia/Kolkata", mic: "XNSE", city: "Mumbai, India", currency: "INR", index: "NIFTY 50", settlement: "T+1", fixVersion: "FIX 4.2 / FIX 4.4", protocols: "NEAT / TAP", latency: "< 50 μs", sessions: { preMarket: { start: 9, end: 9.25 }, regular: { start: 9.25, end: 15.5 } } },
+  { id: "tadawul", name: "Tadawul", fullName: "Saudi Stock Exchange", region: "Middle East", timezone: "Asia/Riyadh", mic: "XSAU", city: "Riyadh, Saudi Arabia", currency: "SAR", index: "TASI", settlement: "T+2", fixVersion: "FIX 4.4", protocols: "Tadawul X-Stream", latency: "< 300 μs", sessions: { regular: { start: 10, end: 15 } } },
+  { id: "dfm", name: "DFM", fullName: "Dubai Financial Market", region: "Middle East", timezone: "Asia/Dubai", mic: "XDFM", city: "Dubai, UAE", currency: "AED", index: "DFMGI", settlement: "T+2", fixVersion: "FIX 4.4", protocols: "DFM X-Stream", latency: "< 300 μs", sessions: { regular: { start: 10, end: 14 } } },
+  { id: "jse", name: "JSE", fullName: "Johannesburg Stock Exchange", region: "Africa", timezone: "Africa/Johannesburg", mic: "XJSE", city: "Johannesburg, South Africa", currency: "ZAR", index: "JSE Top 40", settlement: "T+3", fixVersion: "FIX 4.4", protocols: "JSE MillenniumIT", latency: "< 150 μs", sessions: { regular: { start: 9, end: 17 } } }
+];
+
+function tryMarketHoursLookup(query) {
+  const lowercaseQuery = query.toLowerCase();
+  for (const m of MARKETS_LIST) {
+    const nameMatch = lowercaseQuery.includes(m.name.toLowerCase()) || 
+                      lowercaseQuery.includes(m.fullName.toLowerCase()) ||
+                      lowercaseQuery.includes(m.id);
+                      
+    const askHours = lowercaseQuery.includes("hour") || 
+                     lowercaseQuery.includes("session") || 
+                     lowercaseQuery.includes("open") || 
+                     lowercaseQuery.includes("close") || 
+                     lowercaseQuery.includes("time") ||
+                     lowercaseQuery.includes("mic") ||
+                     lowercaseQuery.includes("settle") ||
+                     lowercaseQuery.includes("timezone") ||
+                     lowercaseQuery.includes("latenc");
+                     
+    if (nameMatch && askHours) {
+      const preSession = m.sessions.preMarket ? `${m.sessions.preMarket.start}:00 - ${m.sessions.preMarket.end === 9.5 ? "09:30" : m.sessions.preMarket.end === 9.25 ? "09:15" : m.sessions.preMarket.end + ":00"}` : "None";
+      const regularSession = `${m.sessions.regular.start === 9.25 ? "09:15" : m.sessions.regular.start === 9.5 ? "09:30" : m.sessions.regular.start + ":00"} - ${m.sessions.regular.end === 15.5 ? "15:30" : m.sessions.regular.end === 17.42 ? "17:25" : m.sessions.regular.end + ":00"}`;
+      const postSession = m.sessions.postMarket ? `${m.sessions.postMarket.start}:00 - ${m.sessions.postMarket.end}:00` : "None";
+      
+      return `### 🌍 ${m.fullName} (${m.name}) Operating Spec & Session Hours
+
+- **Exchange MIC Code**: \`${m.mic || "N/A"}\`
+- **Location**: ${m.city || "N/A"}
+- **Local Timezone**: \`${m.timezone || "UTC"}\`
+- **Clearing Settlement Cycle**: \`${m.settlement || "T+2"}\`
+- **Supported FIX Protocol Versions**: \`${m.fixVersion || "FIX 4.4"}\`
+- **Native Gateway Protocols**: \`${m.protocols || "N/A"}\`
+- **Matching Engine Latency**: \`${m.latency || "N/A"}\`
+
+#### ⏱️ Trading Session Hours (Local Time):
+- **Pre-Market Session**: ${preSession}
+- **Regular Trading Session**: ${regularSession}
+- **Post-Market / After-Hours**: ${postSession}
+
+*Response resolved by AURA (Market Session Analysis).*`;
+    }
+  }
+  return null;
+}
+
 function isGreeting(query) {
   const normalized = query.trim().toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "");
   if (GREETING_WORDS.has(normalized)) return true;
@@ -1689,8 +1754,14 @@ How can I help you today? You can:
             }
           }
 
-          if (specificGuideMatch) {
-            answer = `${specificGuideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
+          // Check dynamic market hours query first
+          const marketHoursLookup = tryMarketHoursLookup(query);
+
+          if (marketHoursLookup) {
+            answer = marketHoursLookup;
+          } else if (specificGuideMatch) {
+            const cleanedGuide = specificGuideMatch.replace(/---?\s*\*Response resolved by AURA.*?\*\.?/gi, "").trim();
+            answer = cleanedGuide + `\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
           } else if (asksForRules && condRulesLookup) {
             answer = `${condRulesLookup}\n\n*Response resolved by AURA (Displaying local validation rulebook).*`;
           } else if (asksForSchema && schemaLookup) {
@@ -1720,7 +1791,8 @@ How can I help you today? You can:
             }
 
             if (generalGuideMatch) {
-              answer = `${generalGuideMatch}\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
+              const cleanedGeneral = generalGuideMatch.replace(/---?\s*\*Response resolved by AURA.*?\*\.?/gi, "").trim();
+              answer = cleanedGeneral + `\n\n*Response resolved by AURA (Displaying local quick-guide).*`;
             } else {
               const partials = tryPartialLookup(query, customDialect);
               if (partials && partials.trim()) {
