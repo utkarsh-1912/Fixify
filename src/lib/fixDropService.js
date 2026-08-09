@@ -42,3 +42,25 @@ export async function fetchFixDropRoom(pin = "7492") {
     return { success: false, items: [] };
   }
 }
+
+export async function sendWebRTCSignal({ pin = "7492", sender = "Device_Peer", signal }) {
+  try {
+    const res = await fetch("/api/fixdrop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "signal", pin, sender, signal })
+    });
+    return await res.json();
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+export async function fetchWebRTCSignals(pin = "7492") {
+  try {
+    const res = await fetch(`/api/fixdrop?pin=${pin}&action=signal`);
+    return await res.json();
+  } catch (e) {
+    return { success: false, signals: [] };
+  }
+}

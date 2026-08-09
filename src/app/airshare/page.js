@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import {
-  Shredder,
+  Share2,
   UploadCloud,
   FileText,
   FileCode,
@@ -12,7 +12,9 @@ import {
   Check,
   Download,
   QrCode,
+  ArrowRightLeftIcon,
   RefreshCw,
+  Sparkles,
   ArrowRight,
   ArrowLeft,
   ShieldCheck,
@@ -27,11 +29,10 @@ import {
   Send,
   Sliders,
   CheckCircle2,
-  Info,
-  ArrowRightLeftIcon
+  Info
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
-import { shareToFixDrop, fetchFixDropRoom } from "@/lib/fixDropService";
+import { shareToFixDrop, fetchFixDropRoom, fetchWebRTCSignals, sendWebRTCSignal } from "@/lib/fixDropService";
 
 
 
@@ -68,6 +69,241 @@ export default function AirSharePage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [qrSvgString, setQrSvgString] = useState("");
+  const stagedFileObjects = useRef({});
+  const activePeerConnections = useRef({});
+  const activeDataChannels = useRef({});
+  const [p2pTransfer, setP2pTransfer] = useState(null);
+  const myPeerId = useRef(typeof window !== "undefined" ? Math.random().toString(36).substring(2, 8) : "runner");
+
+  const peerConnectionConfig = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" }
+    ]
+  };
+
+  const handleIncomingSignal = async (envelope) => {
+    const { signal, sender: remotePeerId } = envelope;
+    if (remotePeerId === myPeerId.current) return;
+
+    const { type, itemId, sdp, candidate } = signal;
+
+    if (type === "offer") {
+      const file = stagedFileObjects.current[itemId];
+      if (!file) return;
+
+      console.log(`[P2P] Received offer for file ${itemId} from peer ${remotePeerId}`);
+      const pc = new RTCPeerConnection(peerConnectionConfig);
+      activePeerConnections.current[remotePeerId] = pc;
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          sendWebRTCSignal({
+            pin: pinCode,
+            sender: myPeerId.current,
+            signal: { type: "candidate", itemId, candidate: event.candidate, targetPeerId: remotePeerId }
+          });
+        }
+      };
+
+      pc.ondatachannel = (event) => {
+        const channel = event.channel;
+        activeDataChannels.current[remotePeerId] = channel;
+        setupSenderDataChannel(channel, file, itemId);
+      };
+
+      await pc.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp }));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      await sendWebRTCSignal({
+        pin: pinCode,
+        sender: myPeerId.current,
+        signal: { type: "answer", itemId, sdp: answer.sdp, targetPeerId: remotePeerId }
+      });
+    }
+    else if (type === "answer" && signal.targetPeerId === myPeerId.current) {
+      const pc = activePeerConnections.current[remotePeerId];
+      if (pc) {
+        console.log(`[P2P] Received answer from peer ${remotePeerId}`);
+        await pc.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp }));
+      }
+    }
+    else if (type === "candidate" && signal.targetPeerId === myPeerId.current) {
+      const pc = activePeerConnections.current[remotePeerId];
+      if (pc) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.warn("[P2P] Error adding ICE candidate", e);
+        }
+      }
+    }
+  };
+
+  const setupSenderDataChannel = (channel, file, fileId) => {
+    channel.binaryType = "arraybuffer";
+    let offset = 0;
+    const chunkSize = 16384;
+
+    setP2pTransfer({
+      itemId: fileId,
+      mode: "send",
+      fileName: file.name,
+      size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
+      progress: 0,
+      status: "connecting"
+    });
+
+    const sendNextChunk = () => {
+      while (offset < file.size) {
+        if (channel.bufferedAmount > 65536) {
+          return;
+        }
+        const slice = file.slice(offset, offset + chunkSize);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (channel.readyState === "open") {
+            channel.send(e.target.result);
+            offset += slice.size;
+            setP2pTransfer({
+              itemId: fileId,
+              mode: "send",
+              fileName: file.name,
+              size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
+              progress: Math.floor((offset / file.size) * 100),
+              status: offset >= file.size ? "completed" : "transferring"
+            });
+            sendNextChunk();
+          }
+        };
+        reader.readAsArrayBuffer(slice);
+        return;
+      }
+      if (offset >= file.size) {
+        setTimeout(() => setP2pTransfer(null), 3000);
+      }
+    };
+
+    channel.onopen = () => {
+      console.log("[P2P] Sender DataChannel is open!");
+      sendNextChunk();
+    };
+
+    channel.onbufferedamountlow = () => {
+      sendNextChunk();
+    };
+
+    channel.onerror = (err) => {
+      console.error("[P2P] DataChannel error", err);
+      setP2pTransfer(prev => prev ? { ...prev, status: "failed" } : null);
+    };
+  };
+
+  const handleP2PDownload = async (item) => {
+    console.log(`[P2P] Starting peer download request for ${item.name} (${item.size})`);
+    
+    setP2pTransfer({
+      itemId: item.id,
+      mode: "receive",
+      fileName: item.name,
+      size: item.size,
+      progress: 0,
+      status: "connecting"
+    });
+
+    const pc = new RTCPeerConnection(peerConnectionConfig);
+    const remotePeerId = "sender_" + Math.random().toString(36).substring(2, 6);
+    activePeerConnections.current[remotePeerId] = pc;
+
+    const channel = pc.createDataChannel("p2p-file-transfer");
+    activeDataChannels.current[remotePeerId] = channel;
+
+    const receivedChunks = [];
+    let receivedSize = 0;
+    
+    let totalBytes = 0;
+    if (item.size.includes("MB")) {
+      totalBytes = parseFloat(item.size) * 1024 * 1024;
+    } else if (item.size.includes("GB")) {
+      totalBytes = parseFloat(item.size) * 1024 * 1024 * 1024;
+    } else {
+      totalBytes = parseFloat(item.size) * 1024;
+    }
+
+    channel.binaryType = "arraybuffer";
+    channel.onmessage = (event) => {
+      receivedChunks.push(event.data);
+      receivedSize += event.data.byteLength;
+      const percent = totalBytes > 0 ? Math.min(Math.floor((receivedSize / totalBytes) * 100), 100) : 0;
+      setP2pTransfer({
+        itemId: item.id,
+        mode: "receive",
+        fileName: item.name,
+        size: item.size,
+        progress: percent,
+        status: "transferring"
+      });
+    };
+
+    channel.onclose = () => {
+      console.log("[P2P] Receiver DataChannel closed. Compiling file...");
+      if (receivedChunks.length > 0) {
+        setP2pTransfer({
+          itemId: item.id,
+          mode: "receive",
+          fileName: item.name,
+          size: item.size,
+          progress: 100,
+          status: "completed"
+        });
+        const blob = new Blob(receivedChunks, { type: "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = item.name;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        setP2pTransfer(prev => prev ? { ...prev, status: "failed" } : null);
+      }
+      setTimeout(() => setP2pTransfer(null), 3000);
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        sendWebRTCSignal({
+          pin: pinCode,
+          sender: myPeerId.current,
+          signal: { type: "candidate", itemId: item.id, candidate: event.candidate, targetPeerId: remotePeerId }
+        });
+      }
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    await sendWebRTCSignal({
+      pin: pinCode,
+      sender: myPeerId.current,
+      signal: { type: "offer", itemId: item.id, sdp: offer.sdp }
+    });
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined" || stage !== 3) return;
+
+    const interval = setInterval(async () => {
+      const res = await fetchWebRTCSignals(pinCode);
+      if (res?.success && res.signals && res.signals.length > 0) {
+        for (const sig of res.signals) {
+          handleIncomingSignal(sig);
+        }
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [stage, pinCode]);
 
   const roomLink = typeof window !== "undefined" ? `${window.location.origin}/airshare?pin=${pinCode}` : `https://fixify.app/airshare?pin=${pinCode}`;
 
@@ -149,30 +385,52 @@ export default function AirSharePage() {
 
   const onDrop = useCallback((acceptedFiles) => {
     acceptedFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
+      const fileId = Date.now().toString() + "_" + Math.random().toString(36).substring(2, 5);
+      
+      // If file is larger than 2MB, register it as a WebRTC P2P stream instead of reading it in RAM
+      if (file.size > 2 * 1024 * 1024) {
+        stagedFileObjects.current[fileId] = file;
         const fileObj = {
-          id: Date.now().toString() + "_" + Math.random().toString(36).substring(2, 5),
+          id: fileId,
           name: file.name,
-          size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
+          size: file.size > 1024 * 1024 * 1024
+            ? (file.size / (1024 * 1024 * 1024)).toFixed(2) + " GB"
+            : file.size > 1024 * 1024
+              ? (file.size / (1024 * 1024)).toFixed(2) + " MB"
+              : (file.size / 1024).toFixed(1) + " KB",
           type: file.type || "application/octet-stream",
-          dataUrl: event.target.result,
+          dataUrl: null, // transferred P2P
+          isP2P: true,
           meta: getFileMeta(file.name)
         };
         setStagedFiles((prev) => [...prev, fileObj]);
-      };
-      reader.readAsDataURL(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const fileObj = {
+            id: fileId,
+            name: file.name,
+            size: (file.size / 1024).toFixed(1) + " KB",
+            type: file.type || "application/octet-stream",
+            dataUrl: event.target.result,
+            isP2P: false,
+            meta: getFileMeta(file.name)
+          };
+          setStagedFiles((prev) => [...prev, fileObj]);
+        };
+        reader.readAsDataURL(file);
+      }
     });
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    maxSize: 25 * 1024 * 1024, // 25 MB max file size limit
+    maxSize: 1024 * 1024 * 1024, // 1 GB max file size limit
     onDropRejected: (fileRejections) => {
       fileRejections.forEach((rejection) => {
         const tooLarge = rejection.errors.some((e) => e.code === "file-too-large");
         if (tooLarge) {
-          alert(`File "${rejection.file.name}" exceeds the 25 MB file size limit.`);
+          alert(`File "${rejection.file.name}" exceeds the 1 GB file size limit.`);
         } else {
           alert(`File "${rejection.file.name}" was rejected. Please select valid documents or FIX log files.`);
         }
@@ -235,10 +493,21 @@ export default function AirSharePage() {
           name: file.name,
           size: file.size,
           dataUrl: file.dataUrl,
+          isP2P: file.isP2P || false,
+          fileId: file.id,
           meta: file.meta
         };
         newBroadcasts.push(item);
-        await shareToFixDrop({ pin: pinCode, type: "file", name: file.name, size: file.size, dataUrl: file.dataUrl, sender: "Device_Local" });
+        await shareToFixDrop({
+          pin: pinCode,
+          type: "file",
+          name: file.name,
+          size: file.size,
+          dataUrl: file.dataUrl,
+          sender: "Device_Local",
+          isP2P: file.isP2P || false,
+          fileId: file.id
+        });
       }
     }
 
@@ -615,6 +884,14 @@ export default function AirSharePage() {
                           {copiedId === item.id ? <Check className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} /> : <Copy className="h-3.5 w-3.5" />}
                           <span className="hidden sm:inline">{copiedId === item.id ? "Copied!" : "Copy"}</span>
                         </button>
+                      ) : item.isP2P ? (
+                        <button
+                          onClick={() => handleP2PDownload(item)}
+                          className="px-3 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                          style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
+                        >
+                          <Download className="h-3.5 w-3.5 animate-pulse" /> <span className="hidden sm:inline">P2P Download</span> <span className="font-mono">({item.size})</span>
+                        </button>
                       ) : (
                         <a
                           href={item.dataUrl}
@@ -741,6 +1018,27 @@ export default function AirSharePage() {
                 <span>{copiedLink ? "Link Copied!" : "Copy Direct Room Link"}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {p2pTransfer && (
+        <div className="fixed bottom-6 right-6 z-50 w-80 p-4 rounded-2xl border shadow-2xl space-y-3" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
+              {p2pTransfer.mode === "send" ? "📤 Sending File..." : "📥 Receiving File..."}
+            </h4>
+            <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{p2pTransfer.progress}%</span>
+          </div>
+          <div className="space-y-1">
+            <div className="text-[11px] truncate font-semibold" style={{ color: "var(--foreground)" }}>{p2pTransfer.fileName}</div>
+            <div className="text-[9px]" style={{ color: "var(--text-muted)" }}>Size: {p2pTransfer.size}</div>
+          </div>
+          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--background)" }}>
+            <div className="h-full transition-all duration-300" style={{ width: `${p2pTransfer.progress}%`, background: "var(--primary)" }} />
+          </div>
+          <div className="text-[9px] flex items-center justify-between" style={{ color: "var(--text-muted)" }}>
+            <span>Status: <strong style={{ color: p2pTransfer.status === "completed" ? "#10b981" : "inherit" }}>{p2pTransfer.status.toUpperCase()}</strong></span>
+            <span>Local WebRTC P2P</span>
           </div>
         </div>
       )}
