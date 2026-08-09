@@ -6,7 +6,8 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node tests/run-all-tests.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

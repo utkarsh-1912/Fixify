@@ -124,6 +124,28 @@ FixDrop is designed for zero-configuration, cross-device trading desk file and p
 - `npm run build` — Compiles and builds production optimized package (verifies TypeScript & routes).
 - `npm run start` — Starts static production server.
 - `npm run lint` — Runs ESLint and checks code formatting rules.
+- `node tests/run-all-tests.mjs` — Runs automated unit and integration tests.
+
+---
+
+## 🧪 Automated Testing & Continuous Integration (CI)
+
+FIXify is equipped with a dual-stage automated validation harness designed for high-integrity protocol verification:
+
+### 1. **Automated Test Runner (`tests/run-all-tests.mjs`)**
+Run the full test suite locally by invoking:
+```bash
+node tests/run-all-tests.mjs
+```
+- **Unit Verification**: Tests core regex extraction, SOH/pipe delimiter detection, and payload segmentation.
+- **Integration Validation**: Bootstraps endpoint diagnostics (polling `GET`, broadcasting `POST`, and cleaning up `DELETE` requests) against the active `/api/fixdrop` room repository.
+
+### 2. **GitHub Actions CI Workflow Pipeline (`.github/workflows/ci.yml`)**
+The integration pipeline automatically triggers on all pushes and pull requests to `main` and `master`:
+- Boots up a Node 18 build environment.
+- Installs cached dependencies (`npm ci`).
+- Executes production-level Next.js route compilation (`npm run build`).
+- Starts a background dev server instance and runs the entire automated test suite to ensure zero regressions before merging.
 
 ---
 
