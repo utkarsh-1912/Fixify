@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import {
-  Share2,
+  Shredder,
   UploadCloud,
   FileText,
   FileCode,
@@ -551,7 +551,7 @@ export default function AirSharePage() {
 
           {sharedItems.length === 0 ? (
             <div className="p-12 rounded-2xl border text-center space-y-3" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-              <Share2 className="h-8 w-8 mx-auto" style={{ color: "var(--text-muted)" }} />
+              <Shredder className="h-8 w-8 mx-auto" style={{ color: "var(--text-muted)" }} />
               <h3 className="text-xs font-bold" style={{ color: "var(--foreground)" }}>Room Stream Empty</h3>
               <button onClick={() => setStage(1)} className="fx-btn-primary py-1.5 px-4 text-xs cursor-pointer">
                 Start Transfer Stage 1

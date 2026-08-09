@@ -5,7 +5,7 @@ import {
   Info, Shield, Zap, Package, ChevronRight, Activity, Terminal, Code, 
   ArrowRightLeft, ShieldAlert, ScanEyeIcon, Layers, TrendingUp, FileCode, 
   MessageSquare, BookOpen, Cpu, GitBranch, Columns, CheckCircle2, Lock,
-  Sparkles, Radio, Database, ArrowUpRight, Search, Globe2, Share2
+  Sparkles, Radio, Database, ArrowUpRight, Search, Globe2, Shredder
 } from "lucide-react";
 import Link from "next/link";
 
@@ -107,7 +107,7 @@ export default function AboutPage() {
     },
     {
       category: 'tools',
-      icon: Share2,
+      icon: Shredder,
       title: 'FixDrop Instant Transfer',
       badge: 'P2P AirBridge',
       desc: 'Staged cross-device sharing for FIX logs, Word, PDF, Excel, and PCAP captures over local Wi-Fi & WebRTC with 4-digit PINs and camera QR pairing.',
