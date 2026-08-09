@@ -124,7 +124,7 @@ export default function Navbar() {
       },
       {
         title: "Utilities & Workspaces",
-        items: navItems.filter(i => ['/flowchart', '/coderunner', '/tasks', '/chat'].includes(i.href)).filter(filterItem)
+        items: navItems.filter(i => ['/flowchart', '/coderunner', '/tasks', '/chat', '/airshare'].includes(i.href)).filter(filterItem)
       }
     ].filter(cat => cat.items.length > 0);
   }, [navItems, mobileSearch]);
