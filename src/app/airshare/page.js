@@ -76,8 +76,63 @@ export default function AirSharePage() {
   const stagedFileObjects = useRef({});
   const activePeerConnections = useRef({});
   const activeDataChannels = useRef({});
+  const activeSendNextChunk = useRef({});
   const [p2pTransfer, setP2pTransfer] = useState(null);
   const myPeerId = useRef(typeof window !== "undefined" ? Math.random().toString(36).substring(2, 8) : "runner");
+  const [selectedItemIds, setSelectedItemIds] = useState([]);
+  const pausedTransfers = useRef({});
+  const speedTimeRef = useRef(Date.now());
+  const speedBytesRef = useRef(0);
+
+  const toggleP2PPause = () => {
+    if (!p2pTransfer) return;
+    const { itemId, mode, status } = p2pTransfer;
+    const isPaused = status === "paused";
+    const nextStatus = isPaused ? "transferring" : "paused";
+
+    if (mode === "send") {
+      pausedTransfers.current[itemId] = !isPaused;
+      setP2pTransfer(prev => prev ? { ...prev, status: nextStatus } : null);
+      if (isPaused) {
+        const fn = activeSendNextChunk.current[itemId];
+        if (fn) fn();
+      }
+      Object.values(activeDataChannels.current).forEach(channel => {
+        if (channel.readyState === "open") {
+          try {
+            channel.send(JSON.stringify({ type: isPaused ? "resume" : "pause", itemId }));
+          } catch (e) {}
+        }
+      });
+    } else {
+      Object.values(activeDataChannels.current).forEach(channel => {
+        if (channel.readyState === "open") {
+          try {
+            channel.send(JSON.stringify({ type: isPaused ? "resume" : "pause", itemId }));
+          } catch (e) {}
+        }
+      });
+      setP2pTransfer(prev => prev ? { ...prev, status: nextStatus } : null);
+    }
+  };
+
+  const playPing = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.45);
+    } catch (e) {}
+  };
 
   const peerConnectionConfig = {
     iceServers: [
@@ -149,6 +204,9 @@ export default function AirSharePage() {
     channel.binaryType = "arraybuffer";
     let offset = 0;
     const chunkSize = 16384;
+    pausedTransfers.current[fileId] = false;
+    speedTimeRef.current = Date.now();
+    speedBytesRef.current = 0;
 
     setP2pTransfer({
       itemId: fileId,
@@ -156,10 +214,14 @@ export default function AirSharePage() {
       fileName: file.name,
       size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
       progress: 0,
-      status: "connecting"
+      status: "connecting",
+      speed: "0 MB/s",
+      eta: "Calculating..."
     });
 
     const sendNextChunk = () => {
+      if (pausedTransfers.current[fileId]) return;
+
       while (offset < file.size) {
         if (channel.bufferedAmount > 65536) {
           return;
@@ -168,16 +230,41 @@ export default function AirSharePage() {
         const reader = new FileReader();
         reader.onload = (e) => {
           if (channel.readyState === "open") {
+            if (pausedTransfers.current[fileId]) return;
             channel.send(e.target.result);
             offset += slice.size;
-            setP2pTransfer({
+
+            const now = Date.now();
+            const timeDiff = now - speedTimeRef.current;
+            let speedMB = "";
+            let etaStr = "";
+            if (timeDiff >= 1000) {
+              const bytesDiff = offset - speedBytesRef.current;
+              const bps = (bytesDiff / timeDiff) * 1000;
+              speedMB = (bps / (1024 * 1024)).toFixed(1) + " MB/s";
+              const remaining = file.size - offset;
+              const etaSec = bps > 0 ? Math.ceil(remaining / bps) : 0;
+              etaStr = etaSec > 0 ? `${Math.floor(etaSec / 60)}m ${etaSec % 60}s` : "0s";
+              
+              speedTimeRef.current = now;
+              speedBytesRef.current = offset;
+            }
+
+            const isDone = offset >= file.size;
+            if (isDone) {
+              playPing();
+            }
+
+            setP2pTransfer(prev => ({
               itemId: fileId,
               mode: "send",
               fileName: file.name,
               size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
-              progress: Math.floor((offset / file.size) * 100),
-              status: offset >= file.size ? "completed" : "transferring"
-            });
+              progress: Math.min(Math.floor((offset / file.size) * 100), 100),
+              status: isDone ? "completed" : "transferring",
+              speed: speedMB || (prev?.speed || "0 MB/s"),
+              eta: etaStr || (prev?.eta || "Calculating...")
+            }));
             sendNextChunk();
           }
         };
@@ -185,17 +272,36 @@ export default function AirSharePage() {
         return;
       }
       if (offset >= file.size) {
-        setTimeout(() => setP2pTransfer(null), 3000);
+        setTimeout(() => setP2pTransfer(null), 4000);
       }
     };
 
     channel.onopen = () => {
       console.log("[P2P] Sender DataChannel is open!");
+      activeSendNextChunk.current[fileId] = sendNextChunk;
       sendNextChunk();
     };
 
     channel.onbufferedamountlow = () => {
       sendNextChunk();
+    };
+
+    channel.onmessage = (event) => {
+      if (typeof event.data === "string") {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "pause") {
+            pausedTransfers.current[fileId] = true;
+            setP2pTransfer(prev => prev ? { ...prev, status: "paused" } : null);
+          } else if (msg.type === "resume") {
+            pausedTransfers.current[fileId] = false;
+            setP2pTransfer(prev => prev ? { ...prev, status: "transferring" } : null);
+            sendNextChunk();
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+      }
     };
 
     channel.onerror = (err) => {
@@ -213,7 +319,9 @@ export default function AirSharePage() {
       fileName: item.name,
       size: item.size,
       progress: 0,
-      status: "connecting"
+      status: "connecting",
+      speed: "0 MB/s",
+      eta: "Calculating..."
     });
 
     const pc = new RTCPeerConnection(peerConnectionConfig);
@@ -235,31 +343,56 @@ export default function AirSharePage() {
       totalBytes = parseFloat(item.size) * 1024;
     }
 
+    speedTimeRef.current = Date.now();
+    speedBytesRef.current = 0;
+
     channel.binaryType = "arraybuffer";
     channel.onmessage = (event) => {
       receivedChunks.push(event.data);
       receivedSize += event.data.byteLength;
+      
+      const now = Date.now();
+      const timeDiff = now - speedTimeRef.current;
+      let speedMB = "";
+      let etaStr = "";
+      if (timeDiff >= 1000) {
+        const bytesDiff = receivedSize - speedBytesRef.current;
+        const bps = (bytesDiff / timeDiff) * 1000;
+        speedMB = (bps / (1024 * 1024)).toFixed(1) + " MB/s";
+        const remaining = totalBytes - receivedSize;
+        const etaSec = bps > 0 ? Math.ceil(remaining / bps) : 0;
+        etaStr = etaSec > 0 ? `${Math.floor(etaSec / 60)}m ${etaSec % 60}s` : "0s";
+        
+        speedTimeRef.current = now;
+        speedBytesRef.current = receivedSize;
+      }
+
       const percent = totalBytes > 0 ? Math.min(Math.floor((receivedSize / totalBytes) * 100), 100) : 0;
-      setP2pTransfer({
+      setP2pTransfer(prev => ({
         itemId: item.id,
         mode: "receive",
         fileName: item.name,
         size: item.size,
         progress: percent,
-        status: "transferring"
-      });
+        status: "transferring",
+        speed: speedMB || (prev?.speed || "0 MB/s"),
+        eta: etaStr || (prev?.eta || "Calculating...")
+      }));
     };
 
     channel.onclose = () => {
       console.log("[P2P] Receiver DataChannel closed. Compiling file...");
       if (receivedChunks.length > 0) {
+        playPing();
         setP2pTransfer({
           itemId: item.id,
           mode: "receive",
           fileName: item.name,
           size: item.size,
           progress: 100,
-          status: "completed"
+          status: "completed",
+          speed: "0 MB/s",
+          eta: "0s"
         });
         const blob = new Blob(receivedChunks, { type: "application/octet-stream" });
         const url = URL.createObjectURL(blob);
@@ -271,7 +404,7 @@ export default function AirSharePage() {
       } else {
         setP2pTransfer(prev => prev ? { ...prev, status: "failed" } : null);
       }
-      setTimeout(() => setP2pTransfer(null), 3000);
+      setTimeout(() => setP2pTransfer(null), 4000);
     };
 
     pc.onicecandidate = (event) => {
@@ -465,6 +598,44 @@ export default function AirSharePage() {
       .replace(/1=\w+/g, "1=ACCT_MASKED")
       .replace(/50=\w+/g, "50=USER_MASKED")
       .replace(/57=\w+/g, "57=DEST_MASKED");
+  };
+
+  const handleDownloadBatchZip = async () => {
+    try {
+      const JSZip = require("jszip");
+      const zip = new JSZip();
+      
+      const selectedItems = sharedItems.filter(item => selectedItemIds.includes(item.id) && item.type === "file");
+      if (selectedItems.length === 0) {
+        alert("Select at least one standard file (non-P2P) to package into a ZIP.");
+        return;
+      }
+
+      for (const item of selectedItems) {
+        if (item.isP2P) {
+          alert(`File "${item.name}" is a P2P stream and cannot be packaged in a client-side ZIP. Please download it individually.`);
+          return;
+        }
+        
+        if (!item.dataUrl) continue;
+        const parts = item.dataUrl.split(",");
+        if (parts.length < 2) continue;
+        const base64Data = parts[1];
+        zip.file(item.name, base64Data, { base64: true });
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `FixDrop_Batch_${pinCode}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSelectedItemIds([]);
+    } catch (e) {
+      console.error(e);
+      alert("Error packaging ZIP file: " + e.message);
+    }
   };
 
   const getDeviceName = () => {
@@ -836,13 +1007,24 @@ export default function AirSharePage() {
       {stage === 3 && (
         <div className="space-y-4 animate-fadeIn">
           
-          <div className="flex items-center justify-between px-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
               <CheckCircle2 className="h-4 w-4" style={{ color: "var(--primary)" }} /> Active AirShare Room Payload Stream ({sharedItems.length})
             </h2>
-            <button onClick={() => setStage(1)} className="fx-btn-primary py-1 px-3 text-xs flex items-center gap-1.5 cursor-pointer">
-              <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share New Item</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {selectedItemIds.length > 0 && (
+                <button
+                  onClick={handleDownloadBatchZip}
+                  className="fx-btn-primary py-1 px-3 text-xs flex items-center gap-1.5 cursor-pointer animate-fadeIn"
+                  style={{ background: "#10b981", borderColor: "#10b981" }}
+                >
+                  <Download className="h-3.5 w-3.5" /> <span>Download ZIP ({selectedItemIds.length})</span>
+                </button>
+              )}
+              <button onClick={() => setStage(1)} className="fx-btn-primary py-1 px-3 text-xs flex items-center gap-1.5 cursor-pointer">
+                <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share New Item</span>
+              </button>
+            </div>
           </div>
 
           {sharedItems.length === 0 ? (
@@ -863,6 +1045,21 @@ export default function AirSharePage() {
                 >
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
+                      {item.type === "file" && !item.isP2P && (
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.includes(item.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedItemIds((prev) => [...prev, item.id]);
+                            } else {
+                              setSelectedItemIds((prev) => prev.filter((id) => id !== item.id));
+                            }
+                          }}
+                          className="mr-1 cursor-pointer"
+                          style={{ accentColor: "var(--primary)" }}
+                        />
+                      )}
                       <span className="font-bold" style={{ color: "var(--foreground)" }}>{item.sender}</span>
                       <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{item.timestamp}</span>
                       {item.isFix && (
@@ -1062,7 +1259,7 @@ export default function AirSharePage() {
         </div>
       )}
       {p2pTransfer && (
-        <div className="fixed bottom-6 right-6 z-50 w-80 p-4 rounded-2xl border shadow-2xl space-y-3" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+        <div className="fixed bottom-6 right-6 z-50 w-80 p-4 rounded-2xl border shadow-2xl space-y-3 animate-fadeIn" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
               {p2pTransfer.mode === "send" ? "📤 Sending File..." : "📥 Receiving File..."}
@@ -1071,15 +1268,33 @@ export default function AirSharePage() {
           </div>
           <div className="space-y-1">
             <div className="text-[11px] truncate font-semibold" style={{ color: "var(--foreground)" }}>{p2pTransfer.fileName}</div>
-            <div className="text-[9px]" style={{ color: "var(--text-muted)" }}>Size: {p2pTransfer.size}</div>
+            <div className="text-[9px] flex items-center justify-between" style={{ color: "var(--text-muted)" }}>
+              <span>Size: {p2pTransfer.size}</span>
+              {p2pTransfer.status === "transferring" && p2pTransfer.speed && (
+                <span>{p2pTransfer.speed} ({p2pTransfer.eta})</span>
+              )}
+            </div>
           </div>
           <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--background)" }}>
             <div className="h-full transition-all duration-300" style={{ width: `${p2pTransfer.progress}%`, background: "var(--primary)" }} />
           </div>
           <div className="text-[9px] flex items-center justify-between" style={{ color: "var(--text-muted)" }}>
-            <span>Status: <strong style={{ color: p2pTransfer.status === "completed" ? "#10b981" : "inherit" }}>{p2pTransfer.status.toUpperCase()}</strong></span>
+            <span>Status: <strong style={{ color: p2pTransfer.status === "completed" ? "#10b981" : p2pTransfer.status === "paused" ? "#f59e0b" : "inherit" }}>{p2pTransfer.status.toUpperCase()}</strong></span>
             <span>Local WebRTC P2P</span>
           </div>
+          {(p2pTransfer.status === "transferring" || p2pTransfer.status === "paused") && (
+            <button
+              onClick={toggleP2PPause}
+              className="w-full py-1.5 rounded-xl border text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all"
+              style={{
+                background: p2pTransfer.status === "paused" ? "var(--primary-faint)" : "var(--background)",
+                borderColor: "var(--border)",
+                color: "var(--foreground)"
+              }}
+            >
+              {p2pTransfer.status === "paused" ? "▶ Resume Transfer" : "⏸ Pause Transfer"}
+            </button>
+          )}
         </div>
       )}
 
