@@ -21,47 +21,7 @@ import {
 } from "lucide-react";
 
 // Seed data with realistic FIX conformance milestones, subtasks, priorities, and history
-const initialTasks = [
-  {
-    id: "TASK-101",
-    title: "Implement Heartbeat (35=0) Verification",
-    description: "Verify that heartbeat messages are sent at the defined HeartBtInt interval and handle test requests.",
-    status: "todo",
-    row: "default",
-    assignee: "Alex",
-    priority: "high",
-    subtasks: [
-      { text: "Heartbeat response logic", completed: true },
-      { text: "Missed heartbeat timeout", completed: false }
-    ],
-    comments: [],
-    history: [{ text: "Task created", timestamp: new Date().toISOString() }]
-  },
-  {
-    id: "TASK-102",
-    title: "Implement Test Request (35=1) Logic",
-    description: "Send test requests if heartbeat has not been received and verify the response contains matching TestReqID.",
-    status: "doing",
-    row: "default",
-    assignee: "Emma",
-    priority: "medium",
-    subtasks: [],
-    comments: [],
-    history: [{ text: "Task created", timestamp: new Date().toISOString() }]
-  },
-  {
-    id: "TASK-103",
-    title: "Verify Logon (35=A) Sequence Reset",
-    description: "Ensure ResetSeqNumFlag (141=Y) behavior is correct when establishing new session connection.",
-    status: "done",
-    row: "default",
-    assignee: "Sofia",
-    priority: "low",
-    subtasks: [],
-    comments: [],
-    history: [{ text: "Task created", timestamp: new Date().toISOString() }]
-  }
-];
+const initialTasks = [];
 
 const DEFAULT_COLUMN_CONFIG = {
   todo:  { label: 'To Do',       color: '#3b82f6', bg: 'rgba(59,130,246,0.06)'  },
