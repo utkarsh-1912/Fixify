@@ -70,6 +70,22 @@
 
 ---
 
+## 📡 FixDrop Data Transfer Architecture
+
+FixDrop is designed for zero-configuration, cross-device trading desk file and payload relay. It operates on three concurrent communication channels to transfer files and strings up to **25 MB**:
+
+### Supported Data Streams & Encoding:
+- **FIX Protocol Logs**: Strings parsed with `validateFIXMessage()` for Tag 35 identification and automatically masked for PII (Tags 1, 50, 57).
+- **Binary PCAP & Decoders**: Network packet captures (`.pcap`) and FAST/SBE binary logs encoded as Base64 DataURLs via `FileReader.readAsDataURL()`.
+- **Trading Desk Documents**: PDFs, Word docs, Excel sheets, and CSV blottings transferred with extension-specific badges and file metrics.
+
+### Transfer Transport Channels:
+1. **Local Subnet & `BroadcastChannel` (Zero Latency)**: Connected tabs on the same subnet communicate instantly via native BroadcastChannel API events.
+2. **Next.js API Relay (`/api/fixdrop`)**: Direct room-based synchronization relaying payloads in server memory keyed by room PIN.
+3. **Camera QR Pairing**: Encodes `https://<domain>/airshare?pin=XXXX` to instantly join mobile camera optics to the active room.
+
+---
+
 ## ⚙️ Getting Started
 
 ### Prerequisites

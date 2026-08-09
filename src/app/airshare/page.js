@@ -32,6 +32,7 @@ import {
   Info
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
+import { shareToFixDrop, fetchFixDropRoom } from "@/lib/fixDropService";
 
 // Standard Spec QR Matrix Generator with 2-module quiet zone margin
 function QuickQRCodeSVG({ value, size = 180 }) {
@@ -148,6 +149,36 @@ export default function AirSharePage() {
     } catch (e) {}
   }, []);
 
+  // Poll backend API & BroadcastChannel for real-time live room updates
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let isMounted = true;
+    const syncRoomData = async () => {
+      const res = await fetchFixDropRoom(pinCode);
+      if (res?.success && res.items && isMounted) {
+        if (res.items.length > 0) {
+          setSharedItems(res.items);
+        }
+      }
+    };
+
+    syncRoomData();
+    const interval = setInterval(syncRoomData, 3000);
+
+    let channel;
+    try {
+      channel = new BroadcastChannel("fixify-airshare-channel");
+      channel.onmessage = () => syncRoomData();
+    } catch (e) {}
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      if (channel) channel.close();
+    };
+  }, [pinCode]);
+
   // If Room Stream becomes empty while on Stage 3, auto-switch back to Stage 1 (Input)
   useEffect(() => {
     if (stage === 3 && sharedItems.length === 0) {
@@ -180,6 +211,17 @@ export default function AirSharePage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    maxSize: 25 * 1024 * 1024, // 25 MB max file size limit
+    onDropRejected: (fileRejections) => {
+      fileRejections.forEach((rejection) => {
+        const tooLarge = rejection.errors.some((e) => e.code === "file-too-large");
+        if (tooLarge) {
+          alert(`File "${rejection.file.name}" exceeds the 25 MB file size limit.`);
+        } else {
+          alert(`File "${rejection.file.name}" was rejected. Please select valid documents or FIX log files.`);
+        }
+      });
+    },
     accept: {
       "application/pdf": [".pdf"],
       "application/msword": [".doc"],
@@ -204,7 +246,7 @@ export default function AirSharePage() {
       .replace(/57=\w+/g, "57=DEST_MASKED");
   };
 
-  const processAndBroadcast = () => {
+  const processAndBroadcast = async () => {
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const newBroadcasts = [];
 
@@ -213,7 +255,7 @@ export default function AirSharePage() {
       if (autoSanitize) finalContent = sanitizeText(finalContent);
       const parsed = validateFIXMessage(finalContent);
 
-      newBroadcasts.push({
+      const item = {
         id: Date.now().toString(),
         type: "text",
         sender: "Device_Local",
@@ -221,12 +263,15 @@ export default function AirSharePage() {
         content: finalContent,
         isFix: parsed?.isValid || false,
         msgType: parsed?.msgTypeName || null
-      });
+      };
+
+      newBroadcasts.push(item);
+      await shareToFixDrop({ pin: pinCode, type: "text", content: finalContent, sender: "Device_Local" });
     }
 
     if (inputMode === "file" && stagedFiles.length > 0) {
-      stagedFiles.forEach((file) => {
-        newBroadcasts.push({
+      for (const file of stagedFiles) {
+        const item = {
           id: file.id,
           type: "file",
           sender: "Device_Local",
@@ -235,8 +280,10 @@ export default function AirSharePage() {
           size: file.size,
           dataUrl: file.dataUrl,
           meta: file.meta
-        });
-      });
+        };
+        newBroadcasts.push(item);
+        await shareToFixDrop({ pin: pinCode, type: "file", name: file.name, size: file.size, dataUrl: file.dataUrl, sender: "Device_Local" });
+      }
     }
 
     setSharedItems((prev) => [...newBroadcasts, ...prev]);
