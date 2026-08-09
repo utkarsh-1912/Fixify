@@ -30,7 +30,9 @@ import {
   Send,
   Sliders,
   CheckCircle2,
-  Info
+  Info,
+  Play,
+  Pause
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
 import { shareToFixDrop, fetchFixDropRoom, fetchWebRTCSignals, sendWebRTCSignal } from "@/lib/fixDropService";
@@ -68,6 +70,27 @@ export default function AirSharePage() {
   const [autoSanitize, setAutoSanitize] = useState(true);
   const [pinCode, setPinCode] = useState("7492");
   const [sharedItems, setSharedItems] = useState([]);
+  const bundledItems = useMemo(() => {
+    const bundles = [];
+    let currentBundle = null;
+
+    for (const item of sharedItems) {
+      const itemSenderId = item.senderId || null;
+      if (currentBundle && currentBundle.sender === item.sender && currentBundle.senderId === itemSenderId) {
+        currentBundle.items.push(item);
+      } else {
+        currentBundle = {
+          id: item.id,
+          sender: item.sender,
+          senderId: itemSenderId,
+          timestamp: item.timestamp,
+          items: [item]
+        };
+        bundles.push(currentBundle);
+      }
+    }
+    return bundles;
+  }, [sharedItems]);
   const [copiedId, setCopiedId] = useState(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -78,7 +101,14 @@ export default function AirSharePage() {
   const activeDataChannels = useRef({});
   const activeSendNextChunk = useRef({});
   const [p2pTransfer, setP2pTransfer] = useState(null);
-  const myPeerId = useRef(typeof window !== "undefined" ? Math.random().toString(36).substring(2, 8) : "runner");
+  const myPeerId = useRef(typeof window !== "undefined" ? (() => {
+    let id = localStorage.getItem("fixify-peer-id");
+    if (!id) {
+      id = "peer_" + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem("fixify-peer-id", id);
+    }
+    return id;
+  })() : "runner");
   const [selectedItemIds, setSelectedItemIds] = useState([]);
   const pausedTransfers = useRef({});
   const speedTimeRef = useRef(Date.now());
@@ -137,7 +167,11 @@ export default function AirSharePage() {
   const peerConnectionConfig = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" }
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+      { urls: "stun:stun3.l.google.com:19302" },
+      { urls: "stun:stun4.l.google.com:19302" },
+      { urls: "stun:stun.services.mozilla.com" }
     ]
   };
 
@@ -149,7 +183,15 @@ export default function AirSharePage() {
 
     if (type === "offer") {
       const file = stagedFileObjects.current[itemId];
-      if (!file) return;
+      if (!file) {
+        console.warn(`[P2P] Offer received for file ${itemId}, but file buffer is not in sender memory.`);
+        await sendWebRTCSignal({
+          pin: pinCode,
+          sender: myPeerId.current,
+          signal: { type: "error", itemId, message: "File memory buffer unavailable on sender tab", targetPeerId: remotePeerId }
+        });
+        return;
+      }
 
       console.log(`[P2P] Received offer for file ${itemId} from peer ${remotePeerId}`);
       const pc = new RTCPeerConnection(peerConnectionConfig);
@@ -167,6 +209,7 @@ export default function AirSharePage() {
 
       pc.ondatachannel = (event) => {
         const channel = event.channel;
+        channel.bufferedAmountLowThreshold = 65536;
         activeDataChannels.current[remotePeerId] = channel;
         setupSenderDataChannel(channel, file, itemId);
       };
@@ -198,79 +241,62 @@ export default function AirSharePage() {
         }
       }
     }
+    else if (type === "error" && signal.targetPeerId === myPeerId.current) {
+      console.warn(`[P2P] Signal error received from peer ${remotePeerId}:`, signal.message);
+      setP2pTransfer(prev => prev ? { ...prev, status: "failed" } : null);
+      setTimeout(() => setP2pTransfer(null), 4000);
+    }
   };
 
   const setupSenderDataChannel = (channel, file, fileId) => {
     channel.binaryType = "arraybuffer";
     let offset = 0;
-    const chunkSize = 16384;
-    pausedTransfers.current[fileId] = false;
-    speedTimeRef.current = Date.now();
-    speedBytesRef.current = 0;
-
-    setP2pTransfer({
-      itemId: fileId,
-      mode: "send",
-      fileName: file.name,
-      size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
-      progress: 0,
-      status: "connecting",
-      speed: "0 MB/s",
-      eta: "Calculating..."
-    });
+    const chunkSize = 65536; // 64KB optimal chunk size
+    channel.bufferedAmountLowThreshold = chunkSize;
 
     const sendNextChunk = () => {
       if (pausedTransfers.current[fileId]) return;
 
-      while (offset < file.size) {
-        if (channel.bufferedAmount > 65536) {
-          return;
-        }
+      while (offset < file.size && channel.bufferedAmount <= channel.bufferedAmountLowThreshold) {
+        if (channel.readyState !== "open") return;
+
         const slice = file.slice(offset, offset + chunkSize);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (channel.readyState === "open") {
-            if (pausedTransfers.current[fileId]) return;
-            channel.send(e.target.result);
-            offset += slice.size;
+        channel.send(slice);
+        offset += slice.size;
 
-            const now = Date.now();
-            const timeDiff = now - speedTimeRef.current;
-            let speedMB = "";
-            let etaStr = "";
-            if (timeDiff >= 1000) {
-              const bytesDiff = offset - speedBytesRef.current;
-              const bps = (bytesDiff / timeDiff) * 1000;
-              speedMB = (bps / (1024 * 1024)).toFixed(1) + " MB/s";
-              const remaining = file.size - offset;
-              const etaSec = bps > 0 ? Math.ceil(remaining / bps) : 0;
-              etaStr = etaSec > 0 ? `${Math.floor(etaSec / 60)}m ${etaSec % 60}s` : "0s";
-              
-              speedTimeRef.current = now;
-              speedBytesRef.current = offset;
-            }
+        const now = Date.now();
+        const timeDiff = now - speedTimeRef.current;
+        let speedMB = "";
+        let etaStr = "";
+        if (timeDiff >= 1000) {
+          const bytesDiff = offset - speedBytesRef.current;
+          const bps = (bytesDiff / timeDiff) * 1000;
+          speedMB = (bps / (1024 * 1024)).toFixed(1) + " MB/s";
+          const remaining = file.size - offset;
+          const etaSec = bps > 0 ? Math.ceil(remaining / bps) : 0;
+          etaStr = etaSec > 0 ? `${Math.floor(etaSec / 60)}m ${etaSec % 60}s` : "0s";
+          
+          speedTimeRef.current = now;
+          speedBytesRef.current = offset;
+        }
 
-            const isDone = offset >= file.size;
-            if (isDone) {
-              playPing();
-            }
+        const isDone = offset >= file.size;
+        if (isDone) {
+          playPing();
+        }
 
-            setP2pTransfer(prev => ({
-              itemId: fileId,
-              mode: "send",
-              fileName: file.name,
-              size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
-              progress: Math.min(Math.floor((offset / file.size) * 100), 100),
-              status: isDone ? "completed" : "transferring",
-              speed: speedMB || (prev?.speed || "0 MB/s"),
-              eta: etaStr || (prev?.eta || "Calculating...")
-            }));
-            sendNextChunk();
-          }
-        };
-        reader.readAsArrayBuffer(slice);
-        return;
+        setP2pTransfer(prev => ({
+          itemId: fileId,
+          mode: "send",
+          fileName: file.name,
+          size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
+          progress: Math.min(Math.floor((offset / file.size) * 100), 100),
+          status: isDone ? "completed" : "transferring",
+          speed: speedMB || (prev?.speed || "0 MB/s"),
+          eta: etaStr || (prev?.eta || "Calculating...")
+        }));
       }
+
       if (offset >= file.size) {
         setTimeout(() => setP2pTransfer(null), 4000);
       }
@@ -281,6 +307,12 @@ export default function AirSharePage() {
       activeSendNextChunk.current[fileId] = sendNextChunk;
       sendNextChunk();
     };
+
+    if (channel.readyState === "open") {
+      console.log("[P2P] Sender DataChannel is already open!");
+      activeSendNextChunk.current[fileId] = sendNextChunk;
+      sendNextChunk();
+    }
 
     channel.onbufferedamountlow = () => {
       sendNextChunk();
@@ -325,10 +357,11 @@ export default function AirSharePage() {
     });
 
     const pc = new RTCPeerConnection(peerConnectionConfig);
-    const remotePeerId = "sender_" + Math.random().toString(36).substring(2, 6);
+    const remotePeerId = item.senderId || ("sender_" + Math.random().toString(36).substring(2, 6));
     activePeerConnections.current[remotePeerId] = pc;
 
     const channel = pc.createDataChannel("p2p-file-transfer");
+    channel.bufferedAmountLowThreshold = 65536;
     activeDataChannels.current[remotePeerId] = channel;
 
     const receivedChunks = [];
@@ -347,6 +380,23 @@ export default function AirSharePage() {
     speedBytesRef.current = 0;
 
     channel.binaryType = "arraybuffer";
+    channel.onopen = () => {
+      console.log("[P2P] Receiver DataChannel is open!");
+      setP2pTransfer(prev => prev ? { ...prev, status: "transferring" } : null);
+    };
+
+    if (channel.readyState === "open") {
+      setP2pTransfer(prev => prev ? { ...prev, status: "transferring" } : null);
+    }
+
+    pc.onconnectionstatechange = () => {
+      console.log("[P2P] PeerConnection state:", pc.connectionState);
+      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+        setP2pTransfer(prev => prev ? { ...prev, status: "failed" } : null);
+        setTimeout(() => setP2pTransfer(null), 4000);
+      }
+    };
+
     channel.onmessage = (event) => {
       receivedChunks.push(event.data);
       receivedSize += event.data.byteLength;
@@ -423,7 +473,7 @@ export default function AirSharePage() {
     await sendWebRTCSignal({
       pin: pinCode,
       sender: myPeerId.current,
-      signal: { type: "offer", itemId: item.id, sdp: offer.sdp }
+      signal: { type: "offer", itemId: item.id, sdp: offer.sdp, targetPeerId: remotePeerId }
     });
   };
 
@@ -431,7 +481,7 @@ export default function AirSharePage() {
     if (typeof window === "undefined" || stage !== 3) return;
 
     const interval = setInterval(async () => {
-      const res = await fetchWebRTCSignals(pinCode);
+      const res = await fetchWebRTCSignals(pinCode, myPeerId.current);
       if (res?.success && res.signals && res.signals.length > 0) {
         for (const sig of res.signals) {
           handleIncomingSignal(sig);
@@ -523,9 +573,10 @@ export default function AirSharePage() {
   const onDrop = useCallback((acceptedFiles) => {
     acceptedFiles.forEach((file) => {
       const fileId = Date.now().toString() + "_" + Math.random().toString(36).substring(2, 5);
-      
-      // If file is larger than 2MB, register it as a WebRTC P2P stream instead of reading it in RAM
-      if (file.size > 2 * 1024 * 1024) {
+      stagedFileObjects.current[fileId] = file;
+
+      // If file is larger than 50MB, register it as a WebRTC P2P stream instead of reading it in RAM
+      if (file.size > 50 * 1024 * 1024) {
         stagedFileObjects.current[fileId] = file;
         const fileObj = {
           id: fileId,
@@ -1058,132 +1109,180 @@ export default function AirSharePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {sharedItems.map((item) => (
+              {bundledItems.map((bundle) => (
                 <div
-                  key={item.id}
-                  className="p-4 rounded-2xl border space-y-3 transition-all"
+                  key={bundle.id}
+                  className="p-4 rounded-2xl border space-y-3 transition-all animate-fadeIn"
                   style={{ background: "var(--card)", borderColor: "var(--border)" }}
                 >
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      {item.type === "file" && !item.isP2P && (
-                        <input
-                          type="checkbox"
-                          checked={selectedItemIds.includes(item.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedItemIds((prev) => [...prev, item.id]);
-                            } else {
-                              setSelectedItemIds((prev) => prev.filter((id) => id !== item.id));
-                            }
-                          }}
-                          className="mr-1 cursor-pointer"
-                          style={{ accentColor: "var(--primary)" }}
-                        />
-                      )}
-                      <span className="font-bold" style={{ color: "var(--foreground)" }}>{item.sender}</span>
-                      <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{item.timestamp}</span>
-                      {item.isFix && (
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border" style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}>
-                          {item.msgType || "FIX Message"}
-                        </span>
-                      )}
-                      {item.type === "file" && item.meta && (
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border" style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}>
-                          {item.meta.label}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {item.isFix && (
-                        <>
-                          <button
-                            onClick={() => {
-                              if (typeof window !== "undefined") localStorage.setItem("fixify-compare-msg1", item.content);
-                              window.location.href = "/compare";
-                            }}
-                            className="px-2 py-1 rounded-lg transition-all border flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
-                            style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
-                          >
-                            <GitCompare className="h-3 w-3" /> <span className="hidden sm:inline">Compare</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              window.location.href = `/interpreter?q=${encodeURIComponent("Explain this FIX log message in detail: " + item.content)}`;
-                            }}
-                            className="px-2 py-1 rounded-lg transition-all border flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
-                            style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
-                          >
-                            <Brain className="h-3 w-3" /> <span className="hidden sm:inline">FIXi AI</span>
-                          </button>
-                        </>
-                      )}
-
-                      {item.type === "text" ? (
-                        <button
-                          onClick={() => handleCopy(item.id, item.content)}
-                          className="p-1.5 rounded-lg transition-all flex items-center gap-1 text-xs cursor-pointer"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          {copiedId === item.id ? <Check className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} /> : <Copy className="h-3.5 w-3.5" />}
-                          <span className="hidden sm:inline">{copiedId === item.id ? "Copied!" : "Copy"}</span>
-                        </button>
-                      ) : item.isP2P ? (
-                        <button
-                          onClick={() => handleP2PDownload(item)}
-                          className="px-3 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold cursor-pointer"
-                          style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
-                        >
-                          <Download className="h-3.5 w-3.5 animate-pulse" /> <span className="hidden sm:inline">P2P Download</span> <span className="font-mono">({item.size})</span>
-                        </button>
-                      ) : (
-                        <a
-                          href={item.dataUrl}
-                          download={item.name}
-                          className="px-3 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold"
-                          style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
-                        >
-                          <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download</span> <span className="font-mono">({item.size})</span>
-                        </a>
-                      )}
-
-                      {(!item.senderId || item.senderId === myPeerId.current) && (
-                        <button
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="p-1.5 rounded-lg transition-all cursor-pointer hover:text-red-500"
-                          style={{ color: "var(--text-muted)" }}
-                          title="Delete Payload"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                  {/* Bundle Header */}
+                  <div className="flex items-center justify-between text-xs pb-2 border-b" style={{ borderColor: "var(--border)" }}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-[13px]" style={{ color: "var(--foreground)" }}>{bundle.sender}</span>
+                      <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{bundle.timestamp}</span>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: "var(--background)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                        {bundle.items.length} {bundle.items.length === 1 ? "item" : "items"}
+                      </span>
                     </div>
                   </div>
 
-                  {item.type === "text" ? (
-                    <div className="p-3 rounded-xl border font-mono text-xs break-all whitespace-pre-wrap max-h-32 overflow-y-auto fx-custom-scroll" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
-                      {item.content}
-                    </div>
-                  ) : (
-                    <div className="p-3 rounded-xl border space-y-2 text-xs font-mono" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
-                      <div className="flex items-center justify-between">
-                        <span>{item.name}</span>
-                        <span style={{ color: "var(--text-muted)" }}>{item.size}</span>
-                      </div>
-                      {p2pTransfer && p2pTransfer.itemId === item.id && (
-                        <div className="space-y-1.5 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                          <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--text-muted)" }}>
-                            <span>{p2pTransfer.mode === "send" ? "Uploading P2P..." : "Downloading P2P..."}</span>
-                            <span>{p2pTransfer.progress}%</span>
+                  {/* Bundle Items List */}
+                  <div className="space-y-3 pt-1">
+                    {bundle.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 md:p-2.5 rounded-xl border md:border-0 md:border-b last:border-b-0 space-y-2.5 md:space-y-0 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs transition-all"
+                        style={{ background: "var(--background)", borderColor: "var(--border)" }}
+                      >
+                        {/* Left / Top Section: Checkbox, Icon, Filename, Size, Badges */}
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {item.type === "file" && !item.isP2P && (
+                            <input
+                              type="checkbox"
+                              checked={selectedItemIds.includes(item.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedItemIds((prev) => [...prev, item.id]);
+                                } else {
+                                  setSelectedItemIds((prev) => prev.filter((id) => id !== item.id));
+                                }
+                              }}
+                              className="cursor-pointer flex-shrink-0"
+                              style={{ accentColor: "var(--primary)" }}
+                            />
+                          )}
+
+                          {/* Type Icon */}
+                          <div className="flex-shrink-0 p-1.5 rounded-lg border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+                            {item.type === "text" ? (
+                              <FileText className="h-4 w-4" style={{ color: "var(--primary)" }} />
+                            ) : (
+                              (() => {
+                                const IconComp = item.meta?.icon || FileCheck;
+                                return <IconComp className="h-4 w-4" style={{ color: "var(--primary)" }} />;
+                              })()
+                            )}
                           </div>
-                          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--card)" }}>
-                            <div className="h-full bg-primary" style={{ width: `${p2pTransfer.progress}%`, background: "var(--primary)" }} />
+
+                          {/* File Details */}
+                          <div className="min-w-0 flex-1 flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-semibold text-xs truncate" style={{ color: "var(--foreground)" }}>
+                                {item.type === "file" ? item.name : (item.content.slice(0, 50) + (item.content.length > 50 ? "..." : ""))}
+                              </span>
+                              {item.type === "file" && (
+                                <span className="text-[10px] font-mono flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+                                  ({item.size})
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {item.isFix && (
+                                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border" style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}>
+                                  {item.msgType || "FIX"}
+                                </span>
+                              )}
+                              {item.type === "file" && item.meta && (
+                                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border" style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}>
+                                  {item.meta.label}
+                                </span>
+                              )}
+                              {item.isP2P && (
+                                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border" style={{ background: "rgba(16, 185, 129, 0.1)", borderColor: "rgba(16, 185, 129, 0.3)", color: "#10b981" }}>
+                                  WebRTC P2P
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+
+                        {/* Actions Bar (Row on Desktop, Clean Bottom Section on Mobile) */}
+                        <div className="flex items-center justify-between md:justify-end gap-2 flex-wrap flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0" style={{ borderColor: "var(--border)" }}>
+                          {p2pTransfer && p2pTransfer.itemId === item.id && (
+                            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg border text-[10px] font-mono w-full md:w-auto justify-between" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+                              <span>{p2pTransfer.mode === "send" ? "Uploading P2P" : "Downloading P2P"}: <strong style={{ color: "var(--primary)" }}>{p2pTransfer.progress}%</strong></span>
+                              <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                                <div className="h-full bg-primary" style={{ width: `${p2pTransfer.progress}%`, background: "var(--primary)" }} />
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
+                            {item.isFix && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    if (typeof window !== "undefined") localStorage.setItem("fixify-compare-msg1", item.content);
+                                    window.location.href = "/compare";
+                                  }}
+                                  className="px-2 py-1 rounded-lg transition-all border flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
+                                  style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
+                                >
+                                  <GitCompare className="h-3 w-3" /> <span>Compare</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    window.location.href = `/interpreter?q=${encodeURIComponent("Explain this FIX log message in detail: " + item.content)}`;
+                                  }}
+                                  className="px-2 py-1 rounded-lg transition-all border flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
+                                  style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
+                                >
+                                  <Brain className="h-3 w-3" /> <span>FIXi AI</span>
+                                </button>
+                              </>
+                            )}
+
+                            {item.type === "text" ? (
+                              <button
+                                onClick={() => handleCopy(item.id, item.content)}
+                                className="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 text-xs cursor-pointer border"
+                                style={{ color: "var(--text-muted)", borderColor: "var(--border)" }}
+                              >
+                                {copiedId === item.id ? <Check className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} /> : <Copy className="h-3.5 w-3.5" />}
+                                <span>{copiedId === item.id ? "Copied!" : "Copy"}</span>
+                              </button>
+                            ) : item.isP2P ? (
+                              <button
+                                onClick={() => handleP2PDownload(item)}
+                                className="px-3 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                                style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
+                              >
+                                <Download className="h-3.5 w-3.5 animate-pulse" /> <span>P2P Download</span>
+                              </button>
+                            ) : (
+                              <a
+                                href={item.dataUrl}
+                                download={item.name}
+                                className="px-3 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold"
+                                style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
+                              >
+                                <Download className="h-3.5 w-3.5" /> <span>Download</span>
+                              </a>
+                            )}
+
+                            {(!item.senderId || item.senderId === myPeerId.current) && (
+                              <button
+                                onClick={() => handleDeleteItem(item.id)}
+                                className="p-1.5 rounded-lg transition-all cursor-pointer hover:text-red-500 border md:border-0"
+                                style={{ color: "var(--text-muted)", borderColor: "var(--border)" }}
+                                title="Delete Payload"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Full scrollable content box for text items */}
+                        {item.type === "text" && (
+                          <div className="p-3 rounded-xl border font-mono text-xs break-all whitespace-pre-wrap max-h-32 overflow-y-auto fx-custom-scroll" style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}>
+                            {item.content}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1283,40 +1382,96 @@ export default function AirSharePage() {
         </div>
       )}
       {p2pTransfer && (
-        <div className="fixed bottom-6 right-6 z-50 w-80 p-4 rounded-2xl border shadow-2xl space-y-3 animate-fadeIn" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+        <div
+          className="fixed bottom-6 right-6 z-50 w-80 p-4 rounded-2xl border shadow-2xl space-y-2.5 animate-fadeIn"
+          style={{ background: "var(--card)", borderColor: "var(--border)" }}
+        >
+          {/* Toaster Header with X Close Button */}
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
-              {p2pTransfer.mode === "send" ? "📤 Sending File..." : "📥 Receiving File..."}
+              {p2pTransfer.mode === "send" ? <UploadCloud className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} /> : <Download className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} />}
+              <span>{p2pTransfer.mode === "send" ? "Sending File..." : "Receiving File..."}</span>
             </h4>
-            <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{p2pTransfer.progress}%</span>
+            <button
+              onClick={() => setP2pTransfer(null)}
+              className="p-1 rounded-lg transition-all hover:bg-background cursor-pointer"
+              style={{ color: "var(--text-muted)" }}
+              title="Close Toaster"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <div className="space-y-1">
-            <div className="text-[11px] truncate font-semibold" style={{ color: "var(--foreground)" }}>{p2pTransfer.fileName}</div>
-            <div className="text-[9px] flex items-center justify-between" style={{ color: "var(--text-muted)" }}>
-              <span>Size: {p2pTransfer.size}</span>
-              {p2pTransfer.status === "transferring" && p2pTransfer.speed && (
-                <span>{p2pTransfer.speed} ({p2pTransfer.eta})</span>
-              )}
-            </div>
+
+          {/* Filename & Progress */}
+          <div className="flex items-center justify-between text-xs gap-2">
+            <span className="truncate font-semibold text-[11px]" style={{ color: "var(--foreground)" }}>
+              {p2pTransfer.fileName}
+            </span>
+            <span className="text-[11px] font-mono font-bold flex-shrink-0" style={{ color: "var(--primary)" }}>
+              {p2pTransfer.progress}%
+            </span>
           </div>
-          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--background)" }}>
-            <div className="h-full transition-all duration-300" style={{ width: `${p2pTransfer.progress}%`, background: "var(--primary)" }} />
+
+          {/* Progress Bar */}
+          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--background)" }}>
+            <div
+              className="h-full transition-all duration-300"
+              style={{ width: `${p2pTransfer.progress}%`, background: "var(--primary)" }}
+            />
           </div>
-          <div className="text-[9px] flex items-center justify-between" style={{ color: "var(--text-muted)" }}>
-            <span>Status: <strong style={{ color: p2pTransfer.status === "completed" ? "#10b981" : p2pTransfer.status === "paused" ? "#f59e0b" : "inherit" }}>{p2pTransfer.status.toUpperCase()}</strong></span>
-            <span>Local WebRTC P2P</span>
+
+          {/* Useful Metadata Bar */}
+          <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--text-muted)" }}>
+            <span>
+              {p2pTransfer.size}
+              {p2pTransfer.speed && p2pTransfer.status === "transferring" && ` • ${p2pTransfer.speed} (${p2pTransfer.eta})`}
+            </span>
+            <span
+              className="font-mono font-bold px-1.5 py-0.2 rounded border uppercase text-[9px]"
+              style={{
+                background:
+                  p2pTransfer.status === "completed"
+                    ? "rgba(16, 185, 129, 0.1)"
+                    : p2pTransfer.status === "failed"
+                    ? "rgba(239, 68, 68, 0.1)"
+                    : p2pTransfer.status === "paused"
+                    ? "rgba(245, 158, 11, 0.1)"
+                    : "var(--primary-faint)",
+                borderColor:
+                  p2pTransfer.status === "completed"
+                    ? "rgba(16, 185, 129, 0.3)"
+                    : p2pTransfer.status === "failed"
+                    ? "rgba(239, 68, 68, 0.3)"
+                    : p2pTransfer.status === "paused"
+                    ? "rgba(245, 158, 11, 0.3)"
+                    : "var(--primary-border)",
+                color:
+                  p2pTransfer.status === "completed"
+                    ? "#10b981"
+                    : p2pTransfer.status === "failed"
+                    ? "#ef4444"
+                    : p2pTransfer.status === "paused"
+                    ? "#f59e0b"
+                    : "var(--primary)"
+              }}
+            >
+              {p2pTransfer.status}
+            </span>
           </div>
+
+          {/* Pause / Resume Controls */}
           {(p2pTransfer.status === "transferring" || p2pTransfer.status === "paused") && (
             <button
               onClick={toggleP2PPause}
-              className="w-full py-1.5 rounded-xl border text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all"
+              className="w-full py-1.5 rounded-xl border text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all mt-1"
               style={{
                 background: p2pTransfer.status === "paused" ? "var(--primary-faint)" : "var(--background)",
                 borderColor: "var(--border)",
                 color: "var(--foreground)"
               }}
             >
-              {p2pTransfer.status === "paused" ? "▶ Resume Transfer" : "⏸ Pause Transfer"}
+              {p2pTransfer.status === "paused" ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              <span>{p2pTransfer.status === "paused" ? "Resume Transfer" : "Pause Transfer"}</span>
             </button>
           )}
         </div>

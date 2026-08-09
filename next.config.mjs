@@ -3,6 +3,11 @@ import path from 'path';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '75mb',
+    },
+  },
   turbopack: {
     root: process.cwd(),
   },

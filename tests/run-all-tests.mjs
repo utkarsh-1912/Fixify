@@ -129,10 +129,59 @@ async function runIntegrationTests() {
     assert(t3.body.items[0].sender.startsWith('CI_Runner'), 'Sender mismatch in retrieved item');
     console.log('✅ Integration Test 3: Verify item retention Passed');
 
+    // 3.5. WebRTC P2P Signaling & Target Routing Test
+    // Post signal from Receiver to Sender_Peer
+    const postSig = await makeRequest({
+      host,
+      port,
+      path: '/api/fixdrop',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }, {
+      action: 'signal',
+      pin,
+      sender: 'Receiver_Peer',
+      signal: { type: 'offer', itemId: 'item_123', sdp: 'dummy-sdp', targetPeerId: 'Sender_Peer' }
+    });
+    assert(postSig.body.success === true, 'Failed to post signaling message');
+
+    // Fetch signal as a different peer (Other_Peer) -> should be empty
+    const otherFetch = await makeRequest({
+      host,
+      port,
+      path: `/api/fixdrop?pin=${pin}&action=signal&peerId=Other_Peer`,
+      method: 'GET'
+    });
+    assert(otherFetch.body.success === true, 'Failed to fetch signal for other peer');
+    assert(otherFetch.body.signals.length === 0, 'Other peer should not receive signal targeted to Sender_Peer');
+
+    // Fetch signal as Sender_Peer -> should return the signal
+    const senderFetch = await makeRequest({
+      host,
+      port,
+      path: `/api/fixdrop?pin=${pin}&action=signal&peerId=Sender_Peer`,
+      method: 'GET'
+    });
+    assert(senderFetch.body.success === true, 'Failed to fetch signal for targeted peer');
+    assert(senderFetch.body.signals.length === 1, 'Targeted peer should receive exactly 1 signal');
+    assert(senderFetch.body.signals[0].signal.type === 'offer', 'Signal type mismatch');
+    assert(senderFetch.body.signals[0].sender === 'Receiver_Peer', 'Signal sender mismatch');
+
+    // Fetch signal again as Sender_Peer -> should be empty (cleared on read)
+    const senderFetch2 = await makeRequest({
+      host,
+      port,
+      path: `/api/fixdrop?pin=${pin}&action=signal&peerId=Sender_Peer`,
+      method: 'GET'
+    });
+    assert(senderFetch2.body.success === true, 'Failed to refetch signal');
+    assert(senderFetch2.body.signals.length === 0, 'Signal should be cleared after read');
+    console.log('✅ Integration Test 5: P2P Signaling and Target Routing Passed');
+
     // 4. Reset Room State
     const t4 = await makeRequest({ host, port, path: `/api/fixdrop?pin=${pin}`, method: 'DELETE' });
     assert(t4.body.success === true, 'Failed to reset room');
-    console.log('✅ Integration Test 4: Reset room Passed');
+    console.log('✅ Integration Test 6: Reset room Passed');
 
   } catch (error) {
     console.error('❌ Integration Tests Failed:', error.message);

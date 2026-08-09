@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 // In-memory room payload store for universal server relay
 const roomStores = new Map();
 const signalingStores = new Map();
@@ -17,12 +20,26 @@ export async function GET(request) {
   const action = searchParams.get("action");
 
   if (action === "signal") {
+    const peerId = searchParams.get("peerId") || "";
     pruneSignals(pin);
     const list = signalingStores.get(pin) || [];
-    signalingStores.set(pin, []); // clear signals after read
+    
+    // Filter signals intended for this peer (targetPeerId matches or is broadcast/missing)
+    const mySignals = list.filter((item) => {
+      const target = item.signal?.targetPeerId;
+      return !target || target === peerId;
+    });
+
+    // Remove only the returned signals from the queue
+    const remaining = list.filter((item) => {
+      const target = item.signal?.targetPeerId;
+      return target && target !== peerId;
+    });
+    signalingStores.set(pin, remaining);
+
     return NextResponse.json({
       success: true,
-      signals: list
+      signals: mySignals
     });
   }
 
@@ -64,7 +81,7 @@ export async function POST(request) {
     const finalSender = sender.includes("(") ? sender : `${sender} (${cleanIp})`;
 
     const newItem = {
-      id: Date.now().toString() + "_" + Math.random().toString(36).substring(2, 6),
+      id: body.id || fileId || (Date.now().toString() + "_" + Math.random().toString(36).substring(2, 6)),
       type,
       sender: finalSender,
       senderId: body.senderId || null,

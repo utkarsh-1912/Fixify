@@ -3,14 +3,11 @@
 // Universal FixDrop Client Service for cross-app 1-click sharing
 export async function shareToFixDrop({ pin = "7492", type = "text", content, name, size, dataUrl, sender = "Desk_Trader", senderId = null, isP2P = false, fileId = null }) {
   try {
-    // Safely guard API payload size (truncate heavy dataUrls > 3MB for API POST relay to prevent HTTP 413)
-    const apiDataUrl = dataUrl && dataUrl.length > 3 * 1024 * 1024 ? dataUrl.slice(0, 100) + "...[TRUNCATED_FOR_RELAY]" : dataUrl;
-
     // 1. Post to Universal Next.js API Relay
     const res = await fetch("/api/fixdrop", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin, type, content, name, size, dataUrl: apiDataUrl, sender, senderId, isP2P, fileId })
+      body: JSON.stringify({ pin, type, content, name, size, dataUrl, sender, senderId, isP2P, fileId })
     });
 
     const data = await res.json();
@@ -56,9 +53,9 @@ export async function sendWebRTCSignal({ pin = "7492", sender = "Device_Peer", s
   }
 }
 
-export async function fetchWebRTCSignals(pin = "7492") {
+export async function fetchWebRTCSignals(pin = "7492", peerId = "") {
   try {
-    const res = await fetch(`/api/fixdrop?pin=${pin}&action=signal`);
+    const res = await fetch(`/api/fixdrop?pin=${pin}&action=signal&peerId=${peerId}`);
     return await res.json();
   } catch (e) {
     return { success: false, signals: [] };
