@@ -34,7 +34,8 @@ import {
   Loader2,
   Info,
   Play,
-  Pause
+  Pause,
+  ExternalLink
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
 import { shareToFixDrop, fetchFixDropRoom, fetchWebRTCSignals, sendWebRTCSignal } from "@/lib/fixDropService";
@@ -99,6 +100,7 @@ export default function AirSharePage() {
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [downloadedFiles, setDownloadedFiles] = useState({});
   const [qrSvgString, setQrSvgString] = useState("");
   const stagedFileObjects = useRef({});
   const activePeerConnections = useRef({});
@@ -302,7 +304,14 @@ export default function AirSharePage() {
       }
 
       if (offset >= file.size) {
-        setTimeout(() => setP2pTransfer(null), 4000);
+        try {
+          channel.send(JSON.stringify({ type: "EOF", fileId, exactSize: file.size }));
+          console.log(`[P2P] Sender transmitted EOF control signal for ${file.name}`);
+        } catch (e) {}
+        setTimeout(() => {
+          try { channel.close(); } catch (e) {}
+          setP2pTransfer(null);
+        }, 3000);
       }
     };
 
@@ -401,7 +410,57 @@ export default function AirSharePage() {
       }
     };
 
+    let downloadCompleted = false;
+
+    const finishDownload = () => {
+      if (downloadCompleted || receivedChunks.length === 0) return;
+      downloadCompleted = true;
+      console.log(`[P2P] Finalizing download for ${item.name} (${receivedChunks.length} chunks)...`);
+
+      playPing();
+      setP2pTransfer({
+        itemId: item.id,
+        mode: "receive",
+        fileName: item.name,
+        size: item.size,
+        progress: 100,
+        status: "completed",
+        speed: "0 MB/s",
+        eta: "0s"
+      });
+
+      const blob = new Blob(receivedChunks, { type: item.type || "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+
+      // Trigger automatic file download prompt on receiving device
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = item.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Store in downloadedFiles so receiver can click "Open File" anytime
+      setDownloadedFiles(prev => ({
+        ...prev,
+        [item.id]: { url, name: item.name, blob }
+      }));
+
+      setTimeout(() => setP2pTransfer(null), 4000);
+    };
+
     channel.onmessage = (event) => {
+      if (typeof event.data === "string") {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed.type === "EOF") {
+            console.log("[P2P] Received EOF signal from sender! Auto-downloading file...");
+            finishDownload();
+            return;
+          }
+        } catch (e) {}
+      }
+
       receivedChunks.push(event.data);
       receivedSize += event.data.byteLength;
       
@@ -421,7 +480,7 @@ export default function AirSharePage() {
         speedBytesRef.current = receivedSize;
       }
 
-      const percent = totalBytes > 0 ? Math.min(Math.floor((receivedSize / totalBytes) * 100), 100) : 0;
+      const percent = totalBytes > 0 ? Math.min(Math.floor((receivedSize / totalBytes) * 99), 99) : 0;
       setP2pTransfer(prev => ({
         itemId: item.id,
         mode: "receive",
@@ -435,30 +494,8 @@ export default function AirSharePage() {
     };
 
     channel.onclose = () => {
-      console.log("[P2P] Receiver DataChannel closed. Compiling file...");
-      if (receivedChunks.length > 0) {
-        playPing();
-        setP2pTransfer({
-          itemId: item.id,
-          mode: "receive",
-          fileName: item.name,
-          size: item.size,
-          progress: 100,
-          status: "completed",
-          speed: "0 MB/s",
-          eta: "0s"
-        });
-        const blob = new Blob(receivedChunks, { type: "application/octet-stream" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = item.name;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        setP2pTransfer(prev => prev ? { ...prev, status: "failed" } : null);
-      }
-      setTimeout(() => setP2pTransfer(null), 4000);
+      console.log("[P2P] Receiver DataChannel closed.");
+      finishDownload();
     };
 
     pc.onicecandidate = (event) => {
@@ -1270,6 +1307,16 @@ export default function AirSharePage() {
                                 {copiedId === item.id ? <Check className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} /> : <Copy className="h-3.5 w-3.5" />}
                                 <span>{copiedId === item.id ? "Copied!" : "Copy"}</span>
                               </button>
+                            ) : downloadedFiles[item.id] ? (
+                              <a
+                                href={downloadedFiles[item.id].url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold"
+                                style={{ background: "rgba(16, 185, 129, 0.1)", borderColor: "rgba(16, 185, 129, 0.3)", color: "#10b981" }}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" /> <span>Open File</span>
+                              </a>
                             ) : item.isP2P ? (
                               <button
                                 onClick={() => handleP2PDownload(item)}
@@ -1411,7 +1458,7 @@ export default function AirSharePage() {
       )}
       {p2pTransfer && (
         <div
-          className="fixed bottom-6 right-6 z-50 w-80 p-4 rounded-2xl border shadow-2xl space-y-2.5 animate-fadeIn"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92vw] max-w-sm sm:left-auto sm:translate-x-0 sm:right-6 sm:bottom-6 sm:w-80 z-50 p-4 rounded-2xl border shadow-2xl space-y-2.5 animate-fadeIn"
           style={{ background: "var(--card)", borderColor: "var(--border)" }}
         >
           {/* Toaster Header with X Close Button */}
