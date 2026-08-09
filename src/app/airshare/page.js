@@ -12,6 +12,7 @@ import {
   Check,
   Download,
   QrCode,
+  Image,
   ArrowRightLeftIcon,
   RefreshCw,
   Sparkles,
@@ -49,6 +50,9 @@ function getFileMeta(filename) {
   }
   if (["ppt", "pptx"].includes(ext)) {
     return { label: "POWERPOINT", icon: Presentation };
+  }
+  if (["png", "jpg", "jpeg", "svg"].includes(ext)) {
+    return { label: "IMAGE", icon: Image };
   }
   if (["xml", "json", "pcap", "log", "fix"].includes(ext)) {
     return { label: ext.toUpperCase(), icon: FileCode };
@@ -448,7 +452,10 @@ export default function AirSharePage() {
       "text/plain": [".txt", ".log", ".fix"],
       "text/xml": [".xml"],
       "application/json": [".json"],
-      "application/octet-stream": [".pcap"]
+      "application/octet-stream": [".pcap"],
+      "image/png": [".png"],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/svg+xml": [".svg"]
     }
   });
 
@@ -680,7 +687,14 @@ export default function AirSharePage() {
                       Drag & drop trading session logs & documents
                     </p>
                     <p className="text-xs text-[var(--text-muted)] mt-1">
-                      Supports .txt · .fix · .log · .pdf · .docx · .xlsx · .pptx · .pcap
+                      Supports .txt · .fix · .log · .pdf ·{" "}
+                      <span
+                        className="underline cursor-help"
+                        style={{ color: "var(--primary)" }}
+                        title="Word (.docx) · Excel (.xlsx) · PowerPoint (.pptx) · Network Packet (.pcap) · Images (.png, .jpg, .jpeg, .svg)"
+                      >
+                        +8 more
+                      </span>
                     </p>
                   </div>
 
