@@ -30,6 +30,8 @@ import {
   Send,
   Sliders,
   CheckCircle2,
+  Lock,
+  Loader2,
   Info,
   Play,
   Pause
@@ -95,6 +97,8 @@ export default function AirSharePage() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [qrSvgString, setQrSvgString] = useState("");
   const stagedFileObjects = useRef({});
   const activePeerConnections = useRef({});
@@ -720,64 +724,72 @@ export default function AirSharePage() {
   };
 
   const processAndBroadcast = async () => {
-    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const newBroadcasts = [];
-    const deviceName = getDeviceName();
+    if (isBroadcasting) return;
+    setIsBroadcasting(true);
 
-    if (inputMode === "paste" && payloadText.trim()) {
-      let finalContent = payloadText.trim();
-      if (autoSanitize) finalContent = sanitizeText(finalContent);
-      const parsed = validateFIXMessage(finalContent);
+    try {
+      const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const newBroadcasts = [];
+      const deviceName = getDeviceName();
 
-      const item = {
-        id: Date.now().toString(),
-        type: "text",
-        sender: deviceName,
-        senderId: myPeerId.current,
-        timestamp,
-        content: finalContent,
-        isFix: parsed?.isValid || false,
-        msgType: parsed?.msgTypeName || null
-      };
+      if (inputMode === "paste" && payloadText.trim()) {
+        let finalContent = payloadText.trim();
+        if (autoSanitize) finalContent = sanitizeText(finalContent);
+        const parsed = validateFIXMessage(finalContent);
 
-      newBroadcasts.push(item);
-      await shareToFixDrop({ pin: pinCode, type: "text", content: finalContent, sender: deviceName, senderId: myPeerId.current });
-    }
-
-    if (inputMode === "file" && stagedFiles.length > 0) {
-      for (const file of stagedFiles) {
         const item = {
-          id: file.id,
-          type: "file",
+          id: Date.now().toString(),
+          type: "text",
           sender: deviceName,
           senderId: myPeerId.current,
           timestamp,
-          name: file.name,
-          size: file.size,
-          dataUrl: file.dataUrl,
-          isP2P: file.isP2P || false,
-          fileId: file.id,
-          meta: file.meta
+          content: finalContent,
+          isFix: parsed?.isValid || false,
+          msgType: parsed?.msgTypeName || null
         };
-        newBroadcasts.push(item);
-        await shareToFixDrop({
-          pin: pinCode,
-          type: "file",
-          name: file.name,
-          size: file.size,
-          dataUrl: file.dataUrl,
-          sender: deviceName,
-          senderId: myPeerId.current,
-          isP2P: file.isP2P || false,
-          fileId: file.id
-        });
-      }
-    }
 
-    setSharedItems((prev) => [...newBroadcasts, ...prev]);
-    setPayloadText("");
-    setStagedFiles([]);
-    setStage(3);
+        newBroadcasts.push(item);
+        await shareToFixDrop({ pin: pinCode, type: "text", content: finalContent, sender: deviceName, senderId: myPeerId.current });
+      }
+
+      if (inputMode === "file" && stagedFiles.length > 0) {
+        for (const file of stagedFiles) {
+          const item = {
+            id: file.id,
+            type: "file",
+            sender: deviceName,
+            senderId: myPeerId.current,
+            timestamp,
+            name: file.name,
+            size: file.size,
+            dataUrl: file.dataUrl,
+            isP2P: file.isP2P || false,
+            fileId: file.id,
+            meta: file.meta
+          };
+          newBroadcasts.push(item);
+          await shareToFixDrop({
+            pin: pinCode,
+            type: "file",
+            name: file.name,
+            size: file.size,
+            dataUrl: file.dataUrl,
+            sender: deviceName,
+            senderId: myPeerId.current,
+            isP2P: file.isP2P || false,
+            fileId: file.id
+          });
+        }
+      }
+
+      setSharedItems((prev) => [...newBroadcasts, ...prev]);
+      setPayloadText("");
+      setStagedFiles([]);
+      setShowAddModal(false);
+      setStage(3);
+    } finally {
+      setIsBroadcasting(false);
+    }
   };
 
   const handleCopy = (id, text) => {
@@ -1067,9 +1079,22 @@ export default function AirSharePage() {
             <button onClick={() => setStage(1)} className="px-4 py-2 text-xs font-semibold cursor-pointer" style={{ color: "var(--text-muted)" }}>
               Cancel
             </button>
-            <button onClick={processAndBroadcast} className="fx-btn-primary py-2 px-6 text-xs flex items-center gap-2 cursor-pointer">
-              <Send className="h-4 w-4" />
-              <span className="hidden sm:inline">Broadcast to AirShare Room</span>
+            <button
+              onClick={processAndBroadcast}
+              disabled={isBroadcasting}
+              className="fx-btn-primary py-2 px-6 text-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBroadcasting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Broadcasting...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  <span className="hidden sm:inline">Broadcast to AirShare Room</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1093,7 +1118,7 @@ export default function AirSharePage() {
                   <Download className="h-3.5 w-3.5" /> <span>Download ZIP ({selectedItemIds.length})</span>
                 </button>
               )}
-              <button onClick={() => setStage(1)} className="fx-btn-primary py-1 px-3 text-xs flex items-center gap-1.5 cursor-pointer">
+              <button onClick={() => setShowAddModal(true)} className="fx-btn-primary py-1 px-3 text-xs flex items-center gap-1.5 cursor-pointer">
                 <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share New Item</span>
               </button>
             </div>
@@ -1103,8 +1128,8 @@ export default function AirSharePage() {
             <div className="p-12 rounded-2xl border text-center space-y-3" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
               <Shredder className="h-8 w-8 mx-auto" style={{ color: "var(--text-muted)" }} />
               <h3 className="text-xs font-bold" style={{ color: "var(--foreground)" }}>Room Stream Empty</h3>
-              <button onClick={() => setStage(1)} className="fx-btn-primary py-1.5 px-4 text-xs cursor-pointer">
-                Start Transfer Stage 1
+              <button onClick={() => setShowAddModal(true)} className="fx-btn-primary py-1.5 px-4 text-xs cursor-pointer">
+                Share New Item
               </button>
             </div>
           ) : (
@@ -1474,6 +1499,165 @@ export default function AirSharePage() {
               <span>{p2pTransfer.status === "paused" ? "Resume Transfer" : "Pause Transfer"}</span>
             </button>
           )}
+        </div>
+      )}
+      {/* ADD ITEM MODAL DIALOG (STAGE 3 STREAM PRESENCE) */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            className="w-full max-w-2xl bg-card border rounded-2xl p-6 shadow-2xl space-y-4 animate-scaleUp max-h-[90vh] overflow-y-auto fx-custom-scroll"
+            style={{ background: "var(--card)", borderColor: "var(--border)" }}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--border)" }}>
+              <div className="flex items-center gap-2">
+                <Plus className="h-4 w-4" style={{ color: "var(--primary)" }} />
+                <h3 className="text-sm font-bold" style={{ color: "var(--foreground)" }}>
+                  Share New Payload to Room #{pinCode}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-1 rounded-lg transition-all hover:bg-background cursor-pointer"
+                style={{ color: "var(--text-muted)" }}
+                title="Close Modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Input Mode Selector */}
+            <div className="flex rounded-xl p-1 border gap-1" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
+              <button
+                onClick={() => setInputMode("paste")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  inputMode === "paste" ? "bg-card shadow-sm" : ""
+                }`}
+                style={{
+                  color: inputMode === "paste" ? "var(--primary)" : "var(--text-muted)",
+                  background: inputMode === "paste" ? "var(--card)" : "transparent"
+                }}
+              >
+                <FileText className="h-3.5 w-3.5" /> <span>Paste FIX Text</span>
+              </button>
+              <button
+                onClick={() => setInputMode("file")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  inputMode === "file" ? "bg-card shadow-sm" : ""
+                }`}
+                style={{
+                  color: inputMode === "file" ? "var(--primary)" : "var(--text-muted)",
+                  background: inputMode === "file" ? "var(--card)" : "transparent"
+                }}
+              >
+                <UploadCloud className="h-3.5 w-3.5" /> <span>Drop Files</span>
+              </button>
+            </div>
+
+            {/* Paste Text Mode */}
+            {inputMode === "paste" && (
+              <div className="space-y-3">
+                <textarea
+                  value={payloadText}
+                  onChange={(e) => setPayloadText(e.target.value)}
+                  placeholder="Paste FIX log, execution report, order tag string, or raw text message..."
+                  className="w-full h-40 p-4 rounded-xl border font-mono text-xs focus:outline-none focus:ring-1 resize-none fx-custom-scroll"
+                  style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs" style={{ color: "var(--text-muted)" }}>
+                    <input
+                      type="checkbox"
+                      checked={autoSanitize}
+                      onChange={(e) => setAutoSanitize(e.target.checked)}
+                      className="cursor-pointer"
+                      style={{ accentColor: "var(--primary)" }}
+                    />
+                    <span>Sanitize Sensitive Tags (Tag 55, Tag 554, API keys)</span>
+                  </label>
+                  <span className="font-mono text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    {payloadText.length} chars
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Drop Files Mode */}
+            {inputMode === "file" && (
+              <div className="space-y-3">
+                <div
+                  {...getRootProps()}
+                  className={`p-8 rounded-2xl border-2 border-dashed text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2 ${
+                    isDragActive ? "border-primary bg-primary/5" : ""
+                  }`}
+                  style={{ borderColor: isDragActive ? "var(--primary)" : "var(--border)", background: "var(--background)" }}
+                >
+                  <input {...getInputProps()} />
+                  <UploadCloud className="h-8 w-8 animate-bounce" style={{ color: "var(--primary)" }} />
+                  <p className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
+                    Drag & drop files here, or <span style={{ color: "var(--primary)" }}>browse</span>
+                  </p>
+                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    Supports logs, PCAP, CSV, XML, images, PDFs & large files up to 1GB
+                  </p>
+                </div>
+
+                {/* Staged Files List */}
+                {stagedFiles.length > 0 && (
+                  <div className="space-y-2 max-h-36 overflow-y-auto fx-custom-scroll">
+                    {stagedFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="p-2.5 rounded-xl border flex items-center justify-between text-xs"
+                        style={{ background: "var(--background)", borderColor: "var(--border)" }}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileCheck className="h-4 w-4 flex-shrink-0" style={{ color: "var(--primary)" }} />
+                          <span className="truncate font-semibold" style={{ color: "var(--foreground)" }}>{file.name}</span>
+                          <span className="text-[10px] font-mono flex-shrink-0" style={{ color: "var(--text-muted)" }}>({file.size})</span>
+                        </div>
+                        <button
+                          onClick={() => setStagedFiles((prev) => prev.filter((f) => f.id !== file.id))}
+                          className="p-1 rounded-lg hover:text-red-500 cursor-pointer"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 text-xs font-semibold cursor-pointer rounded-xl border"
+                style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={processAndBroadcast}
+                disabled={isBroadcasting || (inputMode === "paste" && !payloadText.trim()) || (inputMode === "file" && stagedFiles.length === 0)}
+                className="fx-btn-primary py-2 px-6 text-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isBroadcasting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Broadcasting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    <span>Broadcast to Room</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
