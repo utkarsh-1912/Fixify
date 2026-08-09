@@ -579,8 +579,8 @@ export default function AirSharePage() {
       const fileId = Date.now().toString() + "_" + Math.random().toString(36).substring(2, 5);
       stagedFileObjects.current[fileId] = file;
 
-      // If file is larger than 50MB, register it as a WebRTC P2P stream instead of reading it in RAM
-      if (file.size > 50 * 1024 * 1024) {
+      // If file is larger than 4MB, register it as a WebRTC P2P stream instead of reading it in RAM
+      if (file.size > 4 * 1024 * 1024) {
         stagedFileObjects.current[fileId] = file;
         const fileObj = {
           id: fileId,
