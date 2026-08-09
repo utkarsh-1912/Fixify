@@ -11,7 +11,6 @@ import {
   Columns,
   RefreshCw,
   Eye,
-  EyeOff,
   Search,
   ChevronDown,
   ChevronRight,

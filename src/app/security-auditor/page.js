@@ -19,7 +19,6 @@ import {
   ChevronRight,
   ChevronDown,
   Eye,
-  EyeOff,
   ToggleLeft,
   ToggleRight,
   Layers,
@@ -1020,8 +1019,8 @@ export default function SecurityAuditorPage() {
               onClick={() => setShowPreviewPayload(p => !p)}
             >
               {showPreviewPayload
-                ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
               }
               <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Raw Payload Preview (First 3 lines)</span>
             </button>
@@ -1487,8 +1486,8 @@ export default function SecurityAuditorPage() {
                                 onClick={() => setShowDetailPayload(p => !p)}
                               >
                                 {showDetailPayload
-                                  ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                                  : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                                  ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                                  : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
                                 }
                                 <p className="text-[10px] font-bold uppercase tracking-wider font-mono" style={{ color: 'var(--text-muted)' }}>Raw Message</p>
                               </button>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  EyeOff,
+  ScanEyeIcon,
   Clipboard,
   Check,
   RotateCcw,
@@ -546,7 +546,7 @@ export default function LogSanitizerPage() {
           disabled={isProcessing || !inputText.trim()}
           className="w-full fx-btn-primary justify-center font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 cursor-pointer mt-4"
         >
-          <EyeOff className="h-4 w-4" />
+          <ScanEyeIcon className="h-4 w-4" />
           <span>{isProcessing ? 'Processing...' : 'Sanitize Raw Logs'}</span>
         </button>
       </div>
@@ -563,7 +563,7 @@ export default function LogSanitizerPage() {
               className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
               style={{ background: 'var(--primary-faint)', border: '1px solid var(--primary-border)' }}
             >
-              <EyeOff className="h-5 w-5" style={{ color: 'var(--primary)' }} />
+              <ScanEyeIcon className="h-5 w-5" style={{ color: 'var(--primary)' }} />
             </div>
             <span>Log Sanitizer &amp; Anonymizer</span>
             <button

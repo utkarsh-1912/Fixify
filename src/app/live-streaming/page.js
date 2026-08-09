@@ -13,7 +13,6 @@ import {
   ChevronRight, 
   ChevronDown,
   Eye,
-  EyeOff,
   Info, 
   RotateCcw,
   Sliders,
@@ -922,8 +921,8 @@ export default function LiveStreamingPage() {
                   onClick={() => setShowPayload(p => !p)}
                 >
                   {showPayload
-                    ? <EyeOff className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
-                    : <Eye className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                    ? <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--primary)' }} />
+                    : <ChevronRight className="h-3 w-3 shrink-0" style={{ color: 'var(--text-muted)' }} />
                   }
                   <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Raw Payload</span>
                 </button>

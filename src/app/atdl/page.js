@@ -5,7 +5,7 @@ import { useDropzone } from 'react-dropzone';
 import {
   UploadCloud, FileText, Play, RotateCcw, Copy, Check,
   ChevronRight, ChevronDown, Info, AlertTriangle,
-  CheckCircle2, Sparkles, Download, Eye, EyeOff, Hash, Layers,
+  CheckCircle2, Sparkles, Download, Hash, Layers,
   Code2, UserCog, BarChart3, Trash2, Search, X, Plus, FileCode2,
 } from 'lucide-react';
 import { getTagName, getValueMeaning } from '@/lib/fixParser';

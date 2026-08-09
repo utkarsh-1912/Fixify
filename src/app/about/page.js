@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { 
   Info, Shield, Zap, Package, ChevronRight, Activity, Terminal, Code, 
-  ArrowRightLeft, ShieldAlert, EyeOff, Layers, TrendingUp, FileCode, 
+  ArrowRightLeft, ShieldAlert, ScanEyeIcon, Layers, TrendingUp, FileCode, 
   MessageSquare, BookOpen, Cpu, GitBranch, Columns, CheckCircle2, Lock,
   Sparkles, Radio, Database, ArrowUpRight, Search, Globe2, Share2
 } from "lucide-react";
@@ -72,7 +72,7 @@ export default function AboutPage() {
     },
     {
       category: 'security',
-      icon: EyeOff,
+      icon: ScanEyeIcon,
       title: 'Log Sanitizer & Anonymizer',
       badge: 'GDPR Shield',
       desc: 'Mask sensitive fields (passwords, CompIDs, prices, sizes) with salaried hashing or custom replacements. Auto-recomputes Tag 9 BodyLength and Tag 10 Checksum.',

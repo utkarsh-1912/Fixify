@@ -1,7 +1,7 @@
 'use client';
 
 import { 
-  Shield, EyeOff, Lock, ServerOff, Database, RefreshCw, Key, Cloud, Eye, 
+  Shield, ScanEyeIcon, Lock, ServerOff, Database, RefreshCw, Key, Cloud, Eye, 
   FileCode, Terminal, CheckCircle2, AlertCircle, ArrowUpRight, Sparkles, Cpu
 } from "lucide-react";
 import Link from "next/link";
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
       desc: "Conversational diagnostics run offline by default (AURA engine). External API integrations are strictly opt-in and store keys locally."
     },
     {
-      icon: EyeOff,
+      icon: ScanEyeIcon,
       title: "Local Sanitization Shield",
       badge: "PII Masking",
       desc: "Masking of credentials, names, CompIDs, and prices runs client-side inside the browser sandbox before any sanitised files are saved."

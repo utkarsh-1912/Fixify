@@ -25,7 +25,6 @@ import {
   Radio,
   ShieldAlert,
   Layers,
-  EyeOff,
   BarChart3,
   GitBranch,
   LineChart,
@@ -35,6 +34,7 @@ import {
   Globe2,
   Share2,
   InfoIcon,
+  ScanEyeIcon,
 } from 'lucide-react';
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 import { isWorkspaceSharingEnabled, setWorkspaceSharingEnabled } from '@/lib/workspaceSession';
@@ -63,7 +63,7 @@ export default function Navbar() {
     { href: '/security-auditor', label: 'FIX Security Auditor', icon: ShieldAlert, short: 'Security', desc: 'Scan logs for replay windows, plaintext credentials, SOH injection, and hijack vulnerabilities.', inMenu: false },
     { href: '/live-streaming', label: 'Live Stream Simulator', icon: Radio, short: 'Live Stream', desc: 'Simulate live FIX session socket streaming with dynamic timelines.', inMenu: false },
     { href: '/payload-generator', label: 'FIX Message Generator', icon: Layers, short: 'Generator', desc: 'Compose valid test FIX message payloads with real-time length and checksum validation.', inMenu: false },
-    { href: '/log-sanitizer', label: 'Log Sanitizer & Anonymizer', icon: EyeOff, short: 'Sanitizer', desc: 'Mask sensitive fields like credentials, CompIDs, prices, and sizes in raw logs.', inMenu: false },
+    { href: '/log-sanitizer', label: 'Log Sanitizer & Anonymizer', icon: ScanEyeIcon, short: 'Sanitizer', desc: 'Mask sensitive fields like credentials, CompIDs, prices, and sizes in raw logs.', inMenu: false },
     { href: '/custom-dialect', label: 'Custom Dialect Manager', icon: BookOpen, short: 'Dialect', desc: 'Upload custom QuickFIX XML dictionaries to map proprietary tags (5000-9999).', inMenu: false },
     { href: '/multi-algo',   label: 'Multi-Algo Studio', icon: LineChart, short: 'Algos', desc: 'Scan markets with SMA, RSI, MACD, and Bollinger Bands, overlay interactive charts, and paper trade.', inMenu: false },
     { href: '/correlation', label: 'Multi-Hop Tracker', icon: Network, short: 'Correlation', desc: 'Correlate transaction flows across multiple system layers and trace transit delays.', inMenu: false },
@@ -389,7 +389,7 @@ export default function Navbar() {
                 type="text"
                 value={mobileSearch}
                 onChange={(e) => setMobileSearch(e.target.value)}
-                placeholder="Search all 21 FIXify tools..."
+                placeholder="Search all FIXify tools..."
                 className="w-full pl-10 pr-9 py-2.5 bg-zinc-950/80 text-zinc-100 placeholder:text-zinc-500 text-xs rounded-xl border border-zinc-800 focus:outline-none focus:border-emerald-500/50 transition-all"
                 autoFocus
               />
