@@ -14,7 +14,6 @@ import {
   QrCode,
   Key,
   RefreshCw,
-  Sparkles,
   ArrowRight,
   ArrowLeft,
   ShieldCheck,
@@ -29,7 +28,8 @@ import {
   Send,
   Sliders,
   CheckCircle2,
-  Info
+  Info,
+  ArrowRightLeftIcon
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
 import { shareToFixDrop, fetchFixDropRoom } from "@/lib/fixDropService";
@@ -343,21 +343,6 @@ export default function AirSharePage() {
               className="w-12 text-center font-bold font-mono outline-none rounded border py-0.5"
               style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--primary)" }}
             />
-            <button
-              onClick={async () => {
-                const res = await fetchFixDropRoom(pinCode);
-                if (res?.success && res.items && res.items.length > 0) {
-                  setSharedItems(res.items);
-                  setStage(3);
-                } else {
-                  alert(`No active items found in room #${pinCode}. Ensure another device has uploaded to it first.`);
-                }
-              }}
-              className="px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all hover:scale-105"
-              style={{ background: "var(--primary-faint)", color: "var(--primary)", border: "1px solid var(--primary-border)" }}
-            >
-              Join
-            </button>
           </div>
         </div>
       </div>
@@ -390,12 +375,20 @@ export default function AirSharePage() {
               </div>
 
               <button
-                onClick={loadSampleData}
+                onClick={async () => {
+                const res = await fetchFixDropRoom(pinCode);
+                if (res?.success && res.items && res.items.length > 0) {
+                  setSharedItems(res.items);
+                  setStage(3);
+                } else {
+                  alert(`No active items found in room #${pinCode}. Ensure another device has uploaded to it first.`);
+                }
+              }}
                 className="fx-btn-primary py-1 px-3 text-[10px] flex items-center gap-1.5 cursor-pointer"
-                title="Quick load demo sample payload"
+                title="Join Room & Load Active Items from Another Device"
               >
-                <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-                <span className="hidden sm:inline">Quick Load</span>
+                <ArrowRightLeftIcon className="h-3.5 w-3.5 animate-pulse" />
+                <span className="hidden sm:inline">Join Room</span>
               </button>
             </div>
 
