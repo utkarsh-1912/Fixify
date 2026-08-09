@@ -1456,7 +1456,7 @@ export default function AirSharePage() {
             {/* Instant Pure SVG QR Matrix */}
             <div className="p-4 rounded-xl flex items-center justify-center mx-auto w-48 h-48 bg-white border" style={{ borderColor: "var(--border)" }}>
               {qrSvgString ? (
-                <div dangerouslySetInnerHTML={{ __html: qrSvgString }} className="w-40 h-40 flex items-center justify-center bg-white rounded-xl overflow-hidden" />
+                <div dangerouslySetInnerHTML={{ __html: qrSvgString }} className="w-44 h-44 flex items-center justify-center bg-white rounded-xl overflow-hidden" />
               ) : (
                 <div className="w-40 h-40 flex items-center justify-center bg-white rounded-xl border text-[10px] text-zinc-400">
                   Generating QR...
