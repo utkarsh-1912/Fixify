@@ -930,7 +930,7 @@ export default function GlobalMarketHours() {
                         <button onClick={(e) => togglePin(m.id, e)} className="hover:scale-110 transition-transform flex-shrink-0">
                           <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
                         </button>
-                        <CountryFlag code={m.code} className="h-4 w-6 rounded shadow-sm border border-zinc-700 shrink-0" />
+                        <CountryFlag code={m.code} className="shrink-0" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold truncate text-zinc-100">{m.name}</span>
@@ -980,7 +980,7 @@ export default function GlobalMarketHours() {
                           <button onClick={(e) => togglePin(m.id, e)} className="hover:scale-110 transition-transform flex-shrink-0">
                             <Star className="h-3.5 w-3.5 text-zinc-600 hover:text-amber-400" />
                           </button>
-                          <CountryFlag code={m.code} className="h-4 w-6 rounded shadow-sm border border-zinc-700 shrink-0" />
+                          <CountryFlag code={m.code} className="shrink-0" />
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-bold truncate text-zinc-100">{m.name}</span>
@@ -1234,7 +1234,7 @@ export default function GlobalMarketHours() {
           {/* Fixed Header */}
           <div className="flex items-start justify-between border-b border-zinc-800 p-4 sm:p-5 flex-shrink-0 bg-zinc-950 gap-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-              <CountryFlag code={m.code} className="h-6 w-9 rounded border border-zinc-700 shadow-md shrink-0" />
+              <CountryFlag code={m.code} className="shadow-md shrink-0" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-base sm:text-xl font-bold leading-snug break-words" style={{ color: "var(--primary)" }}>
                   {m.name} <span className="text-zinc-400 font-normal text-sm sm:text-lg">— {m.fullName}</span>
@@ -1350,11 +1350,11 @@ export default function GlobalMarketHours() {
                     <span>{formatHourDecimal(m.sessions.postMarket.start)} - {formatHourDecimal(m.sessions.postMarket.end)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-zinc-400 pt-1.5 border-t border-zinc-800 text-[10px]">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 justify-between text-zinc-400 pt-1.5 border-t border-zinc-800 text-[10px]">
                   <span>Trading Schedule Days: <strong className="text-emerald-400 font-mono">{m.tradingDays || (m.weekendDays?.includes(5) ? "Sun - Thu" : "Mon - Fri")}</strong></span>
                   <span>Timezone Location: {m.timezone}</span>
                 </div>
-                <div className="flex justify-between text-zinc-400 text-[10px]">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 justify-between text-zinc-400 text-[10px]">
                   <span>Active Weekend Days: {m.weekendDays?.includes(5) ? "Friday & Saturday" : "Saturday & Sunday"}</span>
                   <span>DST Active: {m.isDst ? "Yes" : "No"}</span>
                 </div>
