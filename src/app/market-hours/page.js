@@ -1350,13 +1350,13 @@ export default function GlobalMarketHours() {
                     <span>{formatHourDecimal(m.sessions.postMarket.start)} - {formatHourDecimal(m.sessions.postMarket.end)}</span>
                   </div>
                 )}
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 justify-between text-zinc-400 pt-1.5 border-t border-zinc-800 text-[10px]">
-                  <span>Trading Schedule Days: <strong className="text-emerald-400 font-mono">{m.tradingDays || (m.weekendDays?.includes(5) ? "Sun - Thu" : "Mon - Fri")}</strong></span>
-                  <span>Timezone Location: {m.timezone}</span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 justify-between text-[var(--foreground)] pt-1.5 border-t border-zinc-800 text-[10px]">
+                  <span>Trading Schedule Days: <strong className="text-[var(--primary)] font-bold">{m.tradingDays || (m.weekendDays?.includes(5) ? "Sun - Thu" : "Mon - Fri")}</strong></span>
+                  <span>Timezone Location: <strong className="text-[var(--primary)] font-bold">{m.timezone}</strong></span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 justify-between text-zinc-400 text-[10px]">
-                  <span>Active Weekend Days: {m.weekendDays?.includes(5) ? "Friday & Saturday" : "Saturday & Sunday"}</span>
-                  <span>DST Active: {m.isDst ? "Yes" : "No"}</span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 justify-between text-[var(--foreground)] text-[10px]">
+                  <span>Active Weekend Days: <strong className="text-[var(--primary)] font-bold">{m.weekendDays?.includes(5) ? "Friday & Saturday" : "Saturday & Sunday"}</strong></span>
+                  <span>DST Active: <strong className="text-[var(--primary)] font-bold">{m.isDst ? "Yes" : "No"}</strong></span>
                 </div>
               </div>
             </div>
