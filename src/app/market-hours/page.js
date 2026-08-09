@@ -1018,180 +1018,283 @@ export default function GlobalMarketHours() {
     );
   };
 
-  // ─── TIMELINE TABLE VIEW WITH PIN TO TOP ──────────────────────────────
+// ─── TIMELINE TABLE VIEW WITH PIN TO TOP ──────────────────────────────
 
-  const renderTimeline = () => {
-    if (filteredMarkets.length === 0) return renderEmptyState();
+const renderTimeline = () => {
+  if (filteredMarkets.length === 0) return renderEmptyState();
 
-    const displayNow = ((utcNow + displayOffset) % 24 + 24) % 24;
+  const displayNow = ((utcNow + displayOffset) % 24 + 24) % 24;
+  const nowPositionPct = (displayNow / 24) * 100;
 
-    const getSessionBars = (market) => {
-      const offset = getTimezoneOffset(market.timezone);
-      const bars = [];
-      if (market.status === "weekend" || market.status === "holiday") return bars;
+  const getSessionBars = (market) => {
+    const offset = getTimezoneOffset(market.timezone);
+    const bars = [];
+    if (market.status === "weekend" || market.status === "holiday") return bars;
 
-      const sessionDefs = [
-        { key: "preMarket", color: SESSION_COLORS.pre, opacity: 0.8 },
-        { key: "regular", color: SESSION_COLORS.regular, opacity: 0.95 },
-        { key: "postMarket", color: SESSION_COLORS.post, opacity: 0.8 },
-      ];
+    const sessionDefs = [
+      { key: "preMarket", color: SESSION_COLORS.pre, opacity: 0.8 },
+      { key: "regular", color: SESSION_COLORS.regular, opacity: 0.95 },
+      { key: "postMarket", color: SESSION_COLORS.post, opacity: 0.8 },
+    ];
 
-      for (const sd of sessionDefs) {
-        const s = market.sessions[sd.key];
-        if (!s) continue;
-        const startUTC = localToUTC(s.start, offset);
-        const endUTC = localToUTC(s.end, offset);
-        
-        const startDisp = ((startUTC + displayOffset) % 24 + 24) % 24;
-        const endDisp = ((endUTC + displayOffset) % 24 + 24) % 24;
+    for (const sd of sessionDefs) {
+      const s = market.sessions[sd.key];
+      if (!s) continue;
 
-        if (startDisp <= endDisp) {
-          bars.push({ startPct: (startDisp / 24) * 100, widthPct: ((endDisp - startDisp) / 24) * 100, color: sd.color, opacity: sd.opacity });
-        } else {
-          bars.push({ startPct: (startDisp / 24) * 100, widthPct: ((24 - startDisp) / 24) * 100, color: sd.color, opacity: sd.opacity });
-          bars.push({ startPct: 0, widthPct: (endDisp / 24) * 100, color: sd.color, opacity: sd.opacity });
-        }
+      const startUTC = localToUTC(s.start, offset);
+      const endUTC = localToUTC(s.end, offset);
+
+      const startDisp = ((startUTC + displayOffset) % 24 + 24) % 24;
+      const endDisp = ((endUTC + displayOffset) % 24 + 24) % 24;
+
+      if (startDisp <= endDisp) {
+        bars.push({
+          startPct: (startDisp / 24) * 100,
+          widthPct: ((endDisp - startDisp) / 24) * 100,
+          color: sd.color,
+          opacity: sd.opacity,
+        });
+      } else {
+        bars.push({
+          startPct: (startDisp / 24) * 100,
+          widthPct: ((24 - startDisp) / 24) * 100,
+          color: sd.color,
+          opacity: sd.opacity,
+        });
+
+        bars.push({
+          startPct: 0,
+          widthPct: (endDisp / 24) * 100,
+          color: sd.color,
+          opacity: sd.opacity,
+        });
       }
-      return bars;
-    };
+    }
 
-    const nowHourDec = ((utcNow + displayOffset) % 24 + 24) % 24;
-    const nowHourInt = Math.floor(nowHourDec);
-    const nowMinInt = Math.floor((nowHourDec - nowHourInt) * 60);
-    const nowTimeStr = `${String(nowHourInt).padStart(2, "0")}:${String(nowMinInt).padStart(2, "0")} ${displayTZLabel}`;
+    return bars;
+  };
 
-    const pinnedList = filteredMarkets.filter((m) => m.isPinned);
-    const groupedByRegion = {};
-    REGIONS.filter((r) => r !== "All").forEach((r) => {
-      const list = filteredMarkets.filter((m) => m.region === r && !m.isPinned);
-      if (list.length > 0) groupedByRegion[r] = list;
-    });
+  const nowHourDec = displayNow;
+  const nowHourInt = Math.floor(nowHourDec);
+  const nowMinInt = Math.floor((nowHourDec - nowHourInt) * 60);
+  const nowTimeStr = `${String(nowHourInt).padStart(2, "0")}:${String(nowMinInt).padStart(2, "0")} ${displayTZLabel}`;
 
-    const renderMarketRow = (m) => {
-      const bars = getSessionBars(m);
-      return (
-        <div
-          key={m.id}
-          onClick={() => setSelectedMarketModal(m)}
-          onMouseEnter={() => setHoveredMarket(m.id)}
-          onMouseLeave={() => setHoveredMarket(null)}
-          className="flex items-center h-9 px-2 rounded-lg transition-colors cursor-pointer border-b border-zinc-800/50 hover:bg-zinc-800/60"
-          style={{
-            background: hoveredMarket === m.id ? "var(--card-hover)" : m.isPinned ? "rgba(250,204,21,0.04)" : "transparent",
-          }}
-        >
-          {/* Left Column */}
-          <div className="w-[260px] flex-shrink-0 flex items-center gap-2 min-w-0 pr-2">
-            <button onClick={(e) => togglePin(m.id, e)} className="hover:scale-110 transition-transform flex-shrink-0">
-              <Star className="h-3.5 w-3.5" style={{ color: m.isPinned ? "#facc15" : "var(--text-faint)", fill: m.isPinned ? "#facc15" : "none" }} />
-            </button>
-            <CountryFlag code={m.code} className="text-base leading-none shrink-0" />
-            <span className="text-xs font-bold truncate text-zinc-100">{m.name}</span>
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: m.color }} />
-            <span className="text-[9px] font-mono font-bold uppercase truncate" style={{ color: m.color }}>
-              {m.label}
-            </span>
-          </div>
+  const pinnedList = filteredMarkets.filter((m) => m.isPinned);
+  const groupedByRegion = {};
 
-          {/* Middle Column */}
-          <div className="flex-1 relative h-6 flex items-center pr-4">
-            {bars.map((bar, idx) => (
-              <div
-                key={idx}
-                className="absolute h-5 rounded-md shadow-sm transition-all"
-                style={{ left: `${bar.startPct}%`, width: `${Math.max(bar.widthPct, 0.8)}%`, background: bar.color, opacity: bar.opacity }}
-                title={`${m.name} Session`}
-              />
-            ))}
-            {(m.status === "weekend" || m.status === "holiday") && (
-              <div className="w-full h-5 rounded-md flex items-center justify-center text-[9px] font-mono text-zinc-500 bg-zinc-800/30">
-                {m.status === "weekend" ? "WEEKEND" : m.holidayName}
-              </div>
-            )}
-          </div>
+  REGIONS.filter((r) => r !== "All").forEach((r) => {
+    const list = filteredMarkets.filter(
+      (m) => m.region === r && !m.isPinned
+    );
 
-          {/* Right Column */}
-          <div className="w-[140px] flex-shrink-0 text-right text-[10px] font-mono text-zinc-400">
-            {m.nextEventMin < Infinity && (
-              <span>{m.nextEventLabel} <span className="text-zinc-200 font-semibold">{formatCountdown(m.nextEventMin)}</span></span>
-            )}
-          </div>
-        </div>
-      );
-    };
+    if (list.length > 0) groupedByRegion[r] = list;
+  });
+
+  const renderMarketRow = (m) => {
+    const bars = getSessionBars(m);
 
     return (
-      <div className="w-full my-4 rounded-2xl overflow-hidden border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-        <div className="overflow-x-auto overflow-y-auto max-h-[75vh] fx-custom-scroll">
-          <div className="min-w-[960px] w-full p-4 relative">
-            
-            {/* Sticky Top Header */}
-            <div className="sticky top-0 z-30 backdrop-blur-md py-2.5 border-b text-[10px] font-mono border-zinc-800 flex items-center shadow-md">
-              <div className="w-[260px] flex-shrink-0 font-bold px-2 text-zinc-300 flex items-center gap-1.5">
-                <span>EXCHANGE MARKET</span>
-              </div>
-              <div className="flex-1 relative flex justify-between pr-4 items-center">
-                {Array.from({ length: 24 }, (_, i) => (
-                  <span key={i} className="text-center w-5 font-mono text-zinc-300 font-semibold">{String(i).padStart(2, "0")}</span>
-                ))}
-                
-                {/* Floating Live Time Pill Badge above Red Line in Sticky Table Heading */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-40 px-2 py-0.5 rounded-full text-[9px] font-mono font-extrabold bg-rose-600 text-white shadow-lg border border-rose-400 whitespace-nowrap flex items-center gap-1 pointer-events-none"
-                  style={{ left: `calc(${(displayNow / 24) * 100}% - 8px)` }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  {nowTimeStr}
-                </div>
-
-                <span className="text-[9px] font-sans font-bold text-emerald-400 ml-1">
-                  {displayTZLabel}
-                </span>
-              </div>
-              <div className="w-[140px] flex-shrink-0 text-right font-bold text-zinc-300 pr-2">COUNTDOWN</div>
-            </div>
-
-            {/* Clean 23 Interior Vertical Hour Guidelines (No Extra Edge Lines) */}
-            <div className="absolute top-12 bottom-4 left-[276px] right-[156px] pointer-events-none flex justify-between">
-              {Array.from({ length: 23 }, (_, i) => (
-                <div key={i} className="h-full border-r border-zinc-800/30" />
-              ))}
-            </div>
-
-            {/* Red Needle Line */}
-            <div
-              className="absolute top-12 bottom-4 w-0.5 bg-rose-500 z-20 pointer-events-none"
-              style={{ left: `calc(276px + ${(displayNow / 24)} * (100% - 432px))` }}
+      <div
+        key={m.id}
+        onClick={() => setSelectedMarketModal(m)}
+        onMouseEnter={() => setHoveredMarket(m.id)}
+        onMouseLeave={() => setHoveredMarket(null)}
+        className="flex items-center h-9 px-2 rounded-lg transition-colors cursor-pointer border-b border-zinc-800/50 hover:bg-zinc-800/60"
+        style={{
+          background:
+            hoveredMarket === m.id
+              ? "var(--card-hover)"
+              : m.isPinned
+                ? "rgba(250,204,21,0.04)"
+                : "transparent",
+        }}
+      >
+        {/* Left Column */}
+        <div className="w-[260px] flex-shrink-0 flex items-center gap-2 min-w-0 pr-2">
+          <button
+            onClick={(e) => togglePin(m.id, e)}
+            className="hover:scale-110 transition-transform flex-shrink-0"
+          >
+            <Star
+              className="h-3.5 w-3.5"
+              style={{
+                color: m.isPinned ? "#facc15" : "var(--text-faint)",
+                fill: m.isPinned ? "#facc15" : "none",
+              }}
             />
+          </button>
 
-            <div className="divide-y relative z-10" style={{ borderColor: "var(--border)" }}>
-              
-              {/* Dedicated PINNED TO TOP Section */}
-              {pinnedList.length > 0 && (
-                <div className="py-2 space-y-1 bg-amber-500/5 rounded-lg my-1 border border-amber-500/20">
-                  <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 text-amber-400 flex items-center gap-1.5">
-                    <Star className="h-3 w-3 fill-amber-400" /> PINNED MARKETS
-                  </div>
-                  {pinnedList.map(renderMarketRow)}
-                </div>
-              )}
+          <CountryFlag
+            code={m.code}
+            className="text-base leading-none shrink-0"
+          />
 
-              {/* Region Grouped Sections */}
-              {Object.entries(groupedByRegion).map(([region, regionMarkets]) => (
-                <div key={region} className="py-2 space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 text-zinc-400">
-                    {region}
-                  </div>
-                  {regionMarkets.map(renderMarketRow)}
-                </div>
-              ))}
+          <span className="text-xs font-bold truncate text-zinc-100">
+            {m.name}
+          </span>
+
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ background: m.color }}
+          />
+
+          <span
+            className="text-[9px] font-mono font-bold uppercase truncate"
+            style={{ color: m.color }}
+          >
+            {m.label}
+          </span>
+        </div>
+
+        {/* Middle Column */}
+        <div className="flex-1 relative h-6 flex items-center pr-4">
+          {bars.map((bar, idx) => (
+            <div
+              key={idx}
+              className="absolute h-5 rounded-md shadow-sm transition-all"
+              style={{
+                left: `${bar.startPct}%`,
+                width: `${Math.max(bar.widthPct, 0.8)}%`,
+                background: bar.color,
+                opacity: bar.opacity,
+              }}
+              title={`${m.name} Session`}
+            />
+          ))}
+
+          {(m.status === "weekend" || m.status === "holiday") && (
+            <div className="w-full h-5 rounded-md flex items-center justify-center text-[9px] font-mono text-zinc-500 bg-zinc-800/30">
+              {m.status === "weekend" ? "WEEKEND" : m.holidayName}
             </div>
+          )}
+        </div>
 
-          </div>
+        {/* Right Column */}
+        <div className="w-[140px] flex-shrink-0 text-right text-[10px] font-mono text-zinc-400">
+          {m.nextEventMin < Infinity && (
+            <span>
+              {m.nextEventLabel}{" "}
+              <span className="text-zinc-200 font-semibold">
+                {formatCountdown(m.nextEventMin)}
+              </span>
+            </span>
+          )}
         </div>
       </div>
     );
   };
+
+  return (
+    <div
+      className="w-full my-4 rounded-2xl overflow-hidden border"
+      style={{
+        background: "var(--card)",
+        borderColor: "var(--border)",
+      }}
+    >
+      <div className="overflow-x-auto overflow-y-auto max-h-[75vh] fx-custom-scroll">
+        <div className="min-w-[960px] w-full p-3 relative">
+
+          {/* Sticky Top Header */}
+          <div className="sticky top-0 z-30 backdrop-blur-md py-2.5 border-b text-[10px] font-mono border-zinc-800 flex items-center shadow-md">
+            <div className="w-[260px] flex-shrink-0 font-bold px-2 text-zinc-300 flex items-center gap-1.5">
+              <span>EXCHANGE MARKET</span>
+            </div>
+
+            <div className="flex-1 relative pr-4">
+              {Array.from({ length: 24 }, (_, i) => (
+                <span
+                  key={i}
+                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 text-center font-mono text-zinc-300 font-semibold"
+                  style={{
+                    left: `${(i / 24) * 100}%`,
+                  }}
+                >
+                  {String(i).padStart(2, "0")}
+                </span>
+              ))}
+
+              {/* Floating Live Time Pill Badge above Red Line in Sticky Table Heading */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-40 px-2 py-0.5 rounded-full text-[9px] font-mono font-extrabold bg-rose-600 text-white shadow-lg border border-rose-400 whitespace-nowrap flex items-center gap-1 pointer-events-none"
+                style={{
+                  left: `${nowPositionPct}%`,
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                {nowTimeStr}
+              </div>
+
+              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[9px] font-sans font-bold text-emerald-400">
+                {displayTZLabel}
+              </span>
+            </div>
+
+            <div className="w-[140px] flex-shrink-0 text-right font-bold text-zinc-300 pr-2">
+              COUNTDOWN
+            </div>
+          </div>
+
+          {/* Clean 23 Interior Vertical Hour Guidelines (No Extra Edge Lines) */}
+          <div className="absolute top-12 bottom-4 left-[276px] right-[156px] pointer-events-none">
+            <div className="absolute top-0 bottom-0 left-0 border-r border-zinc-800/30" />
+
+            {Array.from({ length: 23 }, (_, i) => (
+              <div
+                key={i}
+                className="absolute top-0 bottom-0 border-r border-zinc-800/30"
+                style={{
+                  left: `${((i + 1) / 24) * 100}%`,
+                }}
+              />
+            ))}
+
+            <div className="absolute top-0 bottom-0 right-0 border-r border-zinc-800/30" />
+          </div>
+
+          {/* Red Needle Line */}
+          <div
+            className="absolute top-12 bottom-4 w-0.5 bg-rose-500 z-20 pointer-events-none"
+            style={{
+              left: `calc(276px + ${displayNow / 24} * (100% - 432px))`,
+            }}
+          />
+
+          <div
+            className="divide-y relative z-10"
+            style={{ borderColor: "var(--border)" }}
+          >
+
+            {/* Dedicated PINNED TO TOP Section */}
+            {pinnedList.length > 0 && (
+              <div className="py-2 space-y-1 bg-amber-500/5 rounded-lg my-1 border border-amber-500/20">
+                <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 text-amber-400 flex items-center gap-1.5">
+                  <Star className="h-3 w-3 fill-amber-400" /> PINNED MARKETS
+                </div>
+
+                {pinnedList.map(renderMarketRow)}
+              </div>
+            )}
+
+            {/* Region Grouped Sections */}
+            {Object.entries(groupedByRegion).map(
+              ([region, regionMarkets]) => (
+                <div key={region} className="py-2 space-y-1" style={{ border: "1px var(--border)"}}>
+                  <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 text-zinc-400">
+                    {region}
+                  </div>
+
+                  {regionMarkets.map(renderMarketRow)}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
   // ─── MARKET KNOWLEDGEBASE MODAL ───────────────────────────────────────
 
