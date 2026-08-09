@@ -95,6 +95,13 @@ export default function AirSharePage() {
       const urlPin = params.get("pin");
       if (urlPin) {
         setPinCode(urlPin);
+        // Pre-fetch room items and switch to Stage 3 directly if there are active items
+        fetchFixDropRoom(urlPin).then((res) => {
+          if (res?.success && res.items && res.items.length > 0) {
+            setSharedItems(res.items);
+            setStage(3);
+          }
+        });
       }
     } catch (e) {}
   }, []);
@@ -321,10 +328,36 @@ export default function AirSharePage() {
           {/* Separator 2 */}
           <div className="h-4 w-px" style={{ background: "var(--border)" }} />
 
-          {/* 4. Room PIN Badge */}
+          {/* 4. Room PIN Badge & Connection Controller */}
           <div className="flex items-center gap-1.5 px-1 font-mono text-xs">
             <span style={{ color: "var(--text-muted)" }}>Room:</span>
-            <span className="font-bold text-sm" style={{ color: "var(--primary)" }}>#{pinCode}</span>
+            <input
+              type="text"
+              maxLength={4}
+              value={pinCode}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "");
+                setPinCode(val);
+              }}
+              placeholder="PIN"
+              className="w-12 text-center font-bold font-mono outline-none rounded border py-0.5"
+              style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--primary)" }}
+            />
+            <button
+              onClick={async () => {
+                const res = await fetchFixDropRoom(pinCode);
+                if (res?.success && res.items && res.items.length > 0) {
+                  setSharedItems(res.items);
+                  setStage(3);
+                } else {
+                  alert(`No active items found in room #${pinCode}. Ensure another device has uploaded to it first.`);
+                }
+              }}
+              className="px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all hover:scale-105"
+              style={{ background: "var(--primary-faint)", color: "var(--primary)", border: "1px solid var(--primary-border)" }}
+            >
+              Join
+            </button>
           </div>
         </div>
       </div>
@@ -346,13 +379,13 @@ export default function AirSharePage() {
                   className={`fx-tab${inputMode === "file" ? " active" : ""}`}
                   onClick={() => setInputMode("file")}
                 >
-                  <UploadCloud className="h-3.5 w-3.5" /> <span>File</span>
+                  <UploadCloud className="h-3.5 w-3.5" /> <span className="hidden sm:inline">File</span>
                 </button>
                 <button
                   className={`fx-tab${inputMode === "paste" ? " active" : ""}`}
                   onClick={() => setInputMode("paste")}
                 >
-                  <FileText className="h-3.5 w-3.5" /> <span>Paste logs</span>
+                  <FileText className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Paste logs</span>
                 </button>
               </div>
 
@@ -362,7 +395,7 @@ export default function AirSharePage() {
                 title="Quick load demo sample payload"
               >
                 <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-                <span>Quick Load</span>
+                <span className="hidden sm:inline">Quick Load</span>
               </button>
             </div>
 
@@ -446,7 +479,7 @@ export default function AirSharePage() {
                 disabled={(inputMode === "file" && stagedFiles.length === 0) || (inputMode === "paste" && !payloadText.trim())}
                 className="fx-btn-primary py-2 px-6 text-xs flex items-center gap-2 disabled:opacity-40 cursor-pointer"
               >
-                <span>Next: Process Payload</span>
+                <span className="hidden sm:inline">Next: Process Payload</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -463,7 +496,7 @@ export default function AirSharePage() {
               Process & Sanitize Payload Options
             </h2>
             <button onClick={() => setStage(1)} className="text-xs flex items-center gap-1 cursor-pointer" style={{ color: "var(--text-muted)" }}>
-              <ArrowLeft className="h-3.5 w-3.5" /> Back to Input
+              <ArrowLeft className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Back to Input</span>
             </button>
           </div>
 
@@ -506,7 +539,7 @@ export default function AirSharePage() {
             </button>
             <button onClick={processAndBroadcast} className="fx-btn-primary py-2 px-6 text-xs flex items-center gap-2 cursor-pointer">
               <Send className="h-4 w-4" />
-              <span>Broadcast to AirShare Room</span>
+              <span className="hidden sm:inline">Broadcast to AirShare Room</span>
             </button>
           </div>
         </div>
@@ -521,7 +554,7 @@ export default function AirSharePage() {
               <CheckCircle2 className="h-4 w-4" style={{ color: "var(--primary)" }} /> Active AirShare Room Payload Stream ({sharedItems.length})
             </h2>
             <button onClick={() => setStage(1)} className="fx-btn-primary py-1 px-3 text-xs flex items-center gap-1.5 cursor-pointer">
-              <Plus className="h-3.5 w-3.5" /> Share New Item
+              <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share New Item</span>
             </button>
           </div>
 
@@ -568,7 +601,7 @@ export default function AirSharePage() {
                             className="px-2 py-1 rounded-lg transition-all border flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
                             style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
                           >
-                            <GitCompare className="h-3 w-3" /> Compare
+                            <GitCompare className="h-3 w-3" /> <span className="hidden sm:inline">Compare</span>
                           </button>
                           <button
                             onClick={() => {
@@ -577,7 +610,7 @@ export default function AirSharePage() {
                             className="px-2 py-1 rounded-lg transition-all border flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
                             style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
                           >
-                            <Brain className="h-3 w-3" /> FIXi AI
+                            <Brain className="h-3 w-3" /> <span className="hidden sm:inline">FIXi AI</span>
                           </button>
                         </>
                       )}
@@ -589,7 +622,7 @@ export default function AirSharePage() {
                           style={{ color: "var(--text-muted)" }}
                         >
                           {copiedId === item.id ? <Check className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} /> : <Copy className="h-3.5 w-3.5" />}
-                          <span>{copiedId === item.id ? "Copied!" : "Copy"}</span>
+                          <span className="hidden sm:inline">{copiedId === item.id ? "Copied!" : "Copy"}</span>
                         </button>
                       ) : (
                         <a
@@ -598,7 +631,7 @@ export default function AirSharePage() {
                           className="px-3 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold"
                           style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
                         >
-                          <Download className="h-3.5 w-3.5" /> Download ({item.size})
+                          <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download</span> <span className="font-mono">({item.size})</span>
                         </a>
                       )}
 
