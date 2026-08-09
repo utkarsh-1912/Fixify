@@ -1144,7 +1144,7 @@ export default function AirSharePage() {
       {stage === 3 && (
         <div className="space-y-4 animate-fadeIn">
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+          <div className="flex flex-row sm:items-center justify-between gap-3 px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
               <CheckCircle2 className="h-4 w-4" style={{ color: "var(--primary)" }} /> Active Payload Stream ({sharedItems.length})
             </h2>
@@ -1159,7 +1159,7 @@ export default function AirSharePage() {
                 </button>
               )}
               <button onClick={() => setShowAddModal(true)} className="fx-btn-primary py-1 px-3 text-xs flex items-center gap-1.5 cursor-pointer">
-                <Shredder className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share New Item</span>
+                <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share New Item</span>
               </button>
             </div>
           </div>
@@ -1458,7 +1458,7 @@ export default function AirSharePage() {
       )}
       {p2pTransfer && (
         <div
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92vw] max-w-sm sm:left-auto sm:translate-x-0 sm:right-6 sm:bottom-6 sm:w-80 z-50 p-4 rounded-2xl border shadow-2xl space-y-2.5 animate-fadeIn"
+          className="fixed bottom-6 right-6 z-50 w-80 p-4 rounded-2xl border shadow-2xl space-y-2.5 animate-fadeIn"
           style={{ background: "var(--card)", borderColor: "var(--border)" }}
         >
           {/* Toaster Header with X Close Button */}
@@ -1561,7 +1561,7 @@ export default function AirSharePage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--border)" }}>
               <div className="flex items-center gap-2">
-                <Plus className="h-4 w-4" style={{ color: "var(--primary)" }} />
+                <Shredder className="h-4 w-4" style={{ color: "var(--primary)" }} />
                 <h3 className="text-sm font-bold" style={{ color: "var(--foreground)" }}>
                   Share New Payload to Room #{pinCode}
                 </h3>
