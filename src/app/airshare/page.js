@@ -960,7 +960,7 @@ export default function AirSharePage() {
                     <p className="text-xs text-[var(--text-muted)] mt-1">
                       Supports .txt · .fix · .log · .pdf ·{" "}
                       <span
-                        className="underline cursor-help"
+                        className="cursor-help"
                         style={{ color: "var(--primary)" }}
                         title="Word (.docx) · Excel (.xlsx) · PowerPoint (.pptx) · Network Packet (.pcap) · Images (.png, .jpg, .jpeg, .svg)"
                       >
@@ -1095,7 +1095,7 @@ export default function AirSharePage() {
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  <span className="hidden sm:inline">Broadcast to AirShare Room</span>
+                  <span className="hidden sm:inline">Broadcast to Room</span>
                 </>
               )}
             </button>
