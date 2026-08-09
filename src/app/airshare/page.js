@@ -587,9 +587,7 @@ export default function AirSharePage() {
           name: file.name,
           size: file.size > 1024 * 1024 * 1024
             ? (file.size / (1024 * 1024 * 1024)).toFixed(2) + " GB"
-            : file.size > 1024 * 1024
-              ? (file.size / (1024 * 1024)).toFixed(2) + " MB"
-              : (file.size / 1024).toFixed(1) + " KB",
+            : (file.size / (1024 * 1024)).toFixed(2) + " MB",
           type: file.type || "application/octet-stream",
           dataUrl: null, // transferred P2P
           isP2P: true,
@@ -602,9 +600,10 @@ export default function AirSharePage() {
           const fileObj = {
             id: fileId,
             name: file.name,
-            size: (file.size / 1024).toFixed(1) + " KB",
+            size: file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB",
             type: file.type || "application/octet-stream",
             dataUrl: event.target.result,
+            rawFile: file,
             isP2P: false,
             meta: getFileMeta(file.name)
           };
@@ -768,17 +767,21 @@ export default function AirSharePage() {
             meta: file.meta
           };
           newBroadcasts.push(item);
-          await shareToFixDrop({
+          const broadcastResult = await shareToFixDrop({
             pin: pinCode,
             type: "file",
             name: file.name,
             size: file.size,
             dataUrl: file.dataUrl,
+            fileBlob: file.rawFile || null,
             sender: deviceName,
             senderId: myPeerId.current,
             isP2P: file.isP2P || false,
             fileId: file.id
           });
+          if (broadcastResult?.item?.dataUrl) {
+            item.dataUrl = broadcastResult.item.dataUrl;
+          }
         }
       }
 
@@ -1106,7 +1109,7 @@ export default function AirSharePage() {
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-              <CheckCircle2 className="h-4 w-4" style={{ color: "var(--primary)" }} /> Active AirShare Room Payload Stream ({sharedItems.length})
+              <CheckCircle2 className="h-4 w-4" style={{ color: "var(--primary)" }} /> Active Payload Stream ({sharedItems.length})
             </h2>
             <div className="flex items-center gap-2">
               {selectedItemIds.length > 0 && (

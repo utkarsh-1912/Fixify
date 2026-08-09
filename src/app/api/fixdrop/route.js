@@ -54,7 +54,40 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    let body = {};
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const file = formData.get("file");
+      const pin = formData.get("pin") || "7492";
+      const sender = formData.get("sender") || "Device_Peer";
+      const senderId = formData.get("senderId") || null;
+      const fileId = formData.get("fileId") || null;
+
+      let dataUrl = null;
+      if (file && typeof file === "object" && file.arrayBuffer) {
+        const buffer = await file.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString("base64");
+        const mimeType = file.type || "application/octet-stream";
+        dataUrl = `data:${mimeType};base64,${base64}`;
+      }
+
+      body = {
+        pin,
+        type: "file",
+        name: file?.name || formData.get("name") || "file",
+        size: formData.get("size") || (file?.size ? (file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB") : "0 KB"),
+        dataUrl,
+        sender,
+        senderId,
+        isP2P: false,
+        fileId
+      };
+    } else {
+      body = await request.json();
+    }
+
     const { action, pin = "7492", signal, type = "text", content, name, size, dataUrl, sender = "Device_Peer", isP2P, fileId } = body;
 
     if (action === "signal") {

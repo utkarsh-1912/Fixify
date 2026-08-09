@@ -1,14 +1,29 @@
 "use client";
 
 // Universal FixDrop Client Service for cross-app 1-click sharing
-export async function shareToFixDrop({ pin = "7492", type = "text", content, name, size, dataUrl, sender = "Desk_Trader", senderId = null, isP2P = false, fileId = null }) {
+export async function shareToFixDrop({ pin = "7492", type = "text", content, name, size, dataUrl, sender = "Desk_Trader", senderId = null, isP2P = false, fileId = null, fileBlob = null }) {
   try {
-    // 1. Post to Universal Next.js API Relay
-    const res = await fetch("/api/fixdrop", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin, type, content, name, size, dataUrl, sender, senderId, isP2P, fileId })
-    });
+    let res;
+    if (fileBlob) {
+      const formData = new FormData();
+      formData.append("file", fileBlob, name || fileBlob.name || "file");
+      formData.append("pin", pin);
+      formData.append("sender", sender);
+      if (senderId) formData.append("senderId", senderId);
+      if (fileId) formData.append("fileId", fileId);
+      if (size) formData.append("size", size);
+
+      res = await fetch("/api/fixdrop", {
+        method: "POST",
+        body: formData
+      });
+    } else {
+      res = await fetch("/api/fixdrop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, type, content, name, size, dataUrl, sender, senderId, isP2P, fileId })
+      });
+    }
 
     const data = await res.json();
 
