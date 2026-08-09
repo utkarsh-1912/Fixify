@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Globe2, Clock, Search, BarChart3, X, Pause, Play, Star, ArrowRightLeft,
   RotateCcw, Info, Cpu, ShieldCheck, Database, Zap, BookOpen, Building2, Maximize2,
-  MapPinIcon
+  MapPin
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -176,295 +176,17 @@ const EXCHANGE_KNOWLEDGEBASE = {
 // SVG VECTOR COUNTRY FLAG COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-function CountryFlag({ code, className = "h-3.5 w-5 rounded-sm shadow-sm border border-zinc-700 shrink-0" }) {
-  const flags = {
-    US: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#bd3d44"/>
-        <path stroke="#fff" strokeWidth="37" d="M0 55h640M0 129h640M0 203h640M0 277h640M0 351h640M0 425h640"/>
-        <rect width="286" height="258" fill="#192f5d"/>
-        <circle cx="40" cy="30" r="8" fill="#fff"/>
-        <circle cx="100" cy="30" r="8" fill="#fff"/>
-        <circle cx="160" cy="30" r="8" fill="#fff"/>
-        <circle cx="220" cy="30" r="8" fill="#fff"/>
-        <circle cx="70" cy="70" r="8" fill="#fff"/>
-        <circle cx="130" cy="70" r="8" fill="#fff"/>
-        <circle cx="190" cy="70" r="8" fill="#fff"/>
-        <circle cx="40" cy="110" r="8" fill="#fff"/>
-        <circle cx="100" cy="110" r="8" fill="#fff"/>
-        <circle cx="160" cy="110" r="8" fill="#fff"/>
-        <circle cx="220" cy="110" r="8" fill="#fff"/>
-        <circle cx="70" cy="150" r="8" fill="#fff"/>
-        <circle cx="130" cy="150" r="8" fill="#fff"/>
-        <circle cx="190" cy="150" r="8" fill="#fff"/>
-        <circle cx="40" cy="190" r="8" fill="#fff"/>
-        <circle cx="100" cy="190" r="8" fill="#fff"/>
-        <circle cx="160" cy="190" r="8" fill="#fff"/>
-        <circle cx="220" cy="190" r="8" fill="#fff"/>
-      </svg>
-    ),
-    GB: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#012169"/>
-        <path stroke="#fff" strokeWidth="60" d="M0 0l640 480M640 0L0 480"/>
-        <path stroke="#C8102E" strokeWidth="40" d="M0 0l640 480M640 0L0 480"/>
-        <path stroke="#fff" strokeWidth="100" d="M320 0v480M0 240h640"/>
-        <path stroke="#C8102E" strokeWidth="60" d="M320 0v480M0 240h640"/>
-      </svg>
-    ),
-    JP: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#fff"/>
-        <circle cx="320" cy="240" r="140" fill="#bc002d"/>
-      </svg>
-    ),
-    DE: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect y="320" width="640" height="160" fill="#ffce00"/>
-        <rect y="160" width="640" height="160" fill="#dd0000"/>
-        <rect width="640" height="160" fill="#000"/>
-      </svg>
-    ),
-    IN: (
-      <svg className={className} viewBox="0 0 600 400" preserveAspectRatio="none">
-        <rect width="600" height="133.3" fill="#FF9933"/>
-        <rect y="133.3" width="600" height="133.3" fill="#FFFFFF"/>
-        <rect y="266.6" width="600" height="133.4" fill="#138808"/>
-        <circle cx="300" cy="200" r="40" fill="none" stroke="#000080" strokeWidth="6"/>
-        <circle cx="300" cy="200" r="8" fill="#000080"/>
-        {Array.from({ length: 24 }).map((_, i) => {
-          const angle = (i * 15 * Math.PI) / 180;
-          const x2 = 300 + 40 * Math.cos(angle);
-          const y2 = 200 + 40 * Math.sin(angle);
-          return <line key={i} x1="300" y1="200" x2={x2} y2={y2} stroke="#000080" strokeWidth="2.5" />;
-        })}
-      </svg>
-    ),
-    CA: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="160" height="480" fill="#ff0000"/>
-        <rect x="480" width="160" height="480" fill="#ff0000"/>
-        <rect x="160" width="320" height="480" fill="#fff"/>
-        <path fill="#ff0000" d="M320 100l25 65h65l-50 40 20 65-60-40-60 40 20-65-50-40h65z"/>
-      </svg>
-    ),
-    FR: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="213" height="480" fill="#002395"/>
-        <rect x="213" width="214" height="480" fill="#fff"/>
-        <rect x="427" width="213" height="480" fill="#ed2939"/>
-      </svg>
-    ),
-    CN: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#ee1c25"/>
-        <circle cx="120" cy="120" r="40" fill="#ffde00"/>
-        <circle cx="200" cy="60" r="12" fill="#ffde00"/>
-        <circle cx="240" cy="100" r="12" fill="#ffde00"/>
-        <circle cx="240" cy="160" r="12" fill="#ffde00"/>
-        <circle cx="200" cy="200" r="12" fill="#ffde00"/>
-      </svg>
-    ),
-    HK: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#de2910"/>
-        <circle cx="320" cy="240" r="100" fill="#fff"/>
-        <circle cx="320" cy="240" r="70" fill="#de2910"/>
-      </svg>
-    ),
-    SG: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="240" fill="#ed2939"/>
-        <rect y="240" width="640" height="240" fill="#fff"/>
-        <circle cx="120" cy="120" r="60" fill="#fff"/>
-        <circle cx="140" cy="120" r="55" fill="#ed2939"/>
-      </svg>
-    ),
-    AU: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#00008b"/>
-        <path stroke="#fff" strokeWidth="40" d="M0 0l320 240M320 0L0 240M160 0v240M0 120h320"/>
-        <path stroke="#ff0000" strokeWidth="24" d="M160 0v240M0 120h320"/>
-        <circle cx="480" cy="120" r="18" fill="#fff"/>
-        <circle cx="560" cy="200" r="18" fill="#fff"/>
-        <circle cx="420" cy="280" r="18" fill="#fff"/>
-        <circle cx="520" cy="360" r="18" fill="#fff"/>
-      </svg>
-    ),
-    NZ: (
-      <svg className={className} viewBox="0 0 600 400" preserveAspectRatio="none">
-        <rect width="600" height="400" fill="#00247D"/>
-        {/* Top-Left Union Jack Canton */}
-        <g clipPath="url(#nz-canton)">
-          <clipPath id="nz-canton">
-            <rect width="300" height="200"/>
-          </clipPath>
-          <rect width="300" height="200" fill="#00247D"/>
-          <path stroke="#FFFFFF" strokeWidth="35" d="M0 0l300 200M300 0L0 200"/>
-          <path stroke="#CC142B" strokeWidth="20" d="M0 0l300 200M300 0L0 200"/>
-          <path stroke="#FFFFFF" strokeWidth="60" d="M150 0v200M0 100h300"/>
-          <path stroke="#CC142B" strokeWidth="35" d="M150 0v200M0 100h300"/>
-        </g>
-        {/* Southern Cross 4 Red Stars with White Borders */}
-        {/* Top star */}
-        <polygon points="450,55 454,67 467,67 456,75 460,87 450,79 440,87 444,75 433,67 446,67" fill="#CC142B" stroke="#FFFFFF" strokeWidth="2.5"/>
-        {/* Bottom star */}
-        <polygon points="450,285 455,301 472,301 458,311 463,327 450,317 437,327 442,311 428,301 445,301" fill="#CC142B" stroke="#FFFFFF" strokeWidth="2.5"/>
-        {/* Left star */}
-        <polygon points="380,165 384,177 397,177 386,185 390,197 380,189 370,197 374,185 363,177 376,177" fill="#CC142B" stroke="#FFFFFF" strokeWidth="2.5"/>
-        {/* Right star */}
-        <polygon points="515,145 519,157 532,157 521,165 525,177 515,169 505,177 509,165 498,157 511,157" fill="#CC142B" stroke="#FFFFFF" strokeWidth="2.5"/>
-      </svg>
-    ),
-    KR: (
-      <svg className={className} viewBox="0 0 600 400" preserveAspectRatio="none">
-        <rect width="600" height="400" fill="#FFFFFF"/>
-        <g transform="translate(300, 200) rotate(-33.69)">
-          <path fill="#CD2E3A" d="M -100,0 A 100,100 0 0,1 100,0 A 50,50 0 0,1 0,0 A 50,50 0 0,0 -100,0 Z"/>
-          <path fill="#0047A0" d="M 100,0 A 100,100 0 0,1 -100,0 A 50,50 0 0,1 0,0 A 50,50 0 0,0 100,0 Z"/>
-        </g>
-        <g transform="translate(170, 113) rotate(-33.69)" fill="#000">
-          <rect x="-30" y="-22" width="60" height="8"/>
-          <rect x="-30" y="-7" width="60" height="8"/>
-          <rect x="-30" y="8" width="60" height="8"/>
-        </g>
-        <g transform="translate(430, 287) rotate(-33.69)" fill="#000">
-          <rect x="-30" y="-22" width="26" height="8"/>
-          <rect x="4" y="-22" width="26" height="8"/>
-          <rect x="-30" y="-7" width="26" height="8"/>
-          <rect x="4" y="-7" width="26" height="8"/>
-          <rect x="-30" y="8" width="26" height="8"/>
-          <rect x="4" y="8" width="26" height="8"/>
-        </g>
-        <g transform="translate(430, 113) rotate(33.69)" fill="#000">
-          <rect x="-30" y="-22" width="26" height="8"/>
-          <rect x="4" y="-22" width="26" height="8"/>
-          <rect x="-30" y="-7" width="60" height="8"/>
-          <rect x="-30" y="8" width="26" height="8"/>
-          <rect x="4" y="8" width="26" height="8"/>
-        </g>
-        <g transform="translate(170, 287) rotate(33.69)" fill="#000">
-          <rect x="-30" y="-22" width="60" height="8"/>
-          <rect x="-30" y="-7" width="26" height="8"/>
-          <rect x="4" y="-7" width="26" height="8"/>
-          <rect x="-30" y="8" width="60" height="8"/>
-        </g>
-      </svg>
-    ),
-    BR: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#009c3b"/>
-        <path fill="#ffdf00" d="M320 40L600 240 320 440 40 240z"/>
-        <circle cx="320" cy="240" r="110" fill="#002776"/>
-        <path fill="none" stroke="#fff" strokeWidth="12" d="M210 240a130 130 0 0 1 220-40"/>
-      </svg>
-    ),
-    MX: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="213" height="480" fill="#006847"/>
-        <rect x="213" width="214" height="480" fill="#fff"/>
-        <rect x="427" width="213" height="480" fill="#ce1126"/>
-        <circle cx="320" cy="240" r="30" fill="#a0522d"/>
-      </svg>
-    ),
-    AR: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="160" fill="#74acdf"/>
-        <rect y="320" width="640" height="160" fill="#74acdf"/>
-        <rect y="160" width="640" height="160" fill="#fff"/>
-        <circle cx="320" cy="240" r="35" fill="#f6b40e"/>
-      </svg>
-    ),
-    ES: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="120" fill="#c60b1e"/>
-        <rect y="360" width="640" height="120" fill="#c60b1e"/>
-        <rect y="120" width="640" height="240" fill="#ffc400"/>
-      </svg>
-    ),
-    IT: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="213" height="480" fill="#009246"/>
-        <rect x="213" width="214" height="480" fill="#fff"/>
-        <rect x="427" width="213" height="480" fill="#ce2b37"/>
-      </svg>
-    ),
-    CH: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#d52b1e"/>
-        <path fill="#fff" d="M260 100h120v280H260zm-110 110h340v120H150z"/>
-      </svg>
-    ),
-    SE: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#006aa7"/>
-        <path fill="#fecc00" d="M180 0h80v480h-80zM0 200h640v80H0z"/>
-      </svg>
-    ),
-    RU: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="160" fill="#fff"/>
-        <rect y="160" width="640" height="160" fill="#0039a6"/>
-        <rect y="320" width="640" height="160" fill="#d52b1e"/>
-      </svg>
-    ),
-    PK: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect x="160" width="480" height="480" fill="#004120"/>
-        <rect width="160" height="480" fill="#fff"/>
-        <circle cx="400" cy="240" r="100" fill="#fff"/>
-        <circle cx="430" cy="220" r="90" fill="#004120"/>
-      </svg>
-    ),
-    SA: (
-      <svg className={className} viewBox="0 0 600 400" preserveAspectRatio="none">
-        <rect width="600" height="400" fill="#006C35"/>
-        {/* Arabic Calligraphic Shahada Text */}
-        <text x="300" y="190" textAnchor="middle" fill="#FFFFFF" fontSize="62" fontFamily="serif" fontWeight="bold" letterSpacing="4">
-          لا إله إلا الله
-        </text>
-        <text x="300" y="245" textAnchor="middle" fill="#FFFFFF" fontSize="38" fontFamily="serif" fontWeight="bold" letterSpacing="2">
-          محمد رسول الله
-        </text>
-        {/* White Horizontal Sword pointing left */}
-        <g fill="#FFFFFF">
-          <rect x="140" y="295" width="310" height="12" rx="3"/>
-          <path d="M 140,301 L 115,291 L 115,311 Z"/>
-          <circle cx="455" cy="301" r="12"/>
-          <rect x="425" y="283" width="10" height="36" rx="2"/>
-        </g>
-      </svg>
-    ),
-    AE: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect x="160" width="480" height="160" fill="#00732f"/>
-        <rect x="160" y="160" width="480" height="160" fill="#fff"/>
-        <rect x="160" y="320" width="480" height="160" fill="#000"/>
-        <rect width="160" height="480" fill="#ff0000"/>
-      </svg>
-    ),
-    ZA: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="480" fill="#007a3d"/>
-        <rect width="640" height="160" fill="#e03c31"/>
-        <rect y="320" width="640" height="160" fill="#002395"/>
-        <path fill="#ffb81c" d="M0 120l180 120L0 360z"/>
-      </svg>
-    ),
-    KE: (
-      <svg className={className} viewBox="0 0 640 480">
-        <rect width="640" height="140" fill="#000"/>
-        <rect y="170" width="640" height="140" fill="#bb0000"/>
-        <rect y="340" width="640" height="140" fill="#006600"/>
-      </svg>
-    ),
-  };
+const EMOJI_FLAGS = {
+  US: "🇺🇸", CA: "🇨🇦", MX: "🇲🇽", BR: "🇧🇷", AR: "🇦🇷",
+  GB: "🇬🇧", FR: "🇫🇷", DE: "🇩🇪", CH: "🇨🇭", ES: "🇪🇸",
+  IT: "🇮🇹", SE: "🇸🇪", RU: "🇷🇺", JP: "🇯🇵", CN: "🇨🇳",
+  HK: "🇭🇰", SG: "🇸🇬", AU: "🇦🇺", NZ: "🇳🇿", KR: "🇰🇷",
+  IN: "🇮🇳", PK: "🇵🇰", SA: "🇸🇦", AE: "🇦🇪", ZA: "🇿🇦", KE: "🇰🇪",
+};
 
-  return flags[code] || (
-    <span className="text-[10px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-zinc-900 text-emerald-400 border border-zinc-700 shrink-0">
-      {code}
-    </span>
-  );
+function CountryFlag({ code, className = "text-base leading-none shrink-0" }) {
+  const emoji = EMOJI_FLAGS[code] || "🌐";
+  return <span className={className} title={code}>{emoji}</span>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -975,7 +697,7 @@ export default function GlobalMarketHours() {
       if (currentSeg.length > 1) segments.push(currentSeg);
       
       const avgCosC = visiblePtsCount > 0 ? totalCosC / visiblePtsCount : 0;
-      const continentOpacity = Math.max(0, Math.min(1, (avgCosC - 0.05) / 0.3));
+      const continentOpacity = Number(Math.max(0, Math.min(1, (avgCosC - 0.05) / 0.3)).toFixed(2));
 
       return { name: cont.name, segments, opacity: continentOpacity };
     });
@@ -1007,7 +729,15 @@ export default function GlobalMarketHours() {
 
     const marketDots = filteredMarkets.map((m) => {
       const proj = projectPoint(m.lat, m.lng, centerLng, cx, cy, R);
-      return { ...m, ...proj, dotSize: m.tier === "major" ? 6 : 4.5 };
+      return {
+        ...m,
+        x: Number(proj.x.toFixed(2)),
+        y: Number(proj.y.toFixed(2)),
+        cosC: Number(proj.cosC.toFixed(2)),
+        edgeOpacity: Number(proj.edgeOpacity.toFixed(2)),
+        visible: proj.visible,
+        dotSize: m.tier === "major" ? 6 : 4.5
+      };
     }).filter((m) => m.visible);
 
     return { cx, cy, R, centerLng, continentPaths, latLines, lngLines, marketDots };
@@ -1112,6 +842,7 @@ export default function GlobalMarketHours() {
                   strokeWidth="1.2"
                   strokeLinejoin="round"
                   opacity={contObj.opacity}
+                  suppressHydrationWarning
                   style={{ transition: "opacity 0.15s ease-out" }}
                 />
               ))
@@ -1127,6 +858,7 @@ export default function GlobalMarketHours() {
                 onClick={() => setSelectedMarketModal(m)}
                 onMouseEnter={() => setHoveredMarket(m.id)}
                 onMouseLeave={() => setHoveredMarket(null)}
+                suppressHydrationWarning
                 style={{ cursor: "pointer", opacity: m.edgeOpacity, transition: "opacity 0.15s ease-out" }}
               >
                 {m.status === "regular" && (
@@ -1343,7 +1075,7 @@ export default function GlobalMarketHours() {
           onClick={() => setSelectedMarketModal(m)}
           onMouseEnter={() => setHoveredMarket(m.id)}
           onMouseLeave={() => setHoveredMarket(null)}
-          className="flex items-center h-9 px-2 rounded-lg transition-colors cursor-pointer"
+          className="flex items-center h-9 px-2 rounded-lg transition-colors cursor-pointer border-b border-zinc-800/50 hover:bg-zinc-800/60"
           style={{
             background: hoveredMarket === m.id ? "var(--card-hover)" : m.isPinned ? "rgba(250,204,21,0.04)" : "transparent",
           }}
@@ -1353,7 +1085,7 @@ export default function GlobalMarketHours() {
             <button onClick={(e) => togglePin(m.id, e)} className="hover:scale-110 transition-transform flex-shrink-0">
               <Star className="h-3.5 w-3.5" style={{ color: m.isPinned ? "#facc15" : "var(--text-faint)", fill: m.isPinned ? "#facc15" : "none" }} />
             </button>
-            <CountryFlag code={m.code} className="h-4 w-6 rounded shadow-sm border border-zinc-700 shrink-0" />
+            <CountryFlag code={m.code} className="text-base leading-none shrink-0" />
             <span className="text-xs font-bold truncate text-zinc-100">{m.name}</span>
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: m.color }} />
             <span className="text-[9px] font-mono font-bold uppercase truncate" style={{ color: m.color }}>
@@ -1389,35 +1121,50 @@ export default function GlobalMarketHours() {
     };
 
     return (
-      <div className="w-full my-4 rounded-2xl overflow-hidden" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-        <div className="overflow-x-auto fx-custom-scroll">
+      <div className="w-full my-4 rounded-2xl overflow-hidden border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+        <div className="overflow-x-auto overflow-y-auto max-h-[75vh] fx-custom-scroll">
           <div className="min-w-[960px] w-full p-4 relative">
             
-            {/* Header */}
-            <div className="flex items-center pb-3 border-b text-[10px] font-mono" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-              <div className="w-[260px] flex-shrink-0" />
-              <div className="flex-1 relative flex justify-between pr-4">
-                {Array.from({ length: 25 }, (_, i) => (
-                  <span key={i} className="text-center w-5">{i === 24 ? "00" : String(i).padStart(2, "0")}</span>
+            {/* Sticky Top Header */}
+            <div className="sticky top-0 z-30 backdrop-blur-md py-2.5 border-b text-[10px] font-mono border-zinc-800 flex items-center shadow-md">
+              <div className="w-[260px] flex-shrink-0 font-bold px-2 text-zinc-300 flex items-center gap-1.5">
+                <span>EXCHANGE MARKET</span>
+              </div>
+              <div className="flex-1 relative flex justify-between pr-4 items-center">
+                {Array.from({ length: 24 }, (_, i) => (
+                  <span key={i} className="text-center w-5 font-mono text-zinc-300 font-semibold">{String(i).padStart(2, "0")}</span>
                 ))}
-                <span className="text-[9px] font-sans font-semibold text-emerald-400 ml-1">
+                
+                {/* Floating Live Time Pill Badge above Red Line in Sticky Table Heading */}
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-40 px-2 py-0.5 rounded-full text-[9px] font-mono font-extrabold bg-rose-600 text-white shadow-lg border border-rose-400 whitespace-nowrap flex items-center gap-1 pointer-events-none"
+                  style={{ left: `calc(${(displayNow / 24) * 100}% - 8px)` }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  {nowTimeStr}
+                </div>
+
+                <span className="text-[9px] font-sans font-bold text-emerald-400 ml-1">
                   {displayTZLabel}
                 </span>
               </div>
-              <div className="w-[140px] flex-shrink-0 text-right" />
+              <div className="w-[140px] flex-shrink-0 text-right font-bold text-zinc-300 pr-2">COUNTDOWN</div>
+            </div>
+
+            {/* Clean 23 Interior Vertical Hour Guidelines (No Extra Edge Lines) */}
+            <div className="absolute top-12 bottom-4 left-[276px] right-[156px] pointer-events-none flex justify-between">
+              {Array.from({ length: 23 }, (_, i) => (
+                <div key={i} className="h-full border-r border-zinc-800/30" />
+              ))}
             </div>
 
             {/* Red Needle Line */}
             <div
-              className="absolute top-10 bottom-4 w-0.5 bg-rose-500 z-20 pointer-events-none"
+              className="absolute top-12 bottom-4 w-0.5 bg-rose-500 z-20 pointer-events-none"
               style={{ left: `calc(276px + ${(displayNow / 24)} * (100% - 432px))` }}
-            >
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-500 text-white shadow-md whitespace-nowrap">
-                {nowTimeStr}
-              </div>
-            </div>
+            />
 
-            <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+            <div className="divide-y relative z-10" style={{ borderColor: "var(--border)" }}>
               
               {/* Dedicated PINNED TO TOP Section */}
               {pinnedList.length > 0 && (
@@ -1674,17 +1421,17 @@ export default function GlobalMarketHours() {
             <Globe2 className="h-6 w-6" style={{ color: "var(--primary)" }} />
             Global Market Hours
           </h1>
-          <p className="fx-page-subtitle flex flex-wrap items-center gap-2">
+          <p className="fx-page-subtitle flex flex-wrap items-center gap-3 mt-1">
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-2 h-2 rounded-full" style={{ background: SESSION_COLORS.regular, animation: "live-pulse 1.5s ease-in-out infinite" }} />
               <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-400">LIVE</span>
             </span>
-            <span className="font-mono text-xs text-zinc-400" suppressHydrationWarning>
-              <Clock className="inline h-3 w-3 mr-1" />
+            <span className="font-mono text-xs text-zinc-300 flex items-center gap-1 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800" suppressHydrationWarning>
+              <Clock className="h-3 w-3 text-emerald-400" />
               {mounted ? formatUTCTime(currentTime) : "00:00:00 UTC"}
             </span>
-            <span className="font-mono text-xs text-zinc-400" suppressHydrationWarning>
-              <MapPinIcon className="inline h-3 w-3 mr-1" />
+            <span className="font-mono text-xs text-zinc-300 flex items-center gap-1 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800" suppressHydrationWarning>
+              <MapPin className="h-3 w-3 text-emerald-400" />
               Local: {mounted ? formatLocalTime(currentTime) : "00:00:00 AM"}
             </span>
           </p>

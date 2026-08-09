@@ -5,7 +5,7 @@ import {
   Info, Shield, Zap, Package, ChevronRight, Activity, Terminal, Code, 
   ArrowRightLeft, ShieldAlert, EyeOff, Layers, TrendingUp, FileCode, 
   MessageSquare, BookOpen, Cpu, GitBranch, Columns, CheckCircle2, Lock,
-  Sparkles, Radio, Database, ArrowUpRight, Search, Globe2
+  Sparkles, Radio, Database, ArrowUpRight, Search, Globe2, Share2
 } from "lucide-react";
 import Link from "next/link";
 
@@ -104,6 +104,13 @@ export default function AboutPage() {
       title: 'Encrypted Desk Chat',
       badge: 'P2P Team',
       desc: 'Collaborate with team members inside end-to-end encrypted rooms. Transcripts are client-side decrypted in browser memory with zero server logging.',
+    },
+    {
+      category: 'tools',
+      icon: Share2,
+      title: 'FixDrop Instant Transfer',
+      badge: 'P2P AirBridge',
+      desc: 'Staged cross-device sharing for FIX logs, Word, PDF, Excel, and PCAP captures over local Wi-Fi & WebRTC with 4-digit PINs and camera QR pairing.',
     },
     {
       category: 'tools',

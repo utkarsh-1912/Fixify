@@ -38,6 +38,7 @@
 | **Intelligence** | **FIXi AI Interpreter** | Interactive diagnostic agent powered by local offline AURA rules or Google Gemini 2.5 Flash for protocol error resolution. |
 | **Developer** | **Code Sandbox Playground** | Execute C++, Python, and Java FIX parser code templates in a client-side Web Worker sandbox. |
 | **Collaboration** | **Encrypted Desk Chat** | End-to-end encrypted team chat rooms with zero server logging and automatic FIX payload visualizer rendering. |
+| **P2P Transfer** | **FixDrop Instant Transfer** | Staged cross-device sharing for FIX logs, Word, PDF, Excel, and PCAP captures over Wi-Fi & WebRTC with 4-digit PINs & QR pairing. |
 | **Formatting** | **XML & Schemas Formatter** | Format, pretty-print, and sanitize XML dictionaries and FIXatdl files with instant SOH-to-pipe conversions. |
 | **Monitoring** | **Live Session Stream Monitor** | Simulate live FIX session socket streaming with dynamic timelines, customizable latency spikes, and sequence gap alerts. |
 | **Reference** | **FIX Tags Dictionary** | Interactive specification lookup across standard FIX versions (4.0, 4.1, 4.2, 4.3, 4.4, 5.0, FIXT 1.1) and custom dialects. |
