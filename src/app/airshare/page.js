@@ -1122,7 +1122,7 @@ export default function AirSharePage() {
                 </button>
               )}
               <button onClick={() => setShowAddModal(true)} className="fx-btn-primary py-1 px-3 text-xs flex items-center gap-1.5 cursor-pointer">
-                <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share New Item</span>
+                <Shredder className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Share New Item</span>
               </button>
             </div>
           </div>
