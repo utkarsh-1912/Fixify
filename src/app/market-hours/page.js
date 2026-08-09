@@ -891,7 +891,7 @@ export default function GlobalMarketHours() {
             style={{ background: "var(--background)", border: "1px solid var(--primary-border)", color: "var(--primary)" }}
           >
             {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
-            <span className="font-semibold">{isPaused ? "Resume" : "Pause"}</span>
+            <span className="font-semibold">{isPaused ? "Play" : "Pause"}</span>
           </button>
         </div>
 
