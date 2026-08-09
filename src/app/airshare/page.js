@@ -576,10 +576,21 @@ export default function AirSharePage() {
     let isMounted = true;
     const syncRoomData = async () => {
       const res = await fetchFixDropRoom(pinCode);
-      if (res?.success && res.items && isMounted) {
-        if (res.items.length > 0) {
-          setSharedItems(res.items);
-        }
+      if (res?.success && Array.isArray(res.items) && isMounted) {
+        setSharedItems((prev) => {
+          const itemMap = new Map();
+          // First add all incoming items from server response
+          res.items.forEach((item) => {
+            if (item && item.id) itemMap.set(item.id, item);
+          });
+          // Preserve any local in-flight items that may not be in GET response yet
+          prev.forEach((item) => {
+            if (item && item.id && !itemMap.has(item.id)) {
+              itemMap.set(item.id, item);
+            }
+          });
+          return Array.from(itemMap.values());
+        });
       }
     };
 
@@ -613,7 +624,7 @@ export default function AirSharePage() {
 
   const onDrop = useCallback((acceptedFiles) => {
     acceptedFiles.forEach((file) => {
-      const fileId = Date.now().toString() + "_" + Math.random().toString(36).substring(2, 5);
+      const fileId = "file_" + Date.now().toString() + "_" + Math.random().toString(36).substring(2, 9) + "_" + Math.floor(Math.random() * 10000);
       stagedFileObjects.current[fileId] = file;
 
       // If file is larger than 4MB, register it as a WebRTC P2P stream instead of reading it in RAM
@@ -789,7 +800,7 @@ export default function AirSharePage() {
       }
 
       if (inputMode === "file" && stagedFiles.length > 0) {
-        for (const file of stagedFiles) {
+        const uploadPromises = stagedFiles.map(async (file) => {
           const item = {
             id: file.id,
             type: "file",
@@ -803,7 +814,6 @@ export default function AirSharePage() {
             fileId: file.id,
             meta: file.meta
           };
-          newBroadcasts.push(item);
           const broadcastResult = await shareToFixDrop({
             pin: pinCode,
             type: "file",
@@ -819,7 +829,11 @@ export default function AirSharePage() {
           if (broadcastResult?.item?.dataUrl) {
             item.dataUrl = broadcastResult.item.dataUrl;
           }
-        }
+          return item;
+        });
+
+        const uploadedItems = await Promise.all(uploadPromises);
+        newBroadcasts.push(...uploadedItems);
       }
 
       setSharedItems((prev) => [...newBroadcasts, ...prev]);
