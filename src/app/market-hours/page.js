@@ -781,7 +781,7 @@ export default function GlobalMarketHours() {
     return (
       <div className="flex flex-col lg:flex-row gap-5 items-stretch my-4">
         {/* Globe Visualization Container - 65% Width */}
-        <div className="relative w-full lg:w-[65%] rounded-2xl flex items-center justify-center p-4 h-[600px]"
+        <div className="relative w-full lg:w-[65%] rounded-2xl flex items-center justify-center p-4 md:h-[600px]"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
           
           <svg viewBox="0 0 800 800" className="w-full max-w-[650px] h-full">
@@ -887,11 +887,11 @@ export default function GlobalMarketHours() {
           {/* Rotation Toggle Centered */}
           <button
             onClick={(e) => { e.stopPropagation(); setIsPaused(!isPaused); }}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all pointer-events-auto shadow-xl backdrop-blur-md z-10"
+            className="absolute bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-2 py-1.5 md:px-4 md:py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all pointer-events-auto shadow-xl backdrop-blur-md z-10"
             style={{ background: "var(--background)", border: "1px solid var(--primary-border)", color: "var(--primary)" }}
           >
-            {isPaused ? <Play className="h-3.5 w-3.5 text-emerald-400" /> : <Pause className="h-3.5 w-3.5 text-amber-400" />}
-            <span className="font-semibold">{isPaused ? "Resume Rotation" : "Auto Rotating"}</span>
+            {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+            <span className="font-semibold">{isPaused ? "Resume" : "Pause"}</span>
           </button>
         </div>
 
