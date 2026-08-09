@@ -148,6 +148,13 @@ export default function AirSharePage() {
     } catch (e) {}
   }, []);
 
+  // If Room Stream becomes empty while on Stage 3, auto-switch back to Stage 1 (Input)
+  useEffect(() => {
+    if (stage === 3 && sharedItems.length === 0) {
+      setStage(1);
+    }
+  }, [sharedItems.length, stage]);
+
   const generateNewPin = () => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     setPinCode(code);
