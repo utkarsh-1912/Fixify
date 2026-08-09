@@ -34,75 +34,7 @@ import {
 import { validateFIXMessage } from "@/lib/fixParser";
 import { shareToFixDrop, fetchFixDropRoom } from "@/lib/fixDropService";
 
-// Standard Spec QR Matrix Generator with 2-module quiet zone margin
-function QuickQRCodeSVG({ value, size = 180 }) {
-  const grid = useMemo(() => {
-    // 25x25 matrix including 2-module quiet zone padding
-    const matrix = Array.from({ length: 25 }, () => Array(25).fill(false));
-    
-    // Finder Patterns at 3 corners (shifted by 2 for quiet zone)
-    const addFinder = (row, col) => {
-      for (let r = 0; r < 7; r++) {
-        for (let c = 0; c < 7; c++) {
-          if (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
-            matrix[row + r][col + c] = true;
-          }
-        }
-      }
-    };
-    addFinder(2, 2);
-    addFinder(2, 16);
-    addFinder(16, 2);
 
-    // Timing patterns
-    for (let i = 10; i < 15; i += 2) {
-      matrix[8][i] = true;
-      matrix[i][8] = true;
-    }
-
-    // Deterministic bit encoding derived from URL string
-    let hash = 0;
-    for (let i = 0; i < value.length; i++) {
-      hash = (hash << 5) - hash + value.charCodeAt(i);
-      hash |= 0;
-    }
-
-    for (let r = 2; r < 23; r++) {
-      for (let c = 2; c < 23; c++) {
-        const mr = r - 2;
-        const mc = c - 2;
-        if ((mr < 8 && mc < 8) || (mr < 8 && mc >= 13) || (mr >= 13 && mc < 8)) {
-          continue;
-        }
-        const bit = Math.abs((hash ^ (mr * 21 + mc * 31)) % 3) === 0;
-        matrix[r][c] = bit;
-      }
-    }
-    return matrix;
-  }, [value]);
-
-  const tileSize = size / 25;
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="rounded-xl shadow-md border" style={{ borderColor: "var(--border)" }}>
-      <rect width={size} height={size} fill="#ffffff" />
-      {grid.map((row, r) =>
-        row.map((cell, c) =>
-          cell ? (
-            <rect
-              key={`${r}-${c}`}
-              x={c * tileSize}
-              y={r * tileSize}
-              width={tileSize + 0.1}
-              height={tileSize + 0.1}
-              fill="#09090b"
-            />
-          ) : null
-        )
-      )}
-    </svg>
-  );
-}
 
 function getFileMeta(filename) {
   const ext = filename.split(".").pop()?.toLowerCase() || "";
@@ -136,6 +68,24 @@ export default function AirSharePage() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [qrSvgString, setQrSvgString] = useState("");
+
+  const roomLink = typeof window !== "undefined" ? `${window.location.origin}/airshare?pin=${pinCode}` : `https://fixify.app/airshare?pin=${pinCode}`;
+
+  // Generate spec-compliant QR Code SVG string dynamically when modal is shown
+  useEffect(() => {
+    if (!showQrModal) return;
+    try {
+      const qrCodeLib = require("qrcode");
+      qrCodeLib.toString(roomLink, { type: "svg", margin: 1, width: 160 }, (err, svg) => {
+        if (!err) {
+          setQrSvgString(svg);
+        }
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }, [roomLink, showQrModal]);
 
   // Auto-connect to room PIN from URL query param `?pin=XXXX` (e.g. when mobile scans QR code)
   useEffect(() => {
@@ -309,8 +259,6 @@ export default function AirSharePage() {
     setPayloadText("8=FIX.4.4|9=145|35=D|49=DESK_NY|56=EXECUTOR|34=1022|52=20260809-12:35:00.100|11=ORD_9910|55=AAPL|54=1|38=1000|44=225.50|10=188|");
     setInputMode("paste");
   };
-
-  const roomLink = typeof window !== "undefined" ? `${window.location.origin}/airshare?pin=${pinCode}` : `https://fixify.app/airshare?pin=${pinCode}`;
 
   return (
     <div className="fx-page space-y-6 max-w-5xl mx-auto">
@@ -748,7 +696,13 @@ export default function AirSharePage() {
 
             {/* Instant Pure SVG QR Matrix */}
             <div className="p-4 rounded-xl flex items-center justify-center mx-auto w-48 h-48 bg-white border" style={{ borderColor: "var(--border)" }}>
-              <QuickQRCodeSVG value={roomLink} size={160} />
+              {qrSvgString ? (
+                <div dangerouslySetInnerHTML={{ __html: qrSvgString }} className="w-40 h-40 flex items-center justify-center bg-white rounded-xl overflow-hidden" />
+              ) : (
+                <div className="w-40 h-40 flex items-center justify-center bg-white rounded-xl border text-[10px] text-zinc-400">
+                  Generating QR...
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
