@@ -1196,7 +1196,7 @@ const renderTimeline = () => {
         <div className="min-w-[960px] w-full p-3 relative">
 
           {/* Sticky Top Header */}
-          <div className="sticky top-0 z-30 backdrop-blur-md py-2.5 border-b text-[10px] font-mono border-zinc-800 flex items-center shadow-md">
+          <div className="sticky top-0 z-30 backdrop-blur-md py-2.5 border-b text-[10px] font-mono border-zinc-800 flex items-center">
             <div className="w-[260px] flex-shrink-0 font-bold px-2 text-zinc-300 flex items-center gap-1.5">
               <span>EXCHANGE MARKET</span>
             </div>
