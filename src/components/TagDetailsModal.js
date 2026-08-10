@@ -177,14 +177,6 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
                 )}
               </div>
             </div>
-
-            <button
-              onClick={handleCopyTagSyntax}
-              className="px-2.5 py-1 rounded-lg border text-xs font-mono font-semibold flex items-center gap-1.5 transition-all bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-emerald-400 shrink-0"
-              title="Copy Sample Tag Syntax"
-            >
-              {copiedText ? <span className="text-emerald-400">Copied!</span> : <span>Copy #{tagStr}</span>}
-            </button>
           </div>
 
           {/* Description */}
