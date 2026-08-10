@@ -982,26 +982,17 @@ export default function AirSharePage() {
             </button>
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Instant cross-device P2P file & log sharing for FIX logs, PDF, Word, Excel, Images, Video & ZIP archives over Wi-Fi & WebRTC.
+            Instant cross-device file & log sharing for FIX logs, PDF, Word, Excel, Images, Video & ZIP archives.
           </p>
         </div>
 
         {/* Top Right Controls: Sync Stream -> Reset -> Separator -> QR -> Separator -> Room PIN */}
         <div className="flex items-center gap-2.5 p-2.5 rounded-xl border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-          {/* 1. Sync Active Stream & Fetch New Files */}
-          <button
-            onClick={refreshActiveStream}
-            className="p-1.5 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center border"
-            style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
-            title={`Sync Active Room Stream #${pinCode} & Fetch New Files`}
-          >
-            <RotateCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          </button>
 
           {/* 2. Reset Room Button */}
           <button
             onClick={() => setSharedItems([])}
-            className="p-1.5 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center"
+            className="p-1 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center"
             style={{ color: "var(--text-muted)" }}
             title="Reset Room Payloads & Files"
           >
@@ -1014,8 +1005,8 @@ export default function AirSharePage() {
           {/* 3. QR Code Button (Icon only, no text) */}
           <button
             onClick={() => setShowQrModal(true)}
-            className="p-1.5 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center"
-            style={{ background: "var(--primary-faint)", color: "var(--primary)" }}
+            className="p-1 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center"
+            style={{  color: "var(--text-muted)" }}
             title="Scan Mobile QR Code"
           >
             <QrCode className="h-4 w-4" />
@@ -1040,12 +1031,12 @@ export default function AirSharePage() {
               style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--primary)" }}
             />
             <button
-              onClick={refreshActiveStream}
-              className="p-1 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center border ml-0.5"
-              style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
-              title={`Sync Active Room Stream #${pinCode} & Fetch New Files`}
+              onClick={generateNewPin}
+              className="p-1 rounded transition-all hover:scale-105 cursor-pointer flex items-center justify-center border ml-0.5"
+              style={{ borderColor: "var(--primary-faint)", color: "var(--primary)" }}
+              title="Generate New Room PIN"
             >
-              <RotateCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              <RefreshCw className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -1526,7 +1517,7 @@ export default function AirSharePage() {
       {infoModalOpen && (
         <>
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 animate-fade-in"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-fade-in"
             onClick={() => setInfoModalOpen(false)}
           />
           <div
@@ -1551,24 +1542,26 @@ export default function AirSharePage() {
               <div className="space-y-2">
                 <p className="font-bold" style={{ color: "var(--foreground)" }}>What is FixDrop Instant Transfer?</p>
                 <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  FixDrop is a local-first, zero-server cross-device payload and file sharing engine. It enables trading desks, QA engineers, and market integration teams to share raw FIX log lines, Word (.docx), PDF (.pdf), Excel (.xlsx), and PCAP captures instantly between laptops, workstations, tablets, and phones.
+                  FixDrop is a local-first, zero-server cross-device payload and file sharing engine. It enables trading desks, QA engineers, and market integration teams to share raw FIX log lines, Word (.docx), PDF (.pdf), Excel (.xlsx), Media (.mp4, .png), ZIP archives (.zip, .rar), and PCAP captures instantly between laptops, workstations, tablets, and phones over Wi-Fi and WebRTC P2P.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <p className="font-bold" style={{ color: "var(--foreground)" }}>How to use FixDrop in 3 Steps:</p>
                 <ul className="list-disc pl-4 space-y-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  <li><strong>Stage 1 (Input Payload):</strong> Drop files or paste raw FIX logs into the dropzone (re-using Fixify's standard tabbed input card).</li>
+                  <li><strong>Stage 1 (Input Payload):</strong> Drop files or paste raw FIX logs into the dropzone. Supports FIX logs, documents, spreadsheets, videos, images, and ZIP archives.</li>
                   <li><strong>Stage 2 (Process &amp; Sanitize):</strong> Review your queued payload. Optionally enable <em>Auto-Sanitize PII</em> to mask sensitive accounts (Tag 1), SenderSubIDs (Tag 50), and TargetSubIDs (Tag 57).</li>
-                  <li><strong>Stage 3 (Active Room Stream):</strong> Broadcast to your room stream. Connected peers in room <code>#{pinCode}</code> automatically receive the broadcast.</li>
+                  <li><strong>Stage 3 (Active Room Stream):</strong> Broadcast to your room stream. Connected peers in room <code>#{pinCode}</code> automatically receive the broadcast. Click <em>"Download ZIP"</em> to package selected files into a single batch archive.</li>
                 </ul>
               </div>
 
               <div className="space-y-2">
-                <p className="font-bold" style={{ color: "var(--foreground)" }}>Device Pairing &amp; Mobile QR Code:</p>
-                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  Click the QR icon in the header bar to present a high-contrast vector QR code. Scan the code with any mobile camera (iOS/Android) to open <code>?pin=XXXX</code> and automatically join the room.
-                </p>
+                <p className="font-bold" style={{ color: "var(--foreground)" }}>Room Controls &amp; Stream Sync:</p>
+                <ul className="list-disc pl-4 space-y-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  <li><strong>Room PIN Refresh:</strong> Click the refresh icon beside <code>Room: #{pinCode}</code> or in the top control bar to generate a brand new room PIN.</li>
+                  <li><strong>Stream Sync:</strong> Click the refresh icon beside <em>Active Payload Stream</em> to fetch newly added files without changing your room PIN.</li>
+                  <li><strong>Mobile Camera QR Scan:</strong> Scan the QR code with any mobile device camera to join room <code>#{pinCode}</code> instantly.</li>
+                </ul>
               </div>
             </div>
           </div>

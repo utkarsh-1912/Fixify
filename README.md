@@ -38,7 +38,7 @@
 | **Intelligence** | **FIXi AI Interpreter** | Interactive diagnostic agent powered by local offline AURA rules or Google Gemini 2.5 Flash for protocol error resolution. |
 | **Developer** | **Code Sandbox Playground** | Execute C++, Python, and Java FIX parser code templates in a client-side Web Worker sandbox. |
 | **Collaboration** | **Encrypted Desk Chat** | End-to-end encrypted team chat rooms with zero server logging and automatic FIX payload visualizer rendering. |
-| **P2P Transfer** | **FixDrop Instant Transfer** | Staged cross-device sharing for FIX logs, Word, PDF, Excel, and PCAP captures over Wi-Fi & WebRTC with 4-digit PINs & QR pairing. |
+| **P2P Transfer** | **FixDrop Instant Transfer** | Staged cross-device P2P sharing for FIX logs, PDF, Word, Excel, Media (Video/Image), ZIP archives, and PCAPs over Wi-Fi & WebRTC with QR pairing, batch ZIP downloads, and dedicated Open/Save actions. |
 | **Formatting** | **XML & Schemas Formatter** | Format, pretty-print, and sanitize XML dictionaries and FIXatdl files with instant SOH-to-pipe conversions. |
 | **Monitoring** | **Live Session Stream Monitor** | Simulate live FIX session socket streaming with dynamic timelines, customizable latency spikes, and sequence gap alerts. |
 | **Reference** | **FIX Tags Dictionary** | Interactive specification lookup across standard FIX versions (4.0, 4.1, 4.2, 4.3, 4.4, 5.0, FIXT 1.1) and custom dialects. |
@@ -72,17 +72,20 @@
 
 ## 📡 FixDrop Data Transfer Architecture
 
-FixDrop is designed for zero-configuration, cross-device trading desk file and payload relay. It operates on three concurrent communication channels to transfer files and strings up to **25 MB**:
+FixDrop is designed for zero-configuration, cross-device trading desk file and payload relay. It operates on concurrent communication channels to transfer raw logs, documents, media, and binary streams:
 
 ### Supported Data Streams & Encoding:
-- **FIX Protocol Logs**: Strings parsed with `validateFIXMessage()` for Tag 35 identification and automatically masked for PII (Tags 1, 50, 57).
-- **Binary PCAP & Decoders**: Network packet captures (`.pcap`) and FAST/SBE binary logs encoded as Base64 DataURLs via `FileReader.readAsDataURL()`.
-- **Trading Desk Documents**: PDFs, Word docs, Excel sheets, and CSV blottings transferred with extension-specific badges and file metrics.
+- **FIX Protocol Logs**: Strings parsed with `validateFIXMessage()` for Tag 35 identification and auto-masked for PII (Tags 1, 50, 57).
+- **Documents & Spreadsheets**: PDFs (`.pdf`), Word (`.docx`), Excel (`.xlsx`), and CSV blottings with exact extension badges and 1-click **Save to Downloads**.
+- **Media & Videos**: Video files (`.mp4`, `.mov`, `.webm`, `.mkv`) and images (`.png`, `.jpg`, `.svg`) with in-browser preview tab playback/viewing (`getFileMimeType`).
+- **ZIP Archives & Batch Packaging**: ZIP/RAR/7Z archives + batch compilation of selected payloads (including WebRTC P2P Blobs) into `FixDrop_Batch_PIN.zip`.
+- **Binary PCAP Captures**: Network packet captures (`.pcap`) and FAST/SBE binary logs encoded via Base64 or 64KB zero-copy P2P WebRTC data channels.
 
-### Transfer Transport Channels:
+### Transfer Transport & Controls:
 1. **Local Subnet & `BroadcastChannel` (Zero Latency)**: Connected tabs on the same subnet communicate instantly via native BroadcastChannel API events.
-2. **Next.js API Relay (`/api/fixdrop`)**: Direct room-based synchronization relaying payloads in server memory keyed by room PIN.
-3. **Camera QR Pairing**: Encodes `https://<domain>/airshare?pin=XXXX` to instantly join mobile camera optics to the active room.
+2. **Next.js API Relay (`/api/fixdrop`)**: Direct room-based synchronization relaying payloads in server memory keyed by 4-digit room PIN.
+3. **Camera QR Pairing**: Encodes vector QR matrix to instantly pair mobile phone camera optics (`?pin=XXXX`).
+4. **Room PIN & Stream Sync Controls**: Dedicated `generateNewPin()` action beside `Room: #XXXX` + state-preserving `refreshActiveStream()` to fetch new room files on demand.
 
 ---
 
@@ -138,7 +141,7 @@ Run the full test suite locally by invoking:
 node tests/run-all-tests.mjs
 ```
 - **Unit Verification**: Tests core regex extraction, SOH/pipe delimiter detection, and payload segmentation.
-- **Integration Validation**: Bootstraps endpoint diagnostics (polling `GET`, broadcasting `POST`, and cleaning up `DELETE` requests) against the active `/api/fixdrop` room repository.
+- **Integration Validation**: Automatically launches a lightweight in-memory FixDrop test server if `localhost:3000` is offline to test endpoint diagnostics (GET polling, POST data transfer, WebRTC signaling, target routing, and DELETE cleanup) with 100% automated coverage.
 
 ### 2. **GitHub Actions CI Workflow Pipeline (`.github/workflows/ci.yml`)**
 The integration pipeline automatically triggers on all pushes and pull requests to `main` and `master`:
