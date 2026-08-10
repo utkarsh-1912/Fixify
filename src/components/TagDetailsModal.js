@@ -116,15 +116,6 @@ export default function TagDetailsModal({ tag, version = "FIX.4.4", isOpen, onCl
     normalize(val.enum).includes(normalize(enumSearch)) ||
     normalize(val.description).includes(normalize(enumSearch))
   );
-  const [copiedText, setCopiedText] = useState(false);
-
-  const handleCopyTagSyntax = () => {
-    const sampleVal = enums.length > 0 ? enums[0].enum : 'VALUE';
-    const syntax = `${tagStr}=${sampleVal}`;
-    navigator.clipboard.writeText(syntax);
-    setCopiedText(true);
-    setTimeout(() => setCopiedText(false), 1800);
-  };
 
   return (
     <div 
