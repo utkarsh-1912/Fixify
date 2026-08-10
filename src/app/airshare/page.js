@@ -982,7 +982,7 @@ export default function AirSharePage() {
             </button>
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Staged cross-device sharing for FIX logs, Word, PDF, Excel, and PCAP captures over Wi-Fi & WebRTC.
+            Instant cross-device P2P file & log sharing for FIX logs, PDF, Word, Excel, Images, Video & ZIP archives over Wi-Fi & WebRTC.
           </p>
         </div>
 
@@ -1114,17 +1114,10 @@ export default function AirSharePage() {
                       style={{ color: isDragActive ? "var(--primary)" : "var(--text-muted)" }}
                     />
                     <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                      Drag & drop trading session logs & documents
+                      Drag & drop trading session logs, files & media
                     </p>
                     <p className="text-xs text-[var(--text-muted)] mt-1">
-                      Supports .txt · .fix · .log · .pdf ·{" "}
-                      <span
-                        className="cursor-help"
-                        style={{ color: "var(--primary)" }}
-                        title="Word (.docx) · Excel (.xlsx) · PowerPoint (.pptx) · Network Packet (.pcap) · Images (.png, .jpg, .jpeg, .svg)"
-                      >
-                        +8 more
-                      </span>
+                      Supports FIX Logs (.fix, .log, .txt) · Documents (.pdf, .docx) · Sheets (.xlsx, .csv) · Media (.mp4, .png, .jpg) · Archives (.zip, .rar, .7z) · Captures (.pcap)
                     </p>
                   </div>
 
