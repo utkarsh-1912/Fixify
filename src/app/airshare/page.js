@@ -717,21 +717,23 @@ export default function AirSharePage() {
       
       const selectedItems = sharedItems.filter(item => selectedItemIds.includes(item.id) && item.type === "file");
       if (selectedItems.length === 0) {
-        alert("Select at least one standard file (non-P2P) to package into a ZIP.");
+        alert("Please select at least one file to package into a ZIP.");
         return;
       }
 
       for (const item of selectedItems) {
-        if (item.isP2P) {
-          alert(`File "${item.name}" is a P2P stream and cannot be packaged in a client-side ZIP. Please download it individually.`);
+        if (item.dataUrl) {
+          const parts = item.dataUrl.split(",");
+          if (parts.length >= 2) {
+            const base64Data = parts[1];
+            zip.file(item.name, base64Data, { base64: true });
+          }
+        } else if (downloadedFiles[item.id]?.blob) {
+          zip.file(item.name, downloadedFiles[item.id].blob);
+        } else if (item.isP2P) {
+          alert(`File "${item.name}" is a P2P stream. Please click "P2P Download" on it first before compiling into ZIP.`);
           return;
         }
-        
-        if (!item.dataUrl) continue;
-        const parts = item.dataUrl.split(",");
-        if (parts.length < 2) continue;
-        const base64Data = parts[1];
-        zip.file(item.name, base64Data, { base64: true });
       }
 
       const content = await zip.generateAsync({ type: "blob" });
@@ -1224,7 +1226,7 @@ export default function AirSharePage() {
                       >
                         {/* Left / Top Section: Checkbox, Icon, Filename, Size, Badges */}
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          {item.type === "file" && !item.isP2P && (
+                          {item.type === "file" && (
                             <input
                               type="checkbox"
                               checked={selectedItemIds.includes(item.id)}
@@ -1287,11 +1289,32 @@ export default function AirSharePage() {
 
                         {/* Actions Bar (Row on Desktop, Clean Bottom Section on Mobile) */}
                         <div className="flex items-center justify-between md:justify-end gap-2 flex-wrap flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0" style={{ borderColor: "var(--border)" }}>
-                          {p2pTransfer && p2pTransfer.itemId === item.id && (
-                            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg border text-[10px] font-mono w-full md:w-auto justify-between" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-                              <span>{p2pTransfer.mode === "send" ? "Uploading P2P" : "Downloading P2P"}: <strong style={{ color: "var(--primary)" }}>{p2pTransfer.progress}%</strong></span>
-                              <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                                <div className="h-full bg-primary" style={{ width: `${p2pTransfer.progress}%`, background: "var(--primary)" }} />
+                          {p2pTransfer && (p2pTransfer.itemId === item.id || p2pTransfer.itemId === item.fileId) && (
+                            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg border text-[10px] font-mono w-full md:w-auto justify-between animate-fadeIn" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+                              <span className="flex items-center gap-1.5">
+                                {p2pTransfer.status === "connecting" || p2pTransfer.status === "handshaking" ? (
+                                  <>
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                    </span>
+                                    <span className="font-semibold uppercase tracking-wider text-[9px]" style={{ color: "var(--primary)" }}>
+                                      {p2pTransfer.status === "connecting" ? "Connecting..." : "Handshaking..."}
+                                    </span>
+                                  </>
+                                ) : p2pTransfer.status === "completed" ? (
+                                  <>
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                    <span className="font-semibold text-emerald-500 text-[9px]">100% Complete</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>{p2pTransfer.mode === "send" ? "Uploading P2P" : "Downloading P2P"}: <strong style={{ color: "var(--primary)" }}>{p2pTransfer.progress}%</strong></span>
+                                  </>
+                                )}
+                              </span>
+                              <div className="w-16 h-1.5 rounded-full overflow-hidden relative" style={{ background: "var(--border)" }}>
+                                <div className="h-full transition-all duration-300" style={{ width: `${p2pTransfer.progress}%`, background: p2pTransfer.status === "completed" ? "#10b981" : "var(--primary)" }} />
                               </div>
                             </div>
                           )}
@@ -1487,8 +1510,25 @@ export default function AirSharePage() {
           {/* Toaster Header with X Close Button */}
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold flex items-center gap-1.5" style={{ color: "var(--foreground)" }}>
-              {p2pTransfer.mode === "send" ? <UploadCloud className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} /> : <Download className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} />}
-              <span>{p2pTransfer.mode === "send" ? "Sending File..." : "Receiving File..."}</span>
+              {p2pTransfer.status === "connecting" || p2pTransfer.status === "handshaking" ? (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              ) : p2pTransfer.mode === "send" ? (
+                <UploadCloud className="h-3.5 w-3.5" style={{ color: "var(--primary)" }} />
+              ) : (
+                <Download className="h-3.5 w-3.5 animate-pulse" style={{ color: "var(--primary)" }} />
+              )}
+              <span>
+                {p2pTransfer.status === "connecting"
+                  ? "Connecting Peer..."
+                  : p2pTransfer.status === "handshaking"
+                  ? "Exchanging ICE..."
+                  : p2pTransfer.mode === "send"
+                  ? "Sending File..."
+                  : "Receiving File..."}
+              </span>
             </h4>
             <button
               onClick={() => setP2pTransfer(null)}
