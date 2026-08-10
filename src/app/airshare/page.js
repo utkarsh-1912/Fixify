@@ -35,7 +35,10 @@ import {
   Info,
   Play,
   Pause,
-  ExternalLink
+  ExternalLink,
+  Video,
+  Archive,
+  RotateCw
 } from "lucide-react";
 import { validateFIXMessage } from "@/lib/fixParser";
 import { shareToFixDrop, fetchFixDropRoom, fetchWebRTCSignals, sendWebRTCSignal } from "@/lib/fixDropService";
@@ -56,13 +59,51 @@ function getFileMeta(filename) {
   if (["ppt", "pptx"].includes(ext)) {
     return { label: "POWERPOINT", icon: Presentation };
   }
-  if (["png", "jpg", "jpeg", "svg"].includes(ext)) {
+  if (["png", "jpg", "jpeg", "svg", "gif", "webp"].includes(ext)) {
     return { label: "IMAGE", icon: Image };
+  }
+  if (["mp4", "webm", "mov", "mkv", "avi"].includes(ext)) {
+    return { label: "VIDEO", icon: Video };
+  }
+  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
+    return { label: "ARCHIVE", icon: Archive };
   }
   if (["xml", "json", "pcap", "log", "fix"].includes(ext)) {
     return { label: ext.toUpperCase(), icon: FileCode };
   }
   return { label: ext.toUpperCase() || "FILE", icon: FileCheck };
+}
+
+function getFileMimeType(filename) {
+  if (!filename) return "application/octet-stream";
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  switch (ext) {
+    case "pdf": return "application/pdf";
+    case "png": return "image/png";
+    case "jpg":
+    case "jpeg": return "image/jpeg";
+    case "svg": return "image/svg+xml";
+    case "gif": return "image/gif";
+    case "webp": return "image/webp";
+    case "mp4": return "video/mp4";
+    case "webm": return "video/webm";
+    case "mov": return "video/quicktime";
+    case "mkv": return "video/x-matroska";
+    case "avi": return "video/x-msvideo";
+    case "txt":
+    case "log":
+    case "fix": return "text/plain";
+    case "xml": return "text/xml";
+    case "json": return "application/json";
+    case "csv": return "text/csv";
+    case "html": return "text/html";
+    case "zip": return "application/zip";
+    case "rar": return "application/x-rar-compressed";
+    case "7z": return "application/x-7z-compressed";
+    case "tar": return "application/x-tar";
+    case "gz": return "application/gzip";
+    default: return "application/octet-stream";
+  }
 }
 
 export default function AirSharePage() {
@@ -73,6 +114,7 @@ export default function AirSharePage() {
   const [autoSanitize, setAutoSanitize] = useState(true);
   const [pinCode, setPinCode] = useState("7492");
   const [sharedItems, setSharedItems] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const bundledItems = useMemo(() => {
     const bundles = [];
     let currentBundle = null;
@@ -437,7 +479,8 @@ export default function AirSharePage() {
         eta: "0s"
       });
 
-      const blob = new Blob(receivedChunks, { type: item.type || "application/octet-stream" });
+      const mimeType = getFileMimeType(item.name);
+      const blob = new Blob(receivedChunks, { type: mimeType });
       const url = URL.createObjectURL(blob);
 
       // Trigger automatic file download prompt on receiving device
@@ -750,6 +793,26 @@ export default function AirSharePage() {
     }
   };
 
+  const handleOpenFile = (item) => {
+    const fileData = downloadedFiles[item.id];
+    if (!fileData) return;
+
+    const ext = item.name.split(".").pop()?.toLowerCase() || "";
+    if (["pdf", "png", "jpg", "jpeg", "svg", "gif", "webp", "txt", "log", "fix", "json", "xml", "html", "csv"].includes(ext)) {
+      const win = window.open(fileData.url, "_blank");
+      if (win) {
+        try { win.document.title = item.name; } catch (e) {}
+      }
+    } else {
+      const a = document.createElement("a");
+      a.href = fileData.url;
+      a.download = item.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
   const handleDeleteItem = async (itemId) => {
     try {
       const res = await fetch(`/api/fixdrop?pin=${pinCode}&itemId=${itemId}&senderId=${myPeerId.current}`, {
@@ -875,6 +938,32 @@ export default function AirSharePage() {
     setInputMode("paste");
   };
 
+  const refreshActiveStream = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      const res = await fetchFixDropRoom(pinCode);
+      if (res?.success && Array.isArray(res.items)) {
+        setSharedItems((prev) => {
+          const itemMap = new Map();
+          res.items.forEach((item) => {
+            if (item && item.id) itemMap.set(item.id, item);
+          });
+          prev.forEach((item) => {
+            if (item && item.id && !itemMap.has(item.id)) {
+              itemMap.set(item.id, item);
+            }
+          });
+          return Array.from(itemMap.values());
+        });
+      }
+    } catch (e) {
+      console.warn("Active stream sync error:", e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
   return (
     <div className="fx-page space-y-6 max-w-5xl mx-auto">
 
@@ -897,16 +986,16 @@ export default function AirSharePage() {
           </p>
         </div>
 
-        {/* Top Right Controls: Refresh -> Reset -> Separator -> QR -> Separator -> Room PIN */}
+        {/* Top Right Controls: Sync Stream -> Reset -> Separator -> QR -> Separator -> Room PIN */}
         <div className="flex items-center gap-2.5 p-2.5 rounded-xl border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
-          {/* 1. Refresh PIN Button */}
+          {/* 1. Sync Active Stream & Fetch New Files */}
           <button
-            onClick={generateNewPin}
-            className="p-1.5 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center"
-            style={{ color: "var(--foreground)" }}
-            title="Refresh Room PIN"
+            onClick={refreshActiveStream}
+            className="p-1.5 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center border"
+            style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
+            title={`Sync Active Room Stream #${pinCode} & Fetch New Files`}
           >
-            <RefreshCw className="h-4 w-4" />
+            <RotateCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </button>
 
           {/* 2. Reset Room Button */}
@@ -950,6 +1039,14 @@ export default function AirSharePage() {
               className="w-12 text-center font-bold font-mono outline-none rounded border py-0.5"
               style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--primary)" }}
             />
+            <button
+              onClick={refreshActiveStream}
+              className="p-1 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center border ml-0.5"
+              style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
+              title={`Sync Active Room Stream #${pinCode} & Fetch New Files`}
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            </button>
           </div>
         </div>
       </div>
@@ -1170,9 +1267,19 @@ export default function AirSharePage() {
         <div className="space-y-4 animate-fadeIn">
           
           <div className="flex flex-row sm:items-center justify-between gap-3 px-1">
-            <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-              <CheckCircle2 className="h-4 w-4" style={{ color: "var(--primary)" }} /> Active Payload Stream ({sharedItems.length})
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+                <CheckCircle2 className="h-4 w-4" style={{ color: "var(--primary)" }} /> Active Payload Stream ({sharedItems.length})
+              </h2>
+              <button
+                onClick={refreshActiveStream}
+                className="p-1 rounded-lg transition-all hover:scale-105 cursor-pointer flex items-center justify-center border"
+                style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--primary)" }}
+                title={`Sync Active Room Stream #${pinCode} & Fetch New Files`}
+              >
+                <RotateCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               {selectedItemIds.length > 0 && (
                 <button
@@ -1354,15 +1461,25 @@ export default function AirSharePage() {
                                 <span>{copiedId === item.id ? "Copied!" : "Copy"}</span>
                               </button>
                             ) : downloadedFiles[item.id] ? (
-                              <a
-                                href={downloadedFiles[item.id].url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold"
-                                style={{ background: "rgba(16, 185, 129, 0.1)", borderColor: "rgba(16, 185, 129, 0.3)", color: "#10b981" }}
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" /> <span>Open File</span>
-                              </a>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleOpenFile(item)}
+                                  className="px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                                  style={{ background: "rgba(16, 185, 129, 0.1)", borderColor: "rgba(16, 185, 129, 0.3)", color: "#10b981" }}
+                                  title="Open and view file preview"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" /> <span>Open</span>
+                                </button>
+                                <a
+                                  href={downloadedFiles[item.id].url}
+                                  download={item.name}
+                                  className="px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 text-xs font-semibold"
+                                  style={{ background: "var(--primary-faint)", borderColor: "var(--primary-border)", color: "var(--primary)" }}
+                                  title={`Save ${item.name} directly to Downloads folder`}
+                                >
+                                  <Download className="h-3.5 w-3.5" /> <span>Save</span>
+                                </a>
+                              </div>
                             ) : item.isP2P ? (
                               <button
                                 onClick={() => handleP2PDownload(item)}

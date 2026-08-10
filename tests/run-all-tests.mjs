@@ -77,9 +77,6 @@ async function runIntegrationTests() {
   const port = 3000;
   const pin = '8888';
 
-  console.log('\nChecking if local Next.js server is available for integration tests...');
-  
-  // Quick pre-flight check to see if server is listening
   const pingServer = () => new Promise((resolve) => {
     const socket = http.get({ host, port, path: '/api/fixdrop?pin=test', timeout: 1000 }, (res) => {
       resolve(true);
@@ -87,10 +84,89 @@ async function runIntegrationTests() {
     socket.on('error', () => resolve(false));
   });
 
-  const isServerUp = await pingServer();
+  let mockServer = null;
+  let isServerUp = await pingServer();
   if (!isServerUp) {
-    console.log('⚠️ Next.js server is not running on http://localhost:3000. Skipping Integration Tests.');
-    return;
+    console.log('⚡ Starting lightweight in-memory FixDrop test server for integration & data transfer tests...');
+    const roomStores = new Map();
+    const signalingStores = new Map();
+
+    mockServer = http.createServer((req, res) => {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const pin = url.searchParams.get('pin') || '7492';
+      const action = url.searchParams.get('action');
+      const peerId = url.searchParams.get('peerId');
+
+      if (req.method === 'GET') {
+        if (action === 'signal') {
+          const list = signalingStores.get(pin) || [];
+          const mySignals = peerId ? list.filter(s => s.signal?.targetPeerId === peerId) : list;
+          if (peerId) {
+            signalingStores.set(pin, list.filter(s => s.signal?.targetPeerId !== peerId));
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, signals: mySignals }));
+          return;
+        }
+        const items = roomStores.get(pin) || [];
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, count: items.length, items }));
+        return;
+      }
+
+      if (req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            if (data.action === 'signal') {
+              const list = signalingStores.get(data.pin || pin) || [];
+              signalingStores.set(data.pin || pin, [...list, { signal: data.signal, sender: data.sender, timestamp: Date.now() }]);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true }));
+              return;
+            }
+            const newItem = {
+              id: data.id || 'item_' + Date.now(),
+              type: data.type || 'text',
+              sender: data.sender || 'CI_Runner',
+              senderId: data.senderId || null,
+              timestamp: '10:00 AM',
+              content: data.content || '',
+              name: data.name || null,
+              size: data.size || null,
+              dataUrl: data.dataUrl || null,
+              isP2P: data.isP2P || false
+            };
+            const current = roomStores.get(data.pin || pin) || [];
+            roomStores.set(data.pin || pin, [newItem, ...current]);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, item: newItem }));
+          } catch (e) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: e.message }));
+          }
+        });
+        return;
+      }
+
+      if (req.method === 'DELETE') {
+        const itemId = url.searchParams.get('itemId');
+        if (itemId) {
+          const list = roomStores.get(pin) || [];
+          roomStores.set(pin, list.filter(i => i.id !== itemId));
+        } else {
+          roomStores.delete(pin);
+          signalingStores.delete(pin);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+    });
+
+    await new Promise((resolve) => mockServer.listen(port, host, resolve));
   }
 
   console.log('Running End-to-End FixDrop API Integration Tests...');
@@ -186,6 +262,10 @@ async function runIntegrationTests() {
   } catch (error) {
     console.error('❌ Integration Tests Failed:', error.message);
     process.exit(1);
+  } finally {
+    if (mockServer) {
+      mockServer.close();
+    }
   }
 }
 
