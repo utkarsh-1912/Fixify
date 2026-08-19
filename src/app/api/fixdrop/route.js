@@ -7,6 +7,10 @@ export const maxDuration = 60;
 const roomStores = new Map();
 const signalingStores = new Map();
 
+const isValidPin = (pin) => {
+  return typeof pin === "string" && /^\d{4,8}$/.test(pin.trim());
+};
+
 const pruneSignals = (pin) => {
   const list = signalingStores.get(pin) || [];
   const now = Date.now();
@@ -14,10 +18,31 @@ const pruneSignals = (pin) => {
   signalingStores.set(pin, valid);
 };
 
+const pruneExpiredRooms = () => {
+  const now = Date.now();
+  for (const [pin, items] of roomStores.entries()) {
+    const valid = items.filter((item) => now - (item.createdTimestamp || now) < 1800000);
+    if (valid.length === 0) {
+      roomStores.delete(pin);
+    } else {
+      roomStores.set(pin, valid);
+    }
+  }
+};
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const pin = searchParams.get("pin") || "7492";
   const action = searchParams.get("action");
+
+  if (!isValidPin(pin)) {
+    return NextResponse.json(
+      { success: false, error: "Invalid PIN format: Must be 4 to 8 numeric digits" },
+      { status: 400 }
+    );
+  }
+
+  pruneExpiredRooms();
 
   if (action === "signal") {
     const peerId = searchParams.get("peerId") || "";
@@ -90,6 +115,13 @@ export async function POST(request) {
 
     const { action, pin = "7492", signal, type = "text", content, name, size, dataUrl, sender = "Device_Peer", isP2P, fileId } = body;
 
+    if (!isValidPin(pin)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid PIN format: Must be 4 to 8 numeric digits" },
+        { status: 400 }
+      );
+    }
+
     if (action === "signal") {
       pruneSignals(pin);
       const list = signalingStores.get(pin) || [];
@@ -118,6 +150,7 @@ export async function POST(request) {
       type,
       sender: finalSender,
       senderId: body.senderId || null,
+      createdTimestamp: Date.now(),
       timestamp,
       content: content || "",
       name: name || null,

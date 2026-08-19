@@ -78,8 +78,8 @@ async function runIntegrationTests() {
   const pin = '8888';
 
   const pingServer = () => new Promise((resolve) => {
-    const socket = http.get({ host, port, path: '/api/fixdrop?pin=test', timeout: 1000 }, (res) => {
-      resolve(true);
+    const socket = http.get({ host, port, path: '/api/fixdrop?pin=8888', timeout: 1000 }, (res) => {
+      resolve(res.statusCode === 200);
     });
     socket.on('error', () => resolve(false));
   });
@@ -96,6 +96,12 @@ async function runIntegrationTests() {
       const pin = url.searchParams.get('pin') || '7492';
       const action = url.searchParams.get('action');
       const peerId = url.searchParams.get('peerId');
+
+      if (!/^\d{4,8}$/.test(pin.trim())) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Invalid PIN format' }));
+        return;
+      }
 
       if (req.method === 'GET') {
         if (action === 'signal') {
@@ -258,6 +264,12 @@ async function runIntegrationTests() {
     const t4 = await makeRequest({ host, port, path: `/api/fixdrop?pin=${pin}`, method: 'DELETE' });
     assert(t4.body.success === true, 'Failed to reset room');
     console.log('✅ Integration Test 6: Reset room Passed');
+
+    // 5. Verify Invalid PIN Format Rejection
+    const invalidPinRes = await makeRequest({ host, port, path: `/api/fixdrop?pin=invalid_abc`, method: 'GET' });
+    assert(invalidPinRes.statusCode === 400, 'Expected 400 Bad Request for non-numeric PIN');
+    assert(invalidPinRes.body.success === false, 'Invalid PIN should return success: false');
+    console.log('✅ Integration Test 7: PIN validation rejection Passed');
 
   } catch (error) {
     console.error('❌ Integration Tests Failed:', error.message);
