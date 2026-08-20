@@ -8,7 +8,9 @@ const roomStores = new Map();
 const signalingStores = new Map();
 
 const isValidPin = (pin) => {
-  return typeof pin === "string" && /^\d{4,8}$/.test(pin.trim());
+  if (typeof pin !== "string") return false;
+  const trimmed = pin.trim();
+  return trimmed === "ping" || /^\d{4,8}$/.test(trimmed);
 };
 
 const pruneSignals = (pin) => {

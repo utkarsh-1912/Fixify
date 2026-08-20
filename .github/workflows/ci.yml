@@ -32,7 +32,7 @@ jobs:
           PORT: 3000
 
       - name: Wait for server to boot (3000)
-        run: npx wait-on http://localhost:3000/api/fixdrop?pin=ping --timeout 15000
+        run: npx wait-on http://localhost:3000/api/fixdrop?pin=7492 --timeout 15000
 
       - name: Run Automated Unit & E2E Integration Tests
         run: node tests/run-all-tests.mjs
