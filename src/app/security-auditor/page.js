@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
 import SohVisualizer from '@/components/SohVisualizer';
-import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from '@/lib/workspaceSession';
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled, safeSetItem, safeGetItem, safeRemoveItem } from '@/lib/workspaceSession';
 
 // ─── Audit Rule Definitions ──────────────────────────────────────────────────
 const AUDIT_RULES = [
@@ -91,6 +91,30 @@ const REMEDIATION_SETTINGS = [
   },
 ];
 
+function extractTagsFast(line) {
+  const startIdx = line.indexOf('8=FIX');
+  if (startIdx === -1) return null;
+  const cleanMsg = line.substring(startIdx);
+  let delim = '\x01';
+  if (!cleanMsg.includes(delim) && cleanMsg.includes('|')) delim = '|';
+  
+  const tagMap = {};
+  let cur = 0;
+  while (cur < cleanMsg.length) {
+    const nextDelim = cleanMsg.indexOf(delim, cur);
+    const token = nextDelim === -1 ? cleanMsg.substring(cur) : cleanMsg.substring(cur, nextDelim);
+    const eq = token.indexOf('=');
+    if (eq !== -1) {
+      const tag = token.substring(0, eq).trim();
+      const val = token.substring(eq + 1).trim();
+      if (tag) tagMap[tag] = val;
+    }
+    if (nextDelim === -1) break;
+    cur = nextDelim + 1;
+  }
+  return { cleanMsg, tagMap, delim };
+}
+
 // ─── Core Audit Engine ────────────────────────────────────────────────────────
 function runAuditEngine(logText, activeRules, enfEx = false, exVenue = 'cme') {
   if (!logText || !logText.trim()) return { messages: [], findings: [], score: 100 };
@@ -102,15 +126,16 @@ function runAuditEngine(logText, activeRules, enfEx = false, exVenue = 'cme') {
   const seenSequences = {};
   const expectedSequence = {};
   let logonUnencrypted = false;
+  const maxInspectorSamples = 3000;
 
   lines.forEach((line, lineIndex) => {
     const trimmedLine = line.trim();
     if (!trimmedLine) return;
 
-    const parsed = validateFIXMessage(trimmedLine);
-    if (!parsed || !parsed.tagList || parsed.tagList.length === 0) return;
+    const fast = extractTagsFast(trimmedLine);
+    if (!fast) return;
 
-    const tagMap = parsed.tags;
+    const tagMap = fast.tagMap;
     const msgType = tagMap['35'] || 'Unknown';
     const seqNumStr = tagMap['34'] || '';
     const seqNum = seqNumStr ? parseInt(seqNumStr, 10) : NaN;
@@ -119,7 +144,7 @@ function runAuditEngine(logText, activeRules, enfEx = false, exVenue = 'cme') {
     const timeStr = tagMap['52'] || tagMap['60'] || 'N/A';
     const isPossDup = tagMap['43'] === 'Y';
 
-    let msgName = parsed.msgTypeName || `MsgType=${msgType}`;
+    let msgName = `MsgType=${msgType}`;
     if (msgType === 'D') msgName = 'New Order Single';
     else if (msgType === '8') msgName = 'Execution Report';
     else if (msgType === 'A') msgName = 'Logon';
@@ -468,18 +493,21 @@ function runAuditEngine(logText, activeRules, enfEx = false, exVenue = 'cme') {
       }
     }
 
-    parsedMessages.push({
-      index: lineIndex,
-      sender,
-      target,
-      msgType,
-      msgName,
-      seqNum: seqNumStr,
-      timeStr,
-      raw: trimmedLine,
-      tagList: parsed.tagList,
-      findings: currentMsgFindings,
-    });
+    if (parsedMessages.length < maxInspectorSamples || currentMsgFindings.length > 0) {
+      const parsed = validateFIXMessage(trimmedLine);
+      parsedMessages.push({
+        index: lineIndex,
+        sender,
+        target,
+        msgType,
+        msgName: parsed?.msgTypeName || msgName,
+        seqNum: seqNumStr,
+        timeStr,
+        raw: trimmedLine,
+        tagList: parsed?.tagList || [],
+        findings: currentMsgFindings,
+      });
+    }
   });
 
   let score = 100;
@@ -781,7 +809,7 @@ export default function SecurityAuditorPage() {
     setHasAuditRun(true);
     if (messages.length > 0) setSelectedMsgIndex(0);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('fixify-security-raw', logText);
+      safeSetItem('fixify-security-raw', logText, 200 * 1024);
       if (isWorkspaceSharingEnabled() && logText) {
         setWorkspaceSession({ rawText: logText, source: 'security-auditor' });
       }

@@ -260,6 +260,7 @@ const WORKER_CODE = `
     const p99HopLatency = getPercentile(sortedLatencies, 99);
     const clockSkewCount = latencyValues.filter(v => v < 0 || v > 120000000).length;
 
+    const rttValues = pairs.map(p => p.rttMicroseconds);
     const totalRttPairs = rttValues.length;
     const avgRtt = totalRttPairs ? Math.round(rttValues.reduce((a, b) => a + b, 0) / totalRttPairs) : 0;
 
