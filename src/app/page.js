@@ -409,131 +409,38 @@ export default function LogsProcessorPage() {
     }
   }, [files, isLoaded, delimiter]);
 
-const PARSER_WORKER_CODE = `
-self.onmessage = function(e) {
-  const { lines, delimiter, fileName } = e.data;
-  const total = lines.length;
-  const results = [];
-
-  function getTagVal(line, tag, delim) {
-    if (!line) return "";
-    let d = delim || "|";
-    if (d === "|" && !line.includes("|") && line.includes("\\x01")) d = "\\x01";
-    const pattern = new RegExp("(?:^|[\\x01\\\\|])" + tag + "=([^\\x01\\\\|]*)");
-    const m = line.match(pattern);
-    return m ? m[1].trim() : "";
-  }
-
-  for (let i = 0; i < total; i++) {
-    const line = lines[i];
-    let d = delimiter || "|";
-    if (d === "|" && !line.includes("|") && line.includes("\\x01")) d = "\\x01";
-
-    const msgType = getTagVal(line, "35", d);
-    const msgSeqNum = getTagVal(line, "34", d);
-    const clOrdID = getTagVal(line, "11", d);
-    const timeStr = getTagVal(line, "52", d) || getTagVal(line, "60", d);
-    const bodyLenStr = getTagVal(line, "9", d);
-    const checksumStr = getTagVal(line, "10", d);
-
-    results.push({
-      id: fileName + "-" + i + "-" + Date.now(),
-      content: line,
-      timestampObj: timeStr,
-      clOrdID: clOrdID || "",
-      msgType: msgType || "",
-      msgSeqNum: msgSeqNum || "",
-      validation: {
-        isValid: true,
-        bodyLengthValid: true,
-        checksumValid: true,
-        declaredBodyLength: bodyLenStr ? parseInt(bodyLenStr, 10) : null,
-        declaredChecksum: checksumStr || "",
-        msgType: msgType || "Unknown",
-        errors: []
-      }
-    });
-
-    if (i % 5000 === 0 || i === total - 1) {
-      self.postMessage({ type: "progress", progress: Math.floor(((i + 1) / total) * 100) });
-    }
-  }
-
-  self.postMessage({ type: "done", results });
-};
-`;
-
   const parseLinesChunked = useCallback((lines, fileName, callback) => {
     const total = lines.length;
-    if (total === 0) {
-      callback([]);
-      return;
-    }
+    const chunkSize = 2500;
+    let index = 0;
+    const results = [];
 
-    if (typeof window !== "undefined" && window.Worker && total > 2000) {
-      try {
-        const blob = new Blob([PARSER_WORKER_CODE], { type: "application/javascript" });
-        const workerUrl = URL.createObjectURL(blob);
-        const worker = new Worker(workerUrl);
+    function processNextChunk() {
+      const end = Math.min(index + chunkSize, total);
+      for (let i = index; i < end; i++) {
+        const line = lines[i];
+        const validation = validateFIXMessage(line, delimiter);
+        results.push({
+          id: `${fileName}-${i}-${Date.now()}`,
+          content: line,
+          timestampObj: extractTimestamp(line, delimiter),
+          clOrdID: getTagValue(line, '11', delimiter),
+          msgType: getTagValue(line, '35', delimiter),
+          msgSeqNum: getTagValue(line, '34', delimiter),
+          validation
+        });
+      }
+      index = end;
+      setParsingProgress(Math.floor((index / total) * 100));
 
-        worker.onmessage = (e) => {
-          if (e.data.type === "progress") {
-            setParsingProgress(e.data.progress);
-          } else if (e.data.type === "done") {
-            callback(e.data.results);
-            worker.terminate();
-            URL.revokeObjectURL(workerUrl);
-          }
-        };
-
-        worker.onerror = (err) => {
-          console.warn("Parser Web Worker error, fallback to sync chunking:", err);
-          worker.terminate();
-          URL.revokeObjectURL(workerUrl);
-          runFallbackChunking();
-        };
-
-        worker.postMessage({ lines, delimiter, fileName });
-        return;
-      } catch (err) {
-        console.warn("Failed to spawn parser worker, using fallback:", err);
+      if (index < total) {
+        setTimeout(processNextChunk, 0);
+      } else {
+        callback(results);
       }
     }
 
-    function runFallbackChunking() {
-      const chunkSize = 2500;
-      let index = 0;
-      const results = [];
-
-      function processNextChunk() {
-        const end = Math.min(index + chunkSize, total);
-        for (let i = index; i < end; i++) {
-          const line = lines[i];
-          const validation = validateFIXMessage(line, delimiter);
-          results.push({
-            id: `${fileName}-${i}-${Date.now()}`,
-            content: line,
-            timestampObj: extractTimestamp(line, delimiter),
-            clOrdID: getTagValue(line, '11', delimiter),
-            msgType: getTagValue(line, '35', delimiter),
-            msgSeqNum: getTagValue(line, '34', delimiter),
-            validation
-          });
-        }
-        index = end;
-        setParsingProgress(Math.floor((index / total) * 100));
-
-        if (index < total) {
-          setTimeout(processNextChunk, 0);
-        } else {
-          callback(results);
-        }
-      }
-
-      processNextChunk();
-    }
-
-    runFallbackChunking();
+    processNextChunk();
   }, [delimiter]);
 
   const onDrop = useCallback((acceptedFiles) => {
@@ -615,23 +522,12 @@ self.onmessage = function(e) {
     const checksumFailedSeqs = [];
     const bodyLengthFailedSeqs = [];
 
-    const getTimestampMs = (ts) => {
-      if (!ts) return 0;
-      if (ts instanceof Date) return isNaN(ts.getTime()) ? 0 : ts.getTime();
-      if (typeof ts === 'number') return ts;
-      if (typeof ts === 'string') {
-        const d = new Date(ts);
-        return isNaN(d.getTime()) ? 0 : d.getTime();
-      }
-      return 0;
-    };
-
     const updatedFiles = activeFiles.map((fileObj) => {
       const sortedLines = [...fileObj.parsedLines];
       sortedLines.sort((a, b) => {
-        const timeA = getTimestampMs(a.timestampObj);
-        const timeB = getTimestampMs(b.timestampObj);
-        if (timeA !== timeB && timeA > 0 && timeB > 0) return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+        const timeA = a.timestampObj ? a.timestampObj.getTime() : 0;
+        const timeB = b.timestampObj ? b.timestampObj.getTime() : 0;
+        if (timeA !== timeB) return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
         if (a.clOrdID && b.clOrdID && a.clOrdID !== b.clOrdID) return a.clOrdID.localeCompare(b.clOrdID);
         const orderA = FIX_ORDER_MAP[a.msgType] || 99;
         const orderB = FIX_ORDER_MAP[b.msgType] || 99;

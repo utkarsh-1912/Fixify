@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { validateFIXMessage, getValueMeaning, getTagName } from "@/lib/fixParser";
 import SohVisualizer from "@/components/SohVisualizer";
-import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled, safeSetItem, safeGetItem } from "@/lib/workspaceSession";
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from "@/lib/workspaceSession";
 
 // Standard CSV/TSV Parser with double-quote handling
 function parseCSV(text) {
@@ -455,21 +455,21 @@ export default function MissingFillsPage() {
   // Save settings to localStorage when they change
   useEffect(() => {
     try {
-      safeSetItem("fixify_blotter_raw", blotterRawText || "", 200 * 1024);
-      safeSetItem("fixify_blotter_name", blotterFileName || "");
-      safeSetItem("fixify_column_mappings", columnMappings);
-      safeSetItem("fixify_fix_raw", fixRawText || "", 200 * 1024);
-      safeSetItem("fixify_fix_name", fixFileName || "");
+      localStorage.setItem("fixify_blotter_raw", blotterRawText || "");
+      localStorage.setItem("fixify_blotter_name", blotterFileName || "");
+      localStorage.setItem("fixify_column_mappings", JSON.stringify(columnMappings));
+      localStorage.setItem("fixify_fix_raw", fixRawText || "");
+      localStorage.setItem("fixify_fix_name", fixFileName || "");
       if (isWorkspaceSharingEnabled() && fixRawText) {
         setWorkspaceSession({ rawText: fixRawText, source: 'missing-fills' });
       }
-      safeSetItem("fixify_match_tolerance", String(matchTolerance));
-      safeSetItem("fixify_match_type", execIdMatchType);
-      safeSetItem("fixify_allow_fuzzy", String(allowFuzzyMatch));
-      safeSetItem("fixify_filter_order_id", filterOrderId || "");
-      safeSetItem("fixify_selected_sessions", selectedSessions);
-      safeSetItem("fixify_exec_types_to_consider", execTypesToConsider);
-      safeSetItem("fixify_ord_statuses_to_consider", ordStatusesToConsider);
+      localStorage.setItem("fixify_match_tolerance", String(matchTolerance));
+      localStorage.setItem("fixify_match_type", execIdMatchType);
+      localStorage.setItem("fixify_allow_fuzzy", String(allowFuzzyMatch));
+      localStorage.setItem("fixify_filter_order_id", filterOrderId || "");
+      localStorage.setItem("fixify_selected_sessions", JSON.stringify(selectedSessions));
+      localStorage.setItem("fixify_exec_types_to_consider", JSON.stringify(execTypesToConsider));
+      localStorage.setItem("fixify_ord_statuses_to_consider", JSON.stringify(ordStatusesToConsider));
     } catch (err) {
       console.warn("Failed to cache Missing Fills settings:", err);
     }
@@ -651,17 +651,15 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
     }
   };
 
-  // Run matching logic via Web Worker
+  // Run matching logic
   const handleAnalyze = () => {
     if (!fixRawText.trim()) return;
     setIsAnalyzing(true);
     setSelectedResultItem(null);
 
-    // Fallback and execution helper
-    const runMatchingCore = () => {
-      // 1. Parse FIX messages to find Fills
-      const fixLines = fixRawText.split(/\r?\n/).filter(l => l.includes("8=FIX"));
-      const parsedFills = [];
+    // 1. Parse FIX messages to find Fills
+    const fixLines = fixRawText.split(/\r?\n/).filter(l => l.includes("8=FIX"));
+    const parsedFills = [];
 
     fixLines.forEach((line, lineIdx) => {
       // Clean prefix (e.g. timestamps or headers in raw logs)
@@ -792,85 +790,69 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
       };
     });
 
-    // Build O(1) Index Maps for blotter rows to support instant reconciliation on 100K+ records
-    const exactExecIdMap = new Map();
-    const fuzzyAttributeMap = new Map();
-
-    blotterParsedRows.forEach((pRow, idx) => {
-      const blotterExecId = String(getBlotterValue(pRow.row, 'execId') || '').trim().toLowerCase();
-      if (blotterExecId) {
-        if (!exactExecIdMap.has(blotterExecId)) exactExecIdMap.set(blotterExecId, []);
-        exactExecIdMap.get(blotterExecId).push(idx);
-      }
-
-      const sym = String(getBlotterValue(pRow.row, 'symbol') || '').trim().toLowerCase();
-      const qty = parseFloat(getBlotterValue(pRow.row, 'qty') || '0').toFixed(2);
-      const px = parseFloat(getBlotterValue(pRow.row, 'price') || '0').toFixed(4);
-      const fuzzyKey = `${sym}_${qty}_${px}`;
-      if (!fuzzyAttributeMap.has(fuzzyKey)) fuzzyAttributeMap.set(fuzzyKey, []);
-      fuzzyAttributeMap.get(fuzzyKey).push(idx);
-    });
-
     parsedFills.forEach(fixFill => {
       let bestMatchIdx = -1;
       let matchReason = "";
 
-      // A. Match by Exec ID (O(1) Map Lookup)
+      // A. Match by Exec ID
       const fixExecId = fixFill.execId.trim().toLowerCase();
       if (execIdMatchType !== "disabled" && fixExecId && columnMappings.execId) {
-        if (exactExecIdMap.has(fixExecId)) {
-          const candidates = exactExecIdMap.get(fixExecId);
-          for (const candIdx of candidates) {
-            if (!matchedBlotterIndices.has(candIdx)) {
-              bestMatchIdx = candIdx;
-              matchReason = "Matched by Exec ID (Exact)";
-              break;
-            }
+        bestMatchIdx = blotterParsedRows.findIndex((pRow, idx) => {
+          if (matchedBlotterIndices.has(idx)) return false;
+          const blotterExecId = String(getBlotterValue(pRow.row, 'execId') || '').trim().toLowerCase();
+          if (!blotterExecId) return false;
+          
+          if (execIdMatchType === 'exact') {
+            return blotterExecId === fixExecId;
+          } else { // partial
+            return blotterExecId === fixExecId || blotterExecId.includes(fixExecId) || fixExecId.includes(blotterExecId);
           }
-        }
-        
-        // Fallback partial scan if exact match not found
-        if (bestMatchIdx === -1 && execIdMatchType === 'partial') {
-          for (let idx = 0; idx < blotterParsedRows.length; idx++) {
-            if (matchedBlotterIndices.has(idx)) continue;
-            const blotterExecId = String(getBlotterValue(blotterParsedRows[idx].row, 'execId') || '').trim().toLowerCase();
-            if (blotterExecId && (blotterExecId.includes(fixExecId) || fixExecId.includes(blotterExecId))) {
-              bestMatchIdx = idx;
-              matchReason = "Matched by Exec ID (Partial/Drop)";
-              break;
-            }
-          }
+        });
+        if (bestMatchIdx !== -1) {
+          matchReason = execIdMatchType === 'exact' ? "Matched by Exec ID (Exact)" : "Matched by Exec ID (Partial/Drop)";
         }
       }
 
-      // B. Fallback Fast Fuzzy Match (Symbol + Price + Qty + Timestamp)
+      // B. Fallback Fuzzy Match (Symbol + Price + Qty + Timestamp)
       if (allowFuzzyMatch && bestMatchIdx === -1) {
-        const sym = fixFill.symbol.trim().toLowerCase();
-        const qty = fixFill.qty.toFixed(2);
-        const px = fixFill.price.toFixed(4);
-        const fuzzyKey = `${sym}_${qty}_${px}`;
-
-        if (fuzzyAttributeMap.has(fuzzyKey)) {
-          const candidates = fuzzyAttributeMap.get(fuzzyKey);
-          for (const candIdx of candidates) {
-            if (matchedBlotterIndices.has(candIdx)) continue;
-            const pRow = blotterParsedRows[candIdx];
-            
-            // Verify Timestamp if mapped and tolerance is set
-            if (columnMappings.timestamp && fixFill.timestamp instanceof Date && !isNaN(fixFill.timestamp.getTime())) {
-              const blotterTime = pRow.timestampObj;
-              if (blotterTime && !isNaN(blotterTime.getTime())) {
-                const diffSec = Math.abs(blotterTime.getTime() - fixFill.timestamp.getTime()) / 1000;
-                if (matchTolerance !== -1 && diffSec > matchTolerance) continue;
-              } else {
-                continue;
-              }
-            }
-
-            bestMatchIdx = candIdx;
-            matchReason = "Matched by Fuzzy Attributes";
-            break;
+        bestMatchIdx = blotterParsedRows.findIndex((pRow, idx) => {
+          if (matchedBlotterIndices.has(idx)) return false;
+          const row = pRow.row;
+          
+          // Verify Ticker (if mapped)
+          if (columnMappings.symbol) {
+            const blotterSym = String(getBlotterValue(row, 'symbol') || '').trim().toLowerCase();
+            if (blotterSym !== fixFill.symbol.trim().toLowerCase()) return false;
           }
+
+          // Verify Quantity (if mapped)
+          if (columnMappings.qty) {
+            const blotterQty = parseFloat(getBlotterValue(row, 'qty') || '0');
+            if (Math.abs(blotterQty - fixFill.qty) > 0.001) return false;
+          }
+
+          // Verify Price (if mapped)
+          if (columnMappings.price) {
+            const blotterPx = parseFloat(getBlotterValue(row, 'price') || '0');
+            if (Math.abs(blotterPx - fixFill.price) > 0.0001) return false;
+          }
+
+          // Verify Timestamp if mapped and tolerance is set
+          if (columnMappings.timestamp && fixFill.timestamp instanceof Date && !isNaN(fixFill.timestamp.getTime())) {
+            const blotterTime = pRow.timestampObj;
+            if (blotterTime && !isNaN(blotterTime.getTime())) {
+              const diffSec = Math.abs(blotterTime.getTime() - fixFill.timestamp.getTime()) / 1000;
+              if (matchTolerance !== -1 && diffSec > matchTolerance) return false;
+            } else {
+              return false; // If time is mapped but can't be parsed, fail the check
+            }
+          }
+
+          return true;
+        });
+
+        if (bestMatchIdx !== -1) {
+          matchReason = "Matched by Fuzzy Attributes";
         }
       }
 
@@ -935,17 +917,6 @@ ORD_1004,CLORD_1004,EXEC_1004,AMZN,Buy,400,185.00,0,0,New,New`;
     setMatchedResults(results);
     setIsAnalyzing(false);
   };
-
-  // Run in Web Worker if large dataset (>2000 lines), otherwise run fast in-memory
-  if (typeof window !== "undefined" && window.Worker && (fixRawText.length > 500000 || blotterRows.length > 2000)) {
-    // Web Worker Execution for large datasets
-    setTimeout(() => {
-      runMatchingCore();
-    }, 10);
-  } else {
-    runMatchingCore();
-  }
-};
 
   // Filter matched results
   const filteredResults = matchedResults.filter(item => {

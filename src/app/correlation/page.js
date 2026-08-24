@@ -28,7 +28,7 @@ import {
   Sparkles,
   Download
 } from 'lucide-react';
-import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled, safeSetItem } from '@/lib/workspaceSession';
+import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from '@/lib/workspaceSession';
 import { validateFIXMessage } from '@/lib/fixParser';
 import SohVisualizer from '@/components/SohVisualizer';
 
@@ -820,9 +820,9 @@ export default function MultiHopCorrelationPage() {
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-correlation-raw-logs', rawLogs, 200 * 1024);
-    safeSetItem('fixify-correlation-connections-config', connectionsConfig);
-    safeSetItem('fixify-correlation-manual-links', manualLinks);
+    localStorage.setItem('fixify-correlation-raw-logs', rawLogs);
+    localStorage.setItem('fixify-correlation-connections-config', JSON.stringify(connectionsConfig));
+    localStorage.setItem('fixify-correlation-manual-links', JSON.stringify(manualLinks));
     if (isWorkspaceSharingEnabled() && rawLogs) {
       setWorkspaceSession({ rawText: rawLogs, source: 'correlation' });
     }

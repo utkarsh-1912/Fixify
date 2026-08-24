@@ -25,7 +25,6 @@ import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
 import TagDetailsModal from "@/components/TagDetailsModal";
 import { getCustomDialect } from "@/lib/dialect";
 import SohVisualizer from "@/components/SohVisualizer";
-import { safeSetItem, safeGetItem } from "@/lib/workspaceSession";
 
 // Import FIX version dictionaries
 import fix40 from "@/data/FIX/FIX40.json";
@@ -161,60 +160,64 @@ export default function FIXComparePage() {
     setIsLoaded(true);
   }, []);
 
-  // Save states on change safely (protect against QuotaExceededError on large files)
+  // Save states on change
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-msg1', msg1, 150 * 1024);
+    localStorage.setItem('fixify-compare-msg1', msg1);
   }, [msg1, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-msg2', msg2, 150 * 1024);
+    localStorage.setItem('fixify-compare-msg2', msg2);
   }, [msg2, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-mode', compareMode);
+    localStorage.setItem('fixify-compare-mode', compareMode);
   }, [compareMode, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-type', compareType);
+    localStorage.setItem('fixify-compare-type', compareType);
   }, [compareType, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-delim', delimiter);
+    localStorage.setItem('fixify-compare-delim', delimiter);
   }, [delimiter, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-f1', file1Content, 150 * 1024);
+    localStorage.setItem('fixify-compare-f1', file1Content);
   }, [file1Content, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-f2', file2Content, 150 * 1024);
+    localStorage.setItem('fixify-compare-f2', file2Content);
   }, [file2Content, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-inputType1', inputType1);
+    localStorage.setItem('fixify-compare-inputType1', inputType1);
   }, [inputType1, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-inputType2', inputType2);
+    localStorage.setItem('fixify-compare-inputType2', inputType2);
   }, [inputType2, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-pairs', comparedPairs, 200 * 1024);
+    try {
+      localStorage.setItem('fixify-compare-pairs', JSON.stringify(comparedPairs));
+    } catch (e) {
+      console.warn("Could not save compared pairs", e);
+    }
   }, [comparedPairs, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    safeSetItem('fixify-compare-pairIndex', String(selectedPairIndex));
+    localStorage.setItem('fixify-compare-pairIndex', String(selectedPairIndex));
   }, [selectedPairIndex, isLoaded]);
 
   const parseMessageTags = (rawMsg, delim) => {
@@ -227,9 +230,7 @@ export default function FIXComparePage() {
     const lines1 = msg1.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const lines2 = msg2.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const maxLines = Math.max(lines1.length, lines2.length);
-
-    const executeCompare = () => {
-      const pairs = [];
+    const pairs = [];
 
     for (let i = 0; i < maxLines; i++) {
       const l1 = lines1[i] || "";
@@ -323,16 +324,9 @@ export default function FIXComparePage() {
       });
     }
 
-      setComparedPairs(pairs);
-      setSelectedPairIndex(0);
-      setDiffSearch("");
-    };
-
-    if (maxLines > 2000) {
-      setTimeout(executeCompare, 10);
-    } else {
-      executeCompare();
-    }
+    setComparedPairs(pairs);
+    setSelectedPairIndex(0);
+    setDiffSearch("");
   };
 
   const handleFileCompare = () => {
@@ -342,42 +336,14 @@ export default function FIXComparePage() {
     const parsed1 = lines1.map((line, idx) => ({ line, tags: parseMessageTags(line, delimiter), lineNumber: idx + 1 }));
     const parsed2 = lines2.map((line, idx) => ({ line, tags: parseMessageTags(line, delimiter), lineNumber: idx + 1 }));
 
-    // Index parsed2 by correlation keys for fast O(1) matching on 100K+ records
-    const unmatched2Map = new Map();
-    parsed2.forEach((m2, idx) => {
-      const key2 = [m2.tags[11], m2.tags[17], m2.tags[37]].filter(Boolean).join("|");
-      if (key2) {
-        if (!unmatched2Map.has(key2)) unmatched2Map.set(key2, []);
-        unmatched2Map.get(key2).push(idx);
-      }
-    });
-
-    const matched2Indices = new Set();
-    const matches = [];
-    const unmatched1 = [];
-
+    const matches = [], unmatched1 = [], unmatched2 = [...parsed2];
     for (const m1 of parsed1) {
       const key1 = [m1.tags[11], m1.tags[17], m1.tags[37]].filter(Boolean).join("|");
-      let matchedIdx = -1;
-      if (key1 && unmatched2Map.has(key1)) {
-        const candidateList = unmatched2Map.get(key1);
-        while (candidateList.length > 0) {
-          const candIdx = candidateList.shift();
-          if (!matched2Indices.has(candIdx)) {
-            matchedIdx = candIdx;
-            break;
-          }
-        }
-      }
-      if (matchedIdx !== -1) {
-        matched2Indices.add(matchedIdx);
-        matches.push({ msg1: m1, msg2: parsed2[matchedIdx] });
-      } else {
-        unmatched1.push(m1);
-      }
+      let matchIndex = -1;
+      if (key1) matchIndex = unmatched2.findIndex(m2 => [m2.tags[11], m2.tags[17], m2.tags[37]].filter(Boolean).join("|") === key1);
+      if (matchIndex !== -1) { matches.push({ msg1: m1, msg2: unmatched2[matchIndex] }); unmatched2.splice(matchIndex, 1); }
+      else unmatched1.push(m1);
     }
-
-    const unmatched2 = parsed2.filter((_, idx) => !matched2Indices.has(idx));
     setFileDiff({ matches, unmatched1, unmatched2 });
   };
 
