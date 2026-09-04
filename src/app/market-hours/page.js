@@ -1267,7 +1267,7 @@ const renderTimeline = () => {
 
             {/* Dedicated PINNED TO TOP Section */}
             {pinnedList.length > 0 && (
-              <div className="py-2 space-y-1 bg-amber-500/5 rounded-lg my-1 border border-amber-500/20">
+              <div className="space-y-1 bg-amber-500/5 rounded-lg my-1 border border-amber-500/20">
                 <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 text-amber-400 flex items-center gap-1.5">
                   <Star className="h-3 w-3 fill-amber-400" /> PINNED MARKETS
                 </div>

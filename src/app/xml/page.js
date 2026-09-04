@@ -783,7 +783,7 @@ export default function XMLFormatterPage() {
                     setShowSearch(!showSearch);
                   }} 
                   title="Search XML"
-                  className={`p-1.5 rounded transition-all outline-none${
+                  className={`p-2 rounded transition-all outline-none${
                     showSearch 
                       ? "bg-[var(--primary-faint)] text-[var(--primary)]" 
                       : "hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200"
@@ -795,7 +795,7 @@ export default function XMLFormatterPage() {
                   onClick={executeAudit} 
                   disabled={!input.trim()}
                   title="Audit Schema"
-                  className="p-1.5 rounded hover:bg-zinc-850 transition-all outline-none border-l border-zinc-800/80 flex items-center justify-center"
+                  className="p-2 rounded hover:bg-zinc-850 transition-all outline-none border-l border-zinc-800/80 flex items-center justify-center"
                 >
                   <div className="relative">
                     <ShieldCheck className={`h-3.5 w-3.5 ${
@@ -815,14 +815,14 @@ export default function XMLFormatterPage() {
                 <button 
                   onClick={handleDownload} 
                   title="Download XML"
-                  className="p-1.5 rounded hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200 transition-all outline-none border-l border-zinc-800/80"
+                  className="p-2 rounded hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200 transition-all outline-none border-l border-zinc-800/80"
                 >
                   <Download className="h-3.5 w-3.5" />
                 </button>
                 <button 
                   onClick={handleCopy} 
                   title="Copy XML"
-                  className="p-1.5 rounded hover:bg-zinc-855 text-zinc-400 hover:text-zinc-200 transition-all outline-none border-l border-zinc-800/80"
+                  className="p-2 rounded hover:bg-zinc-855 text-zinc-400 hover:text-zinc-200 transition-all outline-none border-l border-zinc-800/80"
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-[var(--primary)]" />
