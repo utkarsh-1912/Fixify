@@ -42,6 +42,12 @@ export function calculateEMA(data, period) {
   return ema;
 }
 
+// RSI from Wilder averages: no losses => 100, no movement at all => 50 (neutral).
+function rsiFrom(avgGain, avgLoss) {
+  if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
+  return parseFloat((100 - 100 / (1 + avgGain / avgLoss)).toFixed(2));
+}
+
 export function calculateRSI(data, period = 14) {
   const rsi = [];
   if (data.length <= period) {
@@ -68,8 +74,7 @@ export function calculateRSI(data, period = 14) {
     if (i < period) {
       rsi.push(null);
     } else if (i === period) {
-      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-      rsi.push(parseFloat((100 - (100 / (1 + rs))).toFixed(2)));
+      rsi.push(rsiFrom(avgGain, avgLoss));
     } else {
       const diff = data[i].close - data[i - 1].close;
       const gain = diff > 0 ? diff : 0;
@@ -78,8 +83,7 @@ export function calculateRSI(data, period = 14) {
       avgGain = (avgGain * (period - 1) + gain) / period;
       avgLoss = (avgLoss * (period - 1) + loss) / period;
       
-      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-      rsi.push(parseFloat((100 - (100 / (1 + rs))).toFixed(2)));
+      rsi.push(rsiFrom(avgGain, avgLoss));
     }
   }
   return rsi;
@@ -272,7 +276,10 @@ export function analyzeTickerSignals(history, config = {}) {
     const buyRatio = buyVotes / totalVotes;
     const sellRatio = sellVotes / totalVotes;
 
-    if (buyRatio >= 0.75) {
+    if (buyRatio === sellRatio) {
+      sentiment = 'HOLD'; // tied votes must not default to BUY
+      confidence = 50;
+    } else if (buyRatio >= 0.75) {
       sentiment = 'STRONG BUY';
       confidence = Math.round(buyRatio * 100);
     } else if (buyRatio >= 0.5) {
@@ -347,7 +354,11 @@ export function backtestStrategy(history, config = {}) {
   const len = history.length;
   const trades = [];
   let openTrade = null;
-  let capital = 10000; // Virtual starting balance
+  const startCapital = config.initialCapital > 0 ? config.initialCapital : 10000; // Virtual starting balance
+  let capital = startCapital;
+  // Round-trip trading costs, in basis points of notional (0 by default = frictionless).
+  const costRate = ((config.feeBps || 0) + (config.slippageBps || 0)) / 10000;
+  const cost = (qty, entry, exit) => costRate * qty * (entry + exit);
   
   // Warmup is 30 candles
   for (let i = 30; i < len; i++) {
@@ -391,7 +402,7 @@ export function backtestStrategy(history, config = {}) {
       if (closed) {
         const entryVal = openTrade.quantity * openTrade.entryPrice;
         const exitVal = openTrade.quantity * exitPrice;
-        const pnl = openTrade.action === 'BUY' ? (exitVal - entryVal) : (entryVal - exitVal);
+        const pnl = (openTrade.action === 'BUY' ? (exitVal - entryVal) : (entryVal - exitVal)) - cost(openTrade.quantity, openTrade.entryPrice, exitPrice);
         
         capital += pnl;
         
@@ -453,7 +464,7 @@ export function backtestStrategy(history, config = {}) {
     const finalDate = history[len - 1].date;
     const entryVal = openTrade.quantity * openTrade.entryPrice;
     const exitVal = openTrade.quantity * finalPrice;
-    const pnl = openTrade.action === 'BUY' ? (exitVal - entryVal) : (entryVal - exitVal);
+    const pnl = (openTrade.action === 'BUY' ? (exitVal - entryVal) : (entryVal - exitVal)) - cost(openTrade.quantity, openTrade.entryPrice, finalPrice);
     
     capital += pnl;
     trades.push({
@@ -472,16 +483,25 @@ export function backtestStrategy(history, config = {}) {
   const grossProfit = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
   const grossLoss = Math.abs(trades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
   const profitFactor = grossLoss > 0 ? parseFloat((grossProfit / grossLoss).toFixed(2)) : grossProfit > 0 ? 99.9 : 0;
-  const netProfit = parseFloat((capital - 10000).toFixed(2));
-  
+  const netProfit = parseFloat((capital - startCapital).toFixed(2));
+
+  // Max drawdown over the closed-trade equity curve.
+  let peak = startCapital;
+  let maxDrawdownPct = 0;
+  trades.forEach((t) => {
+    peak = Math.max(peak, t.capitalAfter);
+    maxDrawdownPct = Math.max(maxDrawdownPct, ((peak - t.capitalAfter) / peak) * 100);
+  });
+
   return {
+    maxDrawdownPct: parseFloat(maxDrawdownPct.toFixed(2)),
     trades,
     totalTrades,
     profitableTrades,
     winRate,
     profitFactor,
     netProfit,
-    startCapital: 10000,
+    startCapital,
     endCapital: parseFloat(capital.toFixed(2))
   };
 }

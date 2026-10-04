@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Layers,
   Upload,
@@ -27,137 +27,21 @@ import {
 } from 'lucide-react';
 import SohVisualizer from '@/components/SohVisualizer';
 import { getTagName, getValueMeaning, validateFIXMessage } from '@/lib/fixParser';
+import { hexToBytes, bytesToHex, decodeSBE, decodeFAST, decodeAsciiFix, encodeSBE, encodeFAST, encodeAsciiFix } from '@/lib/binaryCodec';
+import { PRESETS } from '@/lib/binaryPresets';
+import { buildFixMessage, SOH } from '@/lib/fixWire';
+
+// A decoder handles one framed message; anything bigger is truncated so the browser never has to
+// hold millions of bytes in React state / DOM. The hex dump is paged for the same reason.
+const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
+const HEX_PAGE_BYTES = 4096;
+
+// Form-editor key: ASCII FIX can repeat a tag (repeating groups), so it is keyed by position.
+const builderKey = (enc, f, idx) => (enc === 'ascii_hex' ? `${f.tag}#${idx}` : f.name);
 
 // ==========================================
 // PRESETS & SCHEMAS
 // ==========================================
-
-const PRESETS = {
-  sbe_cme: {
-    name: 'CME MDP 3.0 (SBE)',
-    encoding: 'sbe',
-    payload: '240065000100030000000000a8dedaa48f010000e17f0f0000000000d42c010000000000d4a8000000000000fa00000001',
-    schema: `<?xml version="1.0" encoding="UTF-8"?>
-<sbe:messageSchema xmlns:sbe="http://www.fixprotocol.org/ns/simple/1.0"
-                   package="mktdata" id="1" version="3"
-                   semanticVersion="1.0" byteOrder="littleEndian">
-  
-  <types>
-    <!-- Primitive Types -->
-    <type name="uint8" primitiveType="uint8"/>
-    <type name="uint16" primitiveType="uint16"/>
-    <type name="uint32" primitiveType="uint32"/>
-    <type name="uint64" primitiveType="uint64"/>
-    <type name="int64" primitiveType="int64"/>
-
-    <!-- Enumerations -->
-    <enum name="Side" encodingType="uint8">
-      <validValue id="1" name="Buy">1</validValue>
-      <validValue id="2" name="Sell">2</validValue>
-      <validValue id="3" name="Cross">3</validValue>
-    </enum>
-
-    <!-- Composites -->
-    <composite name="Decimal">
-      <type name="mantissa" primitiveType="int64"/>
-      <type name="exponent" primitiveType="uint8"/>
-    </composite>
-  </types>
-
-  <!-- Message Header structure -->
-  <composite name="messageHeader">
-    <type name="blockLength" primitiveType="uint16"/>
-    <type name="templateId" primitiveType="uint16"/>
-    <type name="schemaId" primitiveType="uint16"/>
-    <type name="version" primitiveType="uint16"/>
-  </composite>
-
-  <!-- CME New Order Message -->
-  <message id="101" name="NewOrderSingle" blockLength="36">
-    <field name="MsgSeqNum" id="34" type="uint32" offset="0"/>
-    <field name="SendingTime" id="52" type="uint64" offset="4"/>
-    <field name="ClOrdID" id="11" type="uint64" offset="12"/>
-    <field name="SecurityID" id="48" type="uint64" offset="20"/>
-    <field name="Price" id="44" type="int64" offset="28"/>
-    <field name="OrderQty" id="38" type="uint32" offset="34"/>
-    <field name="Side" id="54" type="Side" offset="35"/>
-  </message>
-</sbe:messageSchema>`
-  },
-
-  sbe_b3: {
-    name: 'B3 Brazil (SBE)',
-    encoding: 'sbe',
-    payload: '1e000f00020001007b00000000000000e8030000000000000257545241444531',
-    schema: `<?xml version="1.0" encoding="UTF-8"?>
-<sbe:messageSchema xmlns:sbe="http://www.fixprotocol.org/ns/simple/1.0"
-                   package="b3" id="2" version="1"
-                   semanticVersion="1.0" byteOrder="littleEndian">
-  <types>
-    <type name="uint8" primitiveType="uint8"/>
-    <type name="uint16" primitiveType="uint16"/>
-    <type name="uint32" primitiveType="uint32"/>
-    <type name="uint64" primitiveType="uint64"/>
-    <enum name="OrderStatus" encodingType="uint8">
-      <validValue id="0" name="New">0</validValue>
-      <validValue id="1" name="PartiallyFilled">1</validValue>
-      <validValue id="2" name="Filled">2</validValue>
-    </enum>
-  </types>
-
-  <composite name="messageHeader">
-    <type name="blockLength" primitiveType="uint16"/>
-    <type name="templateId" primitiveType="uint16"/>
-    <type name="schemaId" primitiveType="uint16"/>
-    <type name="version" primitiveType="uint16"/>
-  </composite>
-
-  <message id="15" name="ExecutionReport" blockLength="30">
-    <field name="OrderID" id="37" type="uint64" offset="0"/>
-    <field name="CumQty" id="14" type="uint64" offset="8"/>
-    <field name="OrdStatus" id="39" type="OrderStatus" offset="16"/>
-    <field name="Symbol" id="55" type="uint64" offset="17"/> 
-  </message>
-</sbe:messageSchema>`
-  },
-
-  fast_opra: {
-    name: 'OPRA Options Feed (FAST)',
-    encoding: 'fast',
-    payload: 'c023a53132303030b0414150cc0108ac03f4',
-    schema: `<?xml version="1.0" encoding="UTF-8"?>
-<templates xmlns="http://www.fixprotocol.org/ns/fast/td/1.1">
-  <template name="OPRATrade" id="202">
-    <!-- FAST PMap controls presence of fields with operators -->
-    <uInt32 name="MsgSeqNum" id="34">
-      <increment/>
-    </uInt32>
-    <string name="SendingTime" id="52"/>
-    <string name="Symbol" id="55">
-      <copy/>
-    </string>
-    <uInt32 name="BidPrice" id="270"/>
-    <uInt32 name="BidSize" id="271">
-      <default value="100"/>
-    </uInt32>
-  </template>
-</templates>`
-  },
-
-  fix_logon: {
-    name: 'FIX Logon (ASCII Hex)',
-    encoding: 'ascii_hex',
-    payload: '383D4649582E342E3401393D37320133353D410134393D434C49454E540135363D5345525645520133343D310135323D32303236303731362D30313A31363A31342E3030300139383D30013130383D33300131303D30353601',
-    schema: ''
-  },
-
-  fix_nos: {
-    name: 'FIX Order (ASCII Hex)',
-    encoding: 'ascii_hex',
-    payload: '383D4649582E342E3401393D3133370133353D440133343D320134393D434C49454E540135323D32303236303731362D30313A32303A30302E3030300135363D5345525645520131313D4F52445F313030310132313D310133383D3130300134303D320134343D3135302E30303135343D310135353D4141504C0136303D32303236303731362D30313A32303A30302E3030300131303D32353301',
-    schema: ''
-  }
-};
 
 // ==========================================
 // COMPONENT MAIN
@@ -180,6 +64,7 @@ export default function BinaryDecoderPage() {
   const [headerFields, setHeaderFields] = useState([]);
   const [builderValues, setBuilderValues] = useState({});
   const [historyCount, setHistoryCount] = useState(1);
+  const [hexPage, setHexPage] = useState(0);
   const [isDecoded, setIsDecoded] = useState(false);
   const [inputMode, setInputMode] = useState('paste'); // 'paste' | 'file'
   const [infoModalOpen, setInfoModalOpen] = useState(false);
@@ -205,81 +90,70 @@ export default function BinaryDecoderPage() {
 
   // Load preset data
   const handlePresetSelect = (key) => {
-    setActivePreset(key);
     const preset = PRESETS[key];
+    setActivePreset(key);
     setEncoding(preset.encoding);
     setXmlTemplate(preset.schema);
     setHexInput(preset.payload);
-
-    // Dynamic decode run for the preset parameters immediately
-    setParseErrors([]);
-    setParsedFields([]);
-    setPmapDetails([]);
-    setHeaderFields([]);
-    setSuccessMsg('');
-    setIsDecoded(false);
-
-    const cleanHex = preset.payload.replace(/[^0-9a-fA-F]/g, '');
-    if (cleanHex.length % 2 !== 0) return;
-    const bytes = [];
-    for (let i = 0; i < cleanHex.length; i += 2) {
-      bytes.push(parseInt(cleanHex.substring(i, i + 2), 16));
-    }
-
+    resetResults();
     try {
-      if (preset.encoding === 'sbe') {
-        decodeSBE(bytes, preset.schema);
-      } else if (preset.encoding === 'fast') {
-        decodeFAST(bytes, preset.schema);
-      } else if (preset.encoding === 'ascii_hex') {
-        decodeAsciiHex(bytes);
-      }
-      setIsDecoded(true);
+      decodeBytes(hexToBytes(preset.payload), { enc: preset.encoding, xml: preset.schema });
     } catch (err) {
       setParseErrors([`Decoding Error: ${err.message}`]);
     }
   };
 
-  // Convert Hex input string into byte array
-  const getBytes = () => {
-    const cleanHex = hexInput.replace(/[^0-9a-fA-F]/g, '');
-    if (cleanHex.length % 2 !== 0) return [];
-    const bytes = [];
-    for (let i = 0; i < cleanHex.length; i += 2) {
-      bytes.push(parseInt(cleanHex.substring(i, i + 2), 16));
-    }
-    return bytes;
-  };
-
-  // Decode handler
-  const handleDecode = () => {
+  const resetResults = () => {
     setParseErrors([]);
     setParsedFields([]);
     setPmapDetails([]);
     setHeaderFields([]);
     setSuccessMsg('');
     setIsDecoded(false);
+  };
 
-    if (!hexInput.trim()) {
-      setParseErrors(["Hex payload is empty."]);
-      return;
-    }
-
-    const bytes = getBytes();
-    if (bytes.length === 0) {
-      setParseErrors(["Hex payload is invalid or has odd length. Verification failed."]);
-      return;
-    }
-
+  // Convert Hex input string into byte array (empty when invalid)
+  const getBytes = () => {
     try {
-      if (encoding === 'sbe') {
-        decodeSBE(bytes);
-      } else if (encoding === 'fast') {
-        decodeFAST(bytes);
-      } else if (encoding === 'ascii_hex') {
-        decodeAsciiHex(bytes);
+      return hexToBytes(hexInput);
+    } catch {
+      return [];
+    }
+  };
+
+  // Single decode path shared by presets, the Decode button, byte edits and the form compiler
+  const decodeBytes = (bytes, { enc = encoding, xml = xmlTemplate, history = historyCount } = {}) => {
+    let result;
+    if (enc === 'sbe') {
+      result = decodeSBE(bytes, xml);
+    } else if (enc === 'fast') {
+      result = decodeFAST(bytes, xml, { seed: { MsgSeqNum: BigInt(history), Symbol: 'AAPL' } });
+    } else {
+      result = decodeAsciiFix(bytes, validateFIXMessage, { name: getTagName, meaning: getValueMeaning });
+    }
+    setHeaderFields(result.header);
+    setParsedFields(result.fields);
+    setPmapDetails(result.pmap);
+    setBuilderValues(Object.fromEntries(result.fields.map((f, i) => [builderKey(enc, f, i), f.raw])));
+    setParseErrors(result.warnings.map((w) => `Warning: ${w}`));
+    setSuccessMsg(`Decoded ${enc.toUpperCase()} message "${result.messageName}". Read ${result.fields.length} fields.`);
+    setIsDecoded(true);
+    return result;
+  };
+
+  // Decode handler
+  const handleDecode = (historyOverride) => {
+    resetResults();
+    if (!hexInput.trim()) {
+      setParseErrors(['Hex payload is empty.']);
+      return;
+    }
+    try {
+      const bytes = hexToBytes(hexInput);
+      if (bytes.length > MAX_PAYLOAD_BYTES) {
+        throw new Error(`Payload is ${bytes.length} bytes; the decoder handles one message up to ${MAX_PAYLOAD_BYTES} bytes.`);
       }
-      setIsDecoded(true);
+      decodeBytes(bytes, { history: historyOverride ?? historyCount });
     } catch (err) {
       setParseErrors([`Decoding Error: ${err.message}`]);
     }
@@ -290,18 +164,13 @@ export default function BinaryDecoderPage() {
     setEncoding('sbe');
     setXmlTemplate('');
     setHexInput('');
-    setParsedFields([]);
-    setParseErrors([]);
-    setSuccessMsg('');
     setHoveredFieldOffset(null);
     setHoveredFieldSize(null);
     setEditingByteIdx(null);
     setByteEditValue('');
     setActiveTab('fields');
-    setPmapDetails([]);
-    setHeaderFields([]);
     setBuilderValues({});
-    setIsDecoded(false);
+    resetResults();
   };
 
   // Load Demo Data helper (just like loadSampleData in latency)
@@ -309,663 +178,38 @@ export default function BinaryDecoderPage() {
     handlePresetSelect('sbe_cme');
   };
 
-  // Parse SBE Schema Types
-  const parseSBETypes = (xmlDoc) => {
-    const typesDict = {};
-    
-    // Parse valid enums
-    const enums = xmlDoc.getElementsByTagName("enum");
-    for (let i = 0; i < enums.length; i++) {
-      const enumNode = enums[i];
-      const enumName = enumNode.getAttribute("name");
-      const encodingType = enumNode.getAttribute("encodingType");
-      const values = {};
-      const validValues = enumNode.getElementsByTagName("validValue");
-      for (let j = 0; j < validValues.length; j++) {
-        const valNode = validValues[j];
-        const label = valNode.getAttribute("name");
-        const val = valNode.textContent.trim();
-        values[val] = label;
-      }
-      typesDict[enumName] = {
-        category: 'enum',
-        encodingType,
-        values
-      };
-    }
-
-    // Parse composites
-    const composites = xmlDoc.getElementsByTagName("composite");
-    for (let i = 0; i < composites.length; i++) {
-      const compNode = composites[i];
-      const compName = compNode.getAttribute("name");
-      
-      // Skip header composite, handled separately
-      if (compName === 'messageHeader') continue;
-
-      const subTypes = [];
-      const subNodes = compNode.getElementsByTagName("type");
-      let currentOffset = 0;
-      for (let j = 0; j < subNodes.length; j++) {
-        const sNode = subNodes[j];
-        const subName = sNode.getAttribute("name");
-        const primitive = sNode.getAttribute("primitiveType");
-        
-        let size = 1;
-        if (primitive.includes("16")) size = 2;
-        else if (primitive.includes("32")) size = 4;
-        else if (primitive.includes("64")) size = 8;
-
-        subTypes.push({
-          name: subName,
-          primitive,
-          size,
-          offset: currentOffset
-        });
-        currentOffset += size;
-      }
-      typesDict[compName] = {
-        category: 'composite',
-        fields: subTypes,
-        size: currentOffset
-      };
-    }
-
-    return typesDict;
-  };
-
-  // SBE Binary Decoder
-  const decodeSBE = (bytes, overrideXml) => {
-    const activeXml = overrideXml !== undefined ? overrideXml : xmlTemplate;
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(activeXml, "application/xml");
-    const parseErr = xmlDoc.getElementsByTagName("parsererror");
-    if (parseErr.length > 0) {
-      throw new Error("SBE XML Parser Error: " + parseErr[0].textContent);
-    }
-
-    const byteOrder = xmlDoc.documentElement.getAttribute("byteOrder") || "littleEndian";
-    const types = parseSBETypes(xmlDoc);
-
-    // 1. Decode Header (Standard SBE Header has 8 bytes)
-    if (bytes.length < 8) {
-      throw new Error("Payload size is less than SBE header length (8 bytes).");
-    }
-
-    const blockLength = bytes[0] | (bytes[1] << 8);
-    const templateId = bytes[2] | (bytes[3] << 8);
-    const schemaId = bytes[4] | (bytes[5] << 8);
-    const version = bytes[6] | (bytes[7] << 8);
-
-    const headers = [
-      { name: 'Header: blockLength', tag: 'Header', type: 'uint16', offset: 0, size: 2, rawHex: bytes.slice(0, 2).map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' '), value: blockLength.toString(), status: 'success' },
-      { name: 'Header: templateId', tag: 'Header', type: 'uint16', offset: 2, size: 2, rawHex: bytes.slice(2, 4).map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' '), value: templateId.toString(), status: 'success' },
-      { name: 'Header: schemaId', tag: 'Header', type: 'uint16', offset: 4, size: 2, rawHex: bytes.slice(4, 6).map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' '), value: schemaId.toString(), status: 'success' },
-      { name: 'Header: version', tag: 'Header', type: 'uint16', offset: 6, size: 2, rawHex: bytes.slice(6, 8).map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' '), value: version.toString(), status: 'success' }
-    ];
-    setHeaderFields(headers);
-
-    // Find message metadata corresponding to templateId
-    const messages = xmlDoc.getElementsByTagName("message");
-    let targetMessage = null;
-    for (let i = 0; i < messages.length; i++) {
-      if (parseInt(messages[i].getAttribute("id"), 10) === templateId) {
-        targetMessage = messages[i];
-        break;
-      }
-    }
-
-    if (!targetMessage) {
-      throw new Error(`SBE Schema does not contain message template matching ID: ${templateId}`);
-    }
-
-    const msgName = targetMessage.getAttribute("name");
-    const fields = targetMessage.getElementsByTagName("field");
-    const decoded = [];
-
-    // Fields block starts at byte offset 8
-    const SBE_HEADER_OFFSET = 8;
-
-    for (let i = 0; i < fields.length; i++) {
-      const fNode = fields[i];
-      const name = fNode.getAttribute("name");
-      const tag = fNode.getAttribute("id");
-      const fType = fNode.getAttribute("type");
-      const offsetAttr = parseInt(fNode.getAttribute("offset") || "0", 10);
-      const absOffset = SBE_HEADER_OFFSET + offsetAttr;
-
-      let size = 1;
-      let displayVal = "";
-      let typeCategory = types[fType] ? types[fType].category : 'primitive';
-
-      if (typeCategory === 'enum') {
-        const enumInfo = types[fType];
-        const encType = enumInfo.encodingType;
-        if (encType.includes("16")) size = 2;
-        else if (encType.includes("32")) size = 4;
-        else if (encType.includes("64")) size = 8;
-        
-        if (absOffset + size > bytes.length) {
-          decoded.push({ name, tag, type: `${fType} (Enum)`, offset: absOffset, size, rawHex: 'N/A', value: 'OUT_OF_BOUNDS', status: 'error' });
-          continue;
-        }
-
-        const rawVal = readInteger(bytes, absOffset, size, byteOrder);
-        const resolvedLabel = enumInfo.values[rawVal] || 'UNKNOWN_ENUM_VALUE';
-        displayVal = `${resolvedLabel} (${rawVal})`;
-      } 
-      else if (typeCategory === 'composite') {
-        const compInfo = types[fType];
-        size = compInfo.size;
-        
-        if (absOffset + size > bytes.length) {
-          decoded.push({ name, tag, type: `${fType} (Composite)`, offset: absOffset, size, rawHex: 'N/A', value: 'OUT_OF_BOUNDS', status: 'error' });
-          continue;
-        }
-
-        const compValParts = [];
-        compInfo.fields.forEach(subF => {
-          const subAbs = absOffset + subF.offset;
-          const subVal = readInteger(bytes, subAbs, subF.size, byteOrder);
-          compValParts.push(`${subF.name}: ${subVal}`);
-        });
-        displayVal = `{ ${compValParts.join(', ')} }`;
-      } 
-      else {
-        // Primitive
-        if (fType.includes("16")) size = 2;
-        else if (fType.includes("32")) size = 4;
-        else if (fType.includes("64")) size = 8;
-
-        if (absOffset + size > bytes.length) {
-          decoded.push({ name, tag, type: fType, offset: absOffset, size, rawHex: 'N/A', value: 'OUT_OF_BOUNDS', status: 'error' });
-          continue;
-        }
-
-        const rawVal = readInteger(bytes, absOffset, size, byteOrder);
-        displayVal = rawVal.toString();
-      }
-
-      const fBytes = bytes.slice(absOffset, absOffset + size);
-      const rawHexStr = fBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
-
-      decoded.push({
-        name,
-        tag,
-        type: fType,
-        offset: absOffset,
-        size,
-        rawHex: rawHexStr,
-        value: displayVal,
-        status: 'success'
-      });
-    }
-
-    setParsedFields(decoded);
-    setSuccessMsg(`Decoded SBE Message "${msgName}" (Template ID ${templateId}). Read ${decoded.length} fields.`);
-
-    // Initialize builder form inputs
-    const initialInputs = {};
-    decoded.forEach(f => {
-      const match = f.value.match(/\((\d+)\)/);
-      initialInputs[f.name] = match ? match[1] : f.value;
-    });
-    setBuilderValues(initialInputs);
-  };
-
-  // Read integer at offset
-  const readInteger = (bytes, offset, size, byteOrder) => {
-    let val = 0;
-    if (byteOrder === 'littleEndian') {
-      if (size === 1) {
-        val = bytes[offset];
-      } else if (size === 2) {
-        val = bytes[offset] | (bytes[offset + 1] << 8);
-      } else if (size === 4) {
-        val = (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
-      } else if (size === 8) {
-        let low = (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
-        let high = (bytes[offset + 4] | (bytes[offset + 5] << 8) | (bytes[offset + 6] << 16) | (bytes[offset + 7] << 24)) >>> 0;
-        val = high * 0x100000000 + low;
-      }
-    } else {
-      // Big Endian
-      if (size === 1) {
-        val = bytes[offset];
-      } else if (size === 2) {
-        val = (bytes[offset] << 8) | bytes[offset + 1];
-      } else if (size === 4) {
-        val = ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0;
-      } else if (size === 8) {
-        let high = ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0;
-        let low = ((bytes[offset + 4] << 24) | (bytes[offset + 5] << 16) | (bytes[offset + 6] << 8) | bytes[offset + 7]) >>> 0;
-        val = high * 0x100000000 + low;
-      }
-    }
-    return val;
-  };
-
-  // FAST Binary Decoder
-  const decodeFAST = (bytes, overrideXml) => {
-    const activeXml = overrideXml !== undefined ? overrideXml : xmlTemplate;
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(activeXml, "application/xml");
-    const parseErr = xmlDoc.getElementsByTagName("parsererror");
-    if (parseErr.length > 0) {
-      throw new Error("FAST XML Schema Error: " + parseErr[0].textContent);
-    }
-
-    const templateNode = xmlDoc.getElementsByTagName("template")[0];
-    if (!templateNode) {
-      throw new Error("FAST Schema must contain at least one <template> element.");
-    }
-
-    const templateName = templateNode.getAttribute("name") || "FASTMessage";
-    const fieldNodes = [];
-    const children = templateNode.children;
-    for (let i = 0; i < children.length; i++) {
-      fieldNodes.push(children[i]);
-    }
-
-    if (fieldNodes.length === 0) {
-      throw new Error("No field definitions found under the template.");
-    }
-
-    let byteIdx = 0;
-
-    // Decode PMap
-    const pmapBytes = [];
-    while (byteIdx < bytes.length) {
-      const b = bytes[byteIdx];
-      pmapBytes.push(b);
-      byteIdx++;
-      if ((b & 0x80) !== 0) break;
-    }
-
-    let pmapBits = [];
-    pmapBytes.forEach(b => {
-      const payload = b & 0x7F;
-      const bitsStr = payload.toString(2).padStart(7, '0');
-      pmapBits.push(...bitsStr.split('').map(Number));
-    });
-
-    const pmapVisual = pmapBytes.map(b => b.toString(2).padStart(8, '0')).join(' ');
-    
-    setHeaderFields([
-      { name: 'FAST PMap Bytes', tag: 'PMap', type: 'binary', offset: 0, size: pmapBytes.length, rawHex: pmapBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' '), value: pmapVisual, status: 'success' }
-    ]);
-
-    let bitPointer = 0;
-    const decoded = [];
-    
-    const fastDict = {
-      'MsgSeqNum': historyCount.toString(),
-      'Symbol': 'AAPL'
-    };
-
-    fieldNodes.forEach((node, idx) => {
-      const name = node.getAttribute("name") || `Field_${idx}`;
-      const tag = node.getAttribute("id") || `0`;
-      const type = node.localName;
-
-      const hasCopy = node.getElementsByTagName("copy").length > 0;
-      const hasDefault = node.getElementsByTagName("default").length > 0;
-      const hasIncrement = node.getElementsByTagName("increment").length > 0;
-
-      const requiresPMapBit = hasCopy || hasDefault || hasIncrement;
-      let bitVal = 1;
-
-      if (requiresPMapBit) {
-        bitVal = pmapBits[bitPointer] !== undefined ? pmapBits[bitPointer] : 0;
-        bitPointer++;
-      }
-
-      if (requiresPMapBit) {
-        setPmapDetails(prev => [
-          ...prev,
-          { field: name, bitIndex: bitPointer - 1, isPresent: bitVal === 1, operator: hasCopy ? 'copy' : hasDefault ? 'default' : 'increment' }
-        ]);
-      }
-
-      let valDisplay = "";
-      const fieldStart = byteIdx;
-
-      if (bitVal === 1) {
-        if (byteIdx >= bytes.length) {
-          decoded.push({ name, tag, type, offset: byteIdx, size: 0, rawHex: 'N/A', value: 'END_OF_STREAM', status: 'error' });
-          return;
-        }
-
-        const valBytes = [];
-        while (byteIdx < bytes.length) {
-          const b = bytes[byteIdx];
-          valBytes.push(b);
-          byteIdx++;
-          if ((b & 0x80) !== 0) break;
-        }
-
-        const size = byteIdx - fieldStart;
-        const hexStr = valBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
-
-        if (type === 'string') {
-          valDisplay = valBytes.map((b, bIdx) => {
-            const charCode = bIdx === valBytes.length - 1 ? (b & 0x7F) : b;
-            return String.fromCharCode(charCode);
-          }).join('');
-          fastDict[name] = valDisplay;
-        } else {
-          let num = 0;
-          valBytes.forEach((b, bIdx) => {
-            const part = bIdx === valBytes.length - 1 ? (b & 0x7F) : b;
-            num = (num << 7) | part;
-          });
-          valDisplay = num.toString();
-          fastDict[name] = valDisplay;
-        }
-
-        decoded.push({
-          name,
-          tag,
-          type,
-          offset: fieldStart,
-          size,
-          rawHex: hexStr,
-          value: valDisplay,
-          status: 'success'
-        });
-      } else {
-        if (hasDefault) {
-          const defaultNode = node.getElementsByTagName("default")[0];
-          valDisplay = defaultNode.getAttribute("value") || "0";
-        } else if (hasCopy) {
-          valDisplay = fastDict[name] || "N/A (No previous state)";
-        } else if (hasIncrement) {
-          const prev = parseInt(fastDict[name] || "0", 10);
-          valDisplay = (prev + 1).toString();
-          fastDict[name] = valDisplay;
-        } else {
-          valDisplay = "NULL (Absent)";
-        }
-
-        decoded.push({
-          name,
-          tag,
-          type: `${type} (Skipped by PMap)`,
-          offset: fieldStart,
-          size: 0,
-          rawHex: 'N/A',
-          value: valDisplay,
-          status: 'skipped'
-        });
-      }
-    });
-
-    setParsedFields(decoded);
-    setSuccessMsg(`Successfully decoded FAST message stream "${templateName}". Read ${decoded.length} fields.`);
-
-    const initialInputs = {};
-    decoded.forEach(f => {
-      initialInputs[f.name] = f.value;
-    });
-    setBuilderValues(initialInputs);
-  };
-
-  // Standard FIX ASCII Hex Decoder
-  const decodeAsciiHex = (bytes) => {
-    const ascii = bytes.map(b => String.fromCharCode(b)).join('');
-    
-    // Parse using core FIX engine
-    const parseResult = validateFIXMessage(ascii);
-    
-    if (!parseResult || !parseResult.tagList || parseResult.tagList.length === 0) {
-      throw new Error("Could not parse standard FIX message from ASCII bytes.");
-    }
-    
-    // Calculate tag field offsets in ASCII string
-    const sep = parseResult.separator;
-    let currentOffset = 0;
-    const decoded = [];
-    
-    const parts = ascii.split(sep);
-    parts.forEach((part) => {
-      if (!part) {
-        currentOffset += sep.length;
-        return;
-      }
-      
-      const eqIdx = part.indexOf('=');
-      if (eqIdx !== -1) {
-        const tag = part.substring(0, eqIdx).trim();
-        const val = part.substring(eqIdx + 1);
-        const name = getTagName(tag) || `CustomTag_${tag}`;
-        const displayVal = getValueMeaning(tag, val) || val;
-        const size = part.length;
-        
-        const fBytes = bytes.slice(currentOffset, currentOffset + size);
-        const rawHexStr = fBytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
-        
-        decoded.push({
-          name,
-          tag,
-          type: 'Tag-Value Pair',
-          offset: currentOffset,
-          size,
-          rawHex: rawHexStr,
-          value: `${displayVal} (${val})`,
-          status: 'success'
-        });
-        
-        currentOffset += size;
-      }
-      
-      currentOffset += sep.length;
-    });
-    
-    setParsedFields(decoded);
-    setSuccessMsg(`Decoded ASCII Hex FIX message (${parseResult.msgTypeName}). Read ${decoded.length} fields.`);
-    
-    // Populate form builder values
-    const initialInputs = {};
-    decoded.forEach(f => {
-      const startIdx = f.value.lastIndexOf('(');
-      const cleanVal = startIdx !== -1 ? f.value.substring(startIdx + 1, f.value.length - 1) : f.value;
-      initialInputs[f.name] = cleanVal;
-    });
-    setBuilderValues(initialInputs);
-  };
-
-  // Re-encode builder values back to Hex string (FAST/SBE Form Compiler)
+  // Re-encode builder values back to a hex payload (SBE / FAST / FIX form compiler)
   const handleCompile = () => {
     try {
-      const bytes = [];
-
+      let bytes;
       if (encoding === 'sbe') {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlTemplate, "application/xml");
-        const templateId = parseInt(xmlDoc.getElementsByTagName("message")[0]?.getAttribute("id") || "101", 10);
-        const blockLength = parseInt(xmlDoc.getElementsByTagName("message")[0]?.getAttribute("blockLength") || "36", 10);
-        const schemaId = parseInt(xmlDoc.documentElement.getAttribute("id") || "1", 10);
-        const version = parseInt(xmlDoc.documentElement.getAttribute("version") || "1", 10);
-
-        writeUint16(bytes, blockLength);
-        writeUint16(bytes, templateId);
-        writeUint16(bytes, schemaId);
-        writeUint16(bytes, version);
-
-        const fields = xmlDoc.getElementsByTagName("field");
-        const blockBytes = new Array(blockLength).fill(0);
-
-        for (let i = 0; i < fields.length; i++) {
-          const fNode = fields[i];
-          const name = fNode.getAttribute("name");
-          const offset = parseInt(fNode.getAttribute("offset") || "0", 10);
-          const fType = fNode.getAttribute("type") || "uint8";
-          const inputVal = builderValues[name] || "0";
-
-          let size = 1;
-          if (fType.includes("16")) size = 2;
-          else if (fType.includes("32")) size = 4;
-          else if (fType.includes("64")) size = 8;
-
-          const numVal = parseInt(inputVal, 10);
-          writeIntegerToBuffer(blockBytes, offset, numVal, size);
-        }
-
-        bytes.push(...blockBytes);
+        bytes = encodeSBE(xmlTemplate, builderValues);
       } else if (encoding === 'fast') {
-        bytes.push(0xC0); 
-
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlTemplate, "application/xml");
-        const templateNode = xmlDoc.getElementsByTagName("template")[0];
-        const fieldNodes = templateNode ? templateNode.children : [];
-
-        for (let i = 0; i < fieldNodes.length; i++) {
-          const node = fieldNodes[i];
-          const name = node.getAttribute("name");
-          const type = node.localName;
-          const inputVal = builderValues[name] || "0";
-
-          if (type === 'string') {
-            writeStopBitString(bytes, inputVal);
-          } else {
-            writeStopBitInt(bytes, parseInt(inputVal, 10));
-          }
-        }
-      } else if (encoding === 'ascii_hex') {
-        const delimiter = '\x01';
-        const fieldsList = [];
-        
-        parsedFields.forEach(f => {
-          const inputVal = builderValues[f.name];
-          if (inputVal !== undefined) {
-            fieldsList.push({ tag: f.tag, val: inputVal });
-          }
-        });
-        
-        if (fieldsList.length === 0) {
-          throw new Error("No fields defined in context to compile. Please decode a message first.");
-        }
-        
-        const tag8 = fieldsList.find(f => f.tag === '8')?.val || 'FIX.4.4';
-        const tag35 = fieldsList.find(f => f.tag === '35')?.val || 'D';
-        
-        const otherFields = fieldsList.filter(f => f.tag !== '8' && f.tag !== '9' && f.tag !== '10' && f.tag !== '35');
-        const headerTags = ['49', '56', '34', '52'];
-        const headers = [];
-        const body = [];
-        
-        otherFields.forEach(f => {
-          if (headerTags.includes(f.tag)) {
-            headers.push(f);
-          } else {
-            body.push(f);
-          }
-        });
-        
-        headers.sort((a, b) => headerTags.indexOf(a.tag) - headerTags.indexOf(b.tag));
-        
-        const orderedFields = [
-          { tag: '35', val: tag35 },
-          ...headers,
-          ...body
-        ];
-        
-        const bodyStr = orderedFields.map(f => `${f.tag}=${f.val}`).join(delimiter) + delimiter;
-        const bodyLength = bodyStr.length;
-        
-        const partialMsg = `8=${tag8}${delimiter}9=${bodyLength}${delimiter}${bodyStr}`;
-        
-        let sum = 0;
-        for (let i = 0; i < partialMsg.length; i++) {
-          sum += partialMsg.charCodeAt(i);
-        }
-        const checksumVal = String(sum % 256).padStart(3, '0');
-        
-        const finalMsg = `${partialMsg}10=${checksumVal}${delimiter}`;
-        
-        const compiledBytes = [];
-        for (let i = 0; i < finalMsg.length; i++) {
-          compiledBytes.push(finalMsg.charCodeAt(i));
-        }
-        
-        bytes.push(...compiledBytes);
+        bytes = encodeFAST(xmlTemplate, builderValues);
+      } else {
+        bytes = encodeAsciiFix(
+          parsedFields.map((f, i) => ({ tag: f.tag, val: builderValues[builderKey(encoding, f, i)] ?? f.raw }))
+        );
       }
-
-      const hexResult = bytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join('');
-      setHexInput(hexResult);
-      setSuccessMsg("Form values successfully compiled back to Hex payload.");
-      
-      // Auto-decode the compiled hex
-      const cleanHex = hexResult.replace(/[^0-9a-fA-F]/g, '');
-      const compiledBytesArray = [];
-      for (let i = 0; i < cleanHex.length; i += 2) {
-        compiledBytesArray.push(parseInt(cleanHex.substring(i, i + 2), 16));
-      }
-      if (encoding === 'sbe') {
-        decodeSBE(compiledBytesArray);
-      } else if (encoding === 'fast') {
-        decodeFAST(compiledBytesArray);
-      } else if (encoding === 'ascii_hex') {
-        decodeAsciiHex(compiledBytesArray);
-      }
+      setHexInput(bytesToHex(bytes));
+      setParseErrors([]);
+      decodeBytes(bytes);
+      setSuccessMsg('Form values successfully compiled back to a hex payload.');
     } catch (err) {
       setParseErrors([`Compile Error: ${err.message}`]);
     }
   };
 
-  // Helper SBE writers
-  const writeUint16 = (bytes, val) => {
-    bytes.push(val & 0xFF);
-    bytes.push((val >> 8) & 0xFF);
-  };
 
-  const writeIntegerToBuffer = (buffer, offset, val, size) => {
-    for (let i = 0; i < size; i++) {
-      buffer[offset + i] = (val >> (i * 8)) & 0xFF;
-    }
-  };
-
-  // Helper FAST writers
-  const writeStopBitInt = (bytes, val) => {
-    const parts = [];
-    let temp = val;
-    while (true) {
-      parts.push(temp & 0x7F);
-      temp = temp >> 7;
-      if (temp === 0) break;
-    }
-    parts.reverse();
-    parts[parts.length - 1] |= 0x80;
-    bytes.push(...parts);
-  };
-
-  const writeStopBitString = (bytes, str) => {
-    for (let i = 0; i < str.length; i++) {
-      let charCode = str.charCodeAt(i);
-      if (i === str.length - 1) {
-        charCode |= 0x80;
-      }
-      bytes.push(charCode);
-    }
-  };
-
-  // Reconstructed FIX SOH string
+  // Reconstructed FIX SOH string (BodyLength and CheckSum are computed, never hard-coded)
   const buildFixString = () => {
     if (encoding === 'ascii_hex') {
-      const parts = parsedFields
-        .map(f => {
-          const startIdx = f.value.lastIndexOf('(');
-          const cleanVal = startIdx !== -1 ? f.value.substring(startIdx + 1, f.value.length - 1) : f.value;
-          return `${f.tag}=${cleanVal}`;
-        });
-      return parts.join('\x01');
+      return parsedFields.map((f) => `${f.tag}=${f.raw}`).join(SOH);
     }
-    const parts = parsedFields
-      .filter(f => f.status === 'success')
-      .map(f => `${f.tag}=${f.value.split(' ')[0]}`);
-    if (parts.length === 0) return '';
-    return `8=FIX.4.4\x019=${parts.join('\x01').length}\x01${parts.join('\x01')}\x0110=080\x01`;
+    const fields = parsedFields
+      .filter((f) => f.status !== 'error' && /^\d+$/.test(String(f.tag)) && f.tag !== '0')
+      .map((f) => ({ tag: f.tag, val: f.raw }));
+    return fields.length ? buildFixMessage(fields).message : '';
   };
 
   // Drag and drop binary files
@@ -974,24 +218,21 @@ export default function BinaryDecoderPage() {
     const file = e.dataTransfer?.files[0] || e.target?.files[0];
     if (!file) return;
 
+    const truncated = file.size > MAX_PAYLOAD_BYTES;
     const reader = new FileReader();
+    reader.onerror = () => setParseErrors([`Could not read "${file.name}".`]);
     reader.onload = (event) => {
       const buffer = event.target.result;
-      const view = new Uint8Array(buffer);
-      const hexParts = [];
-      view.forEach(b => hexParts.push(b.toString(16).toUpperCase().padStart(2, '0')));
-      const compiledHex = hexParts.join('');
-      setHexInput(compiledHex);
+      setHexInput(bytesToHex(new Uint8Array(buffer)));
+      setHexPage(0);
       
       // Auto-switch to Paste Hex tab so the inputs are completely visible and editable
       setInputMode('paste');
       
-      // Force control input panel to be open
-      setShowSetup(true);
-
+      setParseErrors(truncated ? [`Warning: "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)} MB; only the first ${MAX_PAYLOAD_BYTES / (1024 * 1024)} MiB was loaded. Split the capture into single messages for full decoding.`] : []);
       setSuccessMsg(`Loaded binary file "${file.name}" (${buffer.byteLength} bytes). Ready to decode.`);
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsArrayBuffer(file.slice(0, MAX_PAYLOAD_BYTES));
   };
 
   // Hex Cell Edit Handler
@@ -1009,18 +250,15 @@ export default function BinaryDecoderPage() {
       return;
     }
     bytes[editingByteIdx] = parsedByte;
-    const updatedHex = bytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join('');
-    setHexInput(updatedHex);
+    setHexInput(bytesToHex(bytes));
     setEditingByteIdx(null);
     
     // Auto re-decode
-    setTimeout(() => {
-      try {
-        if (encoding === 'sbe') decodeSBE(bytes);
-        else if (encoding === 'fast') decodeFAST(bytes);
-        else if (encoding === 'ascii_hex') decodeAsciiHex(bytes);
-      } catch {}
-    }, 50);
+    try {
+      decodeBytes(bytes);
+    } catch (err) {
+      setParseErrors([`Decoding Error: ${err.message}`]);
+    }
   };
 
   // Quick Hex input formatter
@@ -1033,7 +271,16 @@ export default function BinaryDecoderPage() {
     setHexInput(formatted.join(' '));
   };
 
-  const payloadBytes = getBytes();
+  const payloadBytes = useMemo(() => {
+    try {
+      return hexToBytes(hexInput);
+    } catch {
+      return [];
+    }
+  }, [hexInput]);
+  const hexPageStart = Math.min(hexPage * HEX_PAGE_BYTES, Math.max(0, payloadBytes.length - 1) - (Math.max(0, payloadBytes.length - 1) % HEX_PAGE_BYTES));
+  const hexPageEnd = Math.min(payloadBytes.length, hexPageStart + HEX_PAGE_BYTES);
+  const hexPageCount = Math.max(1, Math.ceil(payloadBytes.length / HEX_PAGE_BYTES));
 
   // Metrics Dashboard (similar to home/latency page stats)
   const metricCards = [
@@ -1534,6 +781,16 @@ export default function BinaryDecoderPage() {
                       Size: {payloadBytes.length} Bytes
                     </span>
                   </div>
+                  {hexPageCount > 1 && (
+                    <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                      <span>Bytes {hexPageStart}–{hexPageEnd - 1} of {payloadBytes.length}</span>
+                      <span className="flex items-center gap-1.5">
+                        <button disabled={hexPage === 0} onClick={() => setHexPage((p) => Math.max(0, p - 1))} className="px-2 py-0.5 bg-zinc-900 rounded border border-zinc-800 disabled:opacity-40">Prev</button>
+                        <span>{Math.min(hexPage, hexPageCount - 1) + 1} / {hexPageCount}</span>
+                        <button disabled={hexPage >= hexPageCount - 1} onClick={() => setHexPage((p) => Math.min(hexPageCount - 1, p + 1))} className="px-2 py-0.5 bg-zinc-900 rounded border border-zinc-800 disabled:opacity-40">Next</button>
+                      </span>
+                    </div>
+                  )}
 
                   <div className="border border-zinc-900 rounded-xl overflow-hidden bg-zinc-955/20 font-mono text-[11px]">
                     <div className="grid grid-cols-18 gap-1 p-3 bg-zinc-900/40 border-b border-zinc-900 text-zinc-500 text-[10px] font-bold text-center">
@@ -1547,10 +804,10 @@ export default function BinaryDecoderPage() {
                       {payloadBytes.length === 0 ? (
                         <div className="text-center py-10 text-zinc-655 font-sans text-xs">No payload bytes loaded.</div>
                       ) : (
-                        Array.from({ length: Math.ceil(payloadBytes.length / 16) }).map((_, rowIndex) => {
-                          const rowOffset = rowIndex * 16;
+                        Array.from({ length: Math.ceil((hexPageEnd - hexPageStart) / 16) }).map((_, rowIndex) => {
+                          const rowOffset = hexPageStart + rowIndex * 16;
                           return (
-                            <div key={rowIndex} className="grid grid-cols-18 gap-1 py-1.5 hover:bg-zinc-900/10 transition-colors">
+                            <div key={rowOffset} className="grid grid-cols-18 gap-1 py-1.5 hover:bg-zinc-900/10 transition-colors">
                               <div className="col-span-2 text-zinc-600 font-bold">
                                 {rowOffset.toString(16).toUpperCase().padStart(4, '0')}
                               </div>
@@ -1753,6 +1010,7 @@ export default function BinaryDecoderPage() {
                           ) : (
                             parsedFields.map((f, idx) => {
                               if (f.tag === 'Header') return null;
+                              const bKey = builderKey(encoding, f, idx);
 
                               return (
                                 <div key={idx} className="space-y-1 bg-zinc-900/10 p-2.5 rounded-xl border border-zinc-900 hover:border-zinc-850 transition-colors flex items-center justify-between gap-4">
@@ -1761,8 +1019,8 @@ export default function BinaryDecoderPage() {
                                     <span className="text-[9px] font-mono text-zinc-550 block">Tag {f.tag} • {f.type}</span>
                                   </div>
                                   <input
-                                    value={builderValues[f.name] || ''}
-                                    onChange={e => setBuilderValues({ ...builderValues, [f.name]: e.target.value })}
+                                    value={builderValues[bKey] ?? ''}
+                                    onChange={e => setBuilderValues({ ...builderValues, [bKey]: e.target.value })}
                                     className="bg-zinc-955 border border-zinc-855 rounded-lg px-2.5 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-700 w-44 text-right"
                                   />
                                 </div>
@@ -1812,7 +1070,7 @@ export default function BinaryDecoderPage() {
                                     onClick={() => {
                                       const count = Math.max(1, historyCount - 1);
                                       setHistoryCount(count);
-                                      handleDecode();
+                                      handleDecode(count);
                                     }}
                                     className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 rounded border border-zinc-800 text-[10px] cursor-pointer"
                                   >
@@ -1823,7 +1081,7 @@ export default function BinaryDecoderPage() {
                                     onClick={() => {
                                       const count = historyCount + 1;
                                       setHistoryCount(count);
-                                      handleDecode();
+                                      handleDecode(count);
                                     }}
                                     className="px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 rounded border border-zinc-800 text-[10px] cursor-pointer"
                                   >

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import yahooFinance from 'yahoo-finance2';
+import { jsonError, rateLimit } from '@/lib/serverGuards';
 
 // Standard profile and price mapping for common tickers
 const TICKER_PROFILES = {
@@ -77,10 +78,17 @@ function generateMockData(symbol, days) {
   };
 }
 
+const MAX_SYMBOLS = 20;
+const MAX_QUERY_CHARS = 64;
+const SYMBOL_RE = /^[A-Z0-9.^=-]{1,15}$/;
+
 export async function GET(request) {
+  const limited = rateLimit(request, 'market-data', { limit: 60 });
+  if (limited) return limited;
   try {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q');
+    if (q && q.length > MAX_QUERY_CHARS) return jsonError('Search query too long.', 400);
 
     if (q) {
       try {
@@ -111,7 +119,10 @@ export async function GET(request) {
     const symbolsRaw = searchParams.get('symbols') || 'AAPL,MSFT,TSLA,NVDA,BTC-USD';
     const range = searchParams.get('range') || '1mo'; // 1mo, 3mo, 6mo, 1y
 
-    const symbols = symbolsRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const symbols = [...new Set(symbolsRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean))];
+    if (symbols.length > MAX_SYMBOLS) return jsonError(`At most ${MAX_SYMBOLS} symbols per request.`, 400);
+    const badSymbol = symbols.find(s => !SYMBOL_RE.test(s));
+    if (badSymbol) return jsonError(`Invalid symbol "${badSymbol.slice(0, 20)}".`, 400);
     const rangeDays = {
       '1mo': 30,
       '3mo': 90,

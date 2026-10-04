@@ -30,16 +30,27 @@ export function setWorkspaceSession(sessionData) {
   if (typeof window === 'undefined') return;
   if (!isWorkspaceSharingEnabled()) return;
   try {
+    // localStorage holds ~5 MB; never try to mirror a huge log into it (QuotaExceededError).
+    const MAX = 1000000;
+    let raw = sessionData.rawText || '';
+    let truncated = false;
+    if (raw.length > MAX) {
+      const cut = raw.lastIndexOf('\n', MAX);
+      raw = raw.slice(0, cut > 0 ? cut : MAX);
+      truncated = true;
+    }
     const payload = {
-      rawText: sessionData.rawText || '',
+      rawText: raw,
       parsedCount: sessionData.parsedCount || 0,
       timestamp: Date.now(),
       source: sessionData.source || 'user',
-      ...sessionData
+      ...sessionData,
+      rawText: raw,
+      truncated
     };
     localStorage.setItem(WORKSPACE_SESSION_KEY, JSON.stringify(payload));
     // Also update legacy key for backward compatibility if present
-    localStorage.setItem('fixify-logs-pastedText', sessionData.rawText || '');
+    localStorage.setItem('fixify-logs-pastedText', raw);
     window.dispatchEvent(new CustomEvent('fixify-workspace-update', { detail: payload }));
   } catch (e) {
     console.warn('Failed to save workspace session:', e);

@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useEffect } from "react";
+import {
+  DEFAULT_COLUMNS, DEFAULT_ROWS, createTask, deleteColumn, deleteRow,
+  deleteTask as removeTask, doneColumnId, filterTasks, moveTask, normalizeBoard, updateTask, wouldCreateCycle,
+} from '@/lib/kanbanBoard';
 import { DndContext, useDraggable, useDroppable, useSensor, useSensors, PointerSensor, DragOverlay } from "@dnd-kit/core";
 import {
   Plus,
@@ -23,11 +27,6 @@ import {
 // Seed data with realistic FIX conformance milestones, subtasks, priorities, and history
 const initialTasks = [];
 
-const DEFAULT_COLUMN_CONFIG = {
-  todo:  { label: 'To Do',       color: '#3b82f6', bg: 'rgba(59,130,246,0.06)'  },
-  doing: { label: 'In Progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.06)'  },
-  done:  { label: 'Completed',   color: 'var(--primary)', bg: 'var(--primary-faint)' },
-};
 
 // Priority badge style helper
 function getPriorityBadgeStyles(priority) {
@@ -57,7 +56,7 @@ function getPriorityBadgeStyles(priority) {
   }
 }
 
-function DroppableCell({ rowId, colId, columnConfig, tasks, onTaskClick, allTasksList }) {
+function DroppableCell({ rowId, colId, columnConfig, tasks, onTaskClick, allTasksList, doneId }) {
   const cellId = `${rowId}::${colId}`;
   const { setNodeRef, isOver } = useDroppable({ id: cellId });
 
@@ -76,14 +75,14 @@ function DroppableCell({ rowId, colId, columnConfig, tasks, onTaskClick, allTask
           </div>
         )}
         {tasks.map(task => (
-          <DraggableTask key={task.id} id={task.id} task={task} onClick={() => onTaskClick(task)} allTasksList={allTasksList} />
+          <DraggableTask key={task.id} id={task.id} task={task} onClick={() => onTaskClick(task)} allTasksList={allTasksList} doneId={doneId} />
         ))}
       </div>
     </div>
   );
 }
 
-function TaskCard({ task, onClick, allTasksList = [] }) {
+function TaskCard({ task, onClick, allTasksList = [], doneId = "done" }) {
   const totalSubtasks = task.subtasks?.length || 0;
   const completedSubtasks = task.subtasks?.filter(s => s.completed).length || 0;
   const progressPercent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
@@ -92,7 +91,7 @@ function TaskCard({ task, onClick, allTasksList = [] }) {
   // Check blocker status
   const activeBlockers = (task.blockedBy || []).filter(blockerId => {
     const blockerTask = allTasksList.find(t => t.id === blockerId);
-    return blockerTask && blockerTask.status !== "done";
+    return blockerTask && blockerTask.status !== doneId;
   });
   const isBlocked = activeBlockers.length > 0;
 
@@ -206,7 +205,7 @@ function TaskCard({ task, onClick, allTasksList = [] }) {
   );
 }
 
-function DraggableTask({ id, task, onClick, allTasksList }) {
+function DraggableTask({ id, task, onClick, allTasksList, doneId }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
   const style = transform
     ? {
@@ -224,7 +223,7 @@ function DraggableTask({ id, task, onClick, allTasksList }) {
       style={style}
       onClick={onClick}
     >
-      <TaskCard task={task} allTasksList={allTasksList} />
+      <TaskCard task={task} allTasksList={allTasksList} doneId={doneId} />
     </div>
   );
 }
@@ -310,24 +309,8 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [],
   const handleSave = () => {
     if (!title.trim()) return;
 
-    // Build timeline updates
-    const updatedHistory = [...(task?.history || [])];
-    const logEvent = (text) => {
-      updatedHistory.push({ text, timestamp: new Date().toISOString() });
-    };
-
-    if (isEditing) {
-      if (task.title !== title.trim()) logEvent("Title updated");
-      if (task.priority !== priority) logEvent(`Priority changed: ${task.priority} → ${priority}`);
-      if (task.status !== status) logEvent(`Status moved: ${task.status} → ${status}`);
-      if (task.row !== rowId) logEvent(`Swimlane changed: ${task.row || 'default'} → ${rowId}`);
-      if (task.assignee !== assignee.trim()) logEvent(`Assignee changed: ${task.assignee || 'Unassigned'} → ${assignee.trim() || 'Unassigned'}`);
-    } else {
-      updatedHistory.push({ text: "Task created", timestamp: new Date().toISOString() });
-    }
-
     onSave({
-      id: task?.id || `T-${Date.now().toString().slice(-3)}`,
+      ...(task?.id ? { id: task.id } : {}),
       title: title.trim(),
       description: desc.trim(),
       assignee: assignee.trim(),
@@ -336,7 +319,6 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [],
       priority,
       subtasks,
       comments,
-      history: updatedHistory,
       blockedBy
     });
     onClose();
@@ -503,10 +485,13 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [],
                   ) : (
                     allTasksList.filter(t => t.id !== task?.id).map(ot => {
                       const isSelected = blockedBy.includes(ot.id);
+                      const createsCycle = !isSelected && !!task && wouldCreateCycle(allTasksList, task.id, ot.id);
                       return (
                         <button
                           key={ot.id}
                           type="button"
+                          disabled={createsCycle}
+                          title={createsCycle ? "Would create a circular dependency" : undefined}
                           onClick={() => {
                             if (isSelected) {
                               setBlockedBy(blockedBy.filter(id => id !== ot.id));
@@ -700,8 +685,8 @@ function TaskModal({ isOpen, onClose, onSave, onDelete, task, allTasksList = [],
 }
 
 export default function KanbanPage() {
-  const [columns, setColumns] = useState(DEFAULT_COLUMN_CONFIG);
-  const [rows, setRows] = useState([{ id: 'default', label: 'General' }]);
+  const [columns, setColumns] = useState(DEFAULT_COLUMNS);
+  const [rows, setRows] = useState(DEFAULT_ROWS);
   const [tasks, setTasks] = useState(initialTasks);
   const [modalOpen, setModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -713,48 +698,28 @@ export default function KanbanPage() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const doneId = doneColumnId(columns);
   const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
 
   // Load tasks, columns, rows from localStorage on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const savedTasks = localStorage.getItem('fixify-kanban-tasks');
-    const savedColumns = localStorage.getItem('fixify-kanban-columns');
-    const savedRows = localStorage.getItem('fixify-kanban-rows');
-    
-    if (savedColumns) {
+    const read = (key) => {
       try {
-        setColumns(JSON.parse(savedColumns));
-      } catch (e) {}
-    }
-    if (savedRows) {
-      try {
-        setRows(JSON.parse(savedRows));
-      } catch (e) {}
-    }
-    if (savedTasks) {
-      try {
-        const parsed = JSON.parse(savedTasks);
-        if (parsed && !Array.isArray(parsed)) {
-          // Migrate old nested format to flat array
-          const flat = [];
-          Object.keys(parsed).forEach(colId => {
-            if (Array.isArray(parsed[colId])) {
-              parsed[colId].forEach(t => {
-                flat.push({ ...t, status: colId, row: t.row || 'default' });
-              });
-            }
-          });
-          setTasks(flat);
-        } else if (Array.isArray(parsed)) {
-          setTasks(parsed);
-        }
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : undefined;
       } catch (e) {
-        setTasks(initialTasks);
+        return undefined;
       }
-    } else {
-      setTasks(initialTasks);
-    }
+    };
+    const board = normalizeBoard({
+      tasks: read('fixify-kanban-tasks'),
+      columns: read('fixify-kanban-columns'),
+      rows: read('fixify-kanban-rows'),
+    });
+    setColumns(board.columns);
+    setRows(board.rows);
+    setTasks(board.tasks);
     setIsLoaded(true);
   }, []);
 
@@ -790,49 +755,20 @@ export default function KanbanPage() {
     const task = tasks.find(t => t.id === active.id);
     if (!task) return;
     
-    const fromCol = task.status;
-    const fromRow = task.row || 'default';
-    if (fromCol === toCol && fromRow === toRow) return;
-    
-    const updatedHistory = task.history
-      ? [...task.history, { text: `Moved: ${fromCol}/${fromRow} → ${toCol}/${toRow}`, timestamp: new Date().toISOString() }]
-      : [{ text: `Moved: ${fromCol}/${fromRow} → ${toCol}/${toRow}`, timestamp: new Date().toISOString() }];
-      
-    setTasks(prev => prev.map(t => t.id === active.id ? { ...t, status: toCol, row: toRow, history: updatedHistory } : t));
+    setTasks(prev => moveTask(prev, active.id, toRow, toCol));
   };
 
   const saveTask = (task) => {
-    setTasks(prev => {
-      const idx = prev.findIndex(t => t.id === task.id);
-      if (idx >= 0) {
-        return prev.map(t => t.id === task.id ? task : t);
-      } else {
-        return [...prev, task];
-      }
-    });
+    setTasks(prev => (task.id ? updateTask(prev, task) : createTask(prev, task)));
   };
 
   const deleteTask = (id) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    setTasks(prev => removeTask(prev, id));
   };
 
   const getCellTasks = (rowId, colId) => {
-    return tasks.filter(task => {
-      const isStatusMatch = task.status === colId;
-      const isRowMatch = (task.row || 'default') === rowId;
-      if (!isStatusMatch || !isRowMatch) return false;
-      
-      const matchesSearch =
-        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (task.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (task.assignee || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.id.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesPriority =
-        priorityFilter === "all" || task.priority === priorityFilter;
-
-      return matchesSearch && matchesPriority;
-    });
+    return filterTasks(tasks, { query: searchQuery, priority: priorityFilter })
+      .filter(task => task.status === colId && task.row === rowId);
   };
 
   const hasActiveFilters = searchQuery !== "" || priorityFilter !== "all";
@@ -990,6 +926,7 @@ export default function KanbanPage() {
                               tasks={cellTasks}
                               onTaskClick={(task) => { setSelectedTask(task); setModalOpen(true); }}
                               allTasksList={tasks}
+                              doneId={doneId}
                             />
                           );
                         })}
@@ -1004,7 +941,7 @@ export default function KanbanPage() {
           <DragOverlay>
             {activeId && activeTask ? (
               <div style={{ transform: 'rotate(2deg)', opacity: 0.95, cursor: 'grabbing' }}>
-                <TaskCard task={activeTask} allTasksList={tasks} />
+                <TaskCard task={activeTask} allTasksList={tasks} doneId={doneId} />
               </div>
             ) : null}
           </DragOverlay>
@@ -1078,6 +1015,7 @@ export default function KanbanPage() {
                               task={task} 
                               onClick={() => { setSelectedTask(task); setModalOpen(true); }}
                               allTasksList={tasks} 
+                              doneId={doneId}
                             />
                           ))}
                         </div>
@@ -1176,21 +1114,13 @@ function BoardSettingsModal({
   };
 
   const handleDeleteColumn = (colId) => {
-    const colKeys = Object.keys(columns);
-    if (colKeys.length <= 1) {
-      alert("You must keep at least one column.");
-      return;
+    try {
+      const next = deleteColumn({ tasks, columns }, colId);
+      setTasks(next.tasks);
+      setColumns(next.columns);
+    } catch (err) {
+      alert(err.message);
     }
-    const targetCol = colKeys.find(k => k !== colId);
-    
-    // Move tasks in this column to targetCol
-    setTasks(prev => prev.map(t => t.status === colId ? { ...t, status: targetCol } : t));
-    
-    setColumns(prev => {
-      const copy = { ...prev };
-      delete copy[colId];
-      return copy;
-    });
   };
 
   const handleAddRow = () => {
@@ -1206,16 +1136,13 @@ function BoardSettingsModal({
   };
 
   const handleDeleteRow = (rowId) => {
-    if (rows.length <= 1) {
-      alert("You must keep at least one swimlane row.");
-      return;
+    try {
+      const next = deleteRow({ tasks, rows }, rowId);
+      setTasks(next.tasks);
+      setRows(next.rows);
+    } catch (err) {
+      alert(err.message);
     }
-    const targetRow = rows.find(r => r.id !== rowId).id;
-    
-    // Move tasks in this row to targetRow
-    setTasks(prev => prev.map(t => (t.row || 'default') === rowId ? { ...t, row: targetRow } : t));
-    
-    setRows(prev => prev.filter(r => r.id !== rowId));
   };
 
   return (

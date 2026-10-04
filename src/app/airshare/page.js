@@ -1,5 +1,6 @@
 "use client";
 
+import { previewMimeFor } from "@/lib/safeFile";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import {
@@ -797,12 +798,13 @@ export default function AirSharePage() {
     const fileData = downloadedFiles[item.id];
     if (!fileData) return;
 
-    const ext = item.name.split(".").pop()?.toLowerCase() || "";
-    if (["pdf", "png", "jpg", "jpeg", "svg", "gif", "webp", "txt", "log", "fix", "json", "xml", "html", "csv"].includes(ext)) {
-      const win = window.open(fileData.url, "_blank");
-      if (win) {
-        try { win.document.title = item.name; } catch (e) {}
-      }
+    // Received files come from other devices. Opening one in a tab renders it from OUR origin, so only
+    // inert types are previewed (re-labelled with a safe MIME type); everything else is downloaded.
+    const safeType = previewMimeFor(item.name);
+    if (safeType && fileData.blob) {
+      const previewUrl = URL.createObjectURL(new Blob([fileData.blob], { type: safeType }));
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(previewUrl), 60000);
     } else {
       const a = document.createElement("a");
       a.href = fileData.url;

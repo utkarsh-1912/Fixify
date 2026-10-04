@@ -1,211 +1,130 @@
 import { NextResponse } from "next/server";
+import { LIMITS, RateLimiter, RoomStore, StoreError, formatBytes, safeMime } from "@/lib/fixdropStore";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// In-memory room payload store for universal server relay
-const roomStores = new Map();
-const signalingStores = new Map();
+// One store per server process; cached on globalThis so dev-mode hot reloads keep the rooms.
+const g = globalThis;
+const store = (g.__fixdropStore ??= new RoomStore());
+const limiter = (g.__fixdropLimiter ??= new RateLimiter({ limit: 240, windowMs: 60_000 }));
 
-const isValidPin = (pin) => {
-  if (typeof pin !== "string") return false;
-  const trimmed = pin.trim();
-  return trimmed === "ping" || /^\d{4,8}$/.test(trimmed);
+const MAX_REQUEST_BYTES = Math.ceil(LIMITS.maxItemBytes * 1.4) + 64 * 1024; // base64 overhead + envelope
+
+const fail = (error, status = 400) => NextResponse.json({ success: false, error }, { status });
+
+const clientIp = (request) => {
+  const raw = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+  return raw === "::1" || raw === "::ffff:127.0.0.1" ? "127.0.0.1" : raw.slice(0, 64);
 };
 
-const pruneSignals = (pin) => {
-  const list = signalingStores.get(pin) || [];
-  const now = Date.now();
-  const valid = list.filter((item) => now - item.timestamp < 120000);
-  signalingStores.set(pin, valid);
+const guard = (request) => {
+  if (!limiter.allow(clientIp(request))) return fail("Rate limit exceeded. Slow down.", 429);
+  return null;
 };
 
-const pruneExpiredRooms = () => {
-  const now = Date.now();
-  for (const [pin, items] of roomStores.entries()) {
-    const valid = items.filter((item) => now - (item.createdTimestamp || now) < 1800000);
-    if (valid.length === 0) {
-      roomStores.delete(pin);
-    } else {
-      roomStores.set(pin, valid);
-    }
+const handle = async (fn) => {
+  try {
+    return await fn();
+  } catch (error) {
+    if (error instanceof StoreError) return fail(error.message, error.status);
+    if (error instanceof SyntaxError) return fail("Request body must be valid JSON.", 400);
+    console.error("fixdrop route error:", error);
+    return fail("Internal server error.", 500);
   }
 };
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const pin = searchParams.get("pin") || "7492";
-  const action = searchParams.get("action");
-
-  if (!isValidPin(pin)) {
-    return NextResponse.json(
-      { success: false, error: "Invalid PIN format: Must be 4 to 8 numeric digits" },
-      { status: 400 }
-    );
-  }
-
-  pruneExpiredRooms();
-
-  if (action === "signal") {
-    const peerId = searchParams.get("peerId") || "";
-    pruneSignals(pin);
-    const list = signalingStores.get(pin) || [];
-    
-    // Filter signals intended for this peer (targetPeerId matches or is broadcast/missing)
-    const mySignals = list.filter((item) => {
-      const target = item.signal?.targetPeerId;
-      return !target || target === peerId;
-    });
-
-    // Remove only the returned signals from the queue
-    const remaining = list.filter((item) => {
-      const target = item.signal?.targetPeerId;
-      return target && target !== peerId;
-    });
-    signalingStores.set(pin, remaining);
-
-    return NextResponse.json({
-      success: true,
-      signals: mySignals
-    });
-  }
-
-  const roomItems = roomStores.get(pin) || [];
-  return NextResponse.json({
-    success: true,
-    pin,
-    count: roomItems.length,
-    items: roomItems
+  const limited = guard(request);
+  if (limited) return limited;
+  return handle(() => {
+    const { searchParams } = new URL(request.url);
+    const pin = searchParams.get("pin") || "7492";
+    if (searchParams.get("action") === "signal") {
+      return NextResponse.json({ success: true, signals: store.takeSignals(pin, searchParams.get("peerId") || "") });
+    }
+    const items = store.list(pin);
+    return NextResponse.json({ success: true, pin, count: items.length, items });
   });
 }
 
 export async function POST(request) {
-  try {
-    let body = {};
+  const limited = guard(request);
+  if (limited) return limited;
+  return handle(async () => {
+    const declared = Number(request.headers.get("content-length") || 0);
+    if (declared > MAX_REQUEST_BYTES) {
+      throw new StoreError(`Request too large (${formatBytes(declared)}); use peer-to-peer transfer for big files.`, 413);
+    }
+
+    const ip = clientIp(request);
     const contentType = request.headers.get("content-type") || "";
 
     if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-      const file = formData.get("file");
-      const pin = formData.get("pin") || "7492";
-      const sender = formData.get("sender") || "Device_Peer";
-      const senderId = formData.get("senderId") || null;
-      const fileId = formData.get("fileId") || null;
-
+      const form = await request.formData();
+      const file = form.get("file");
       let dataUrl = null;
+      let name = form.get("name");
       if (file && typeof file === "object" && file.arrayBuffer) {
-        const buffer = await file.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString("base64");
-        const mimeType = file.type || "application/octet-stream";
-        dataUrl = `data:${mimeType};base64,${base64}`;
+        if (file.size > LIMITS.maxItemBytes) {
+          throw new StoreError(`File is too large for server relay (${formatBytes(file.size)}); use peer-to-peer transfer.`, 413);
+        }
+        const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+        dataUrl = `data:${safeMime(file.type)};base64,${base64}`;
+        name = file.name || name;
       }
-
-      body = {
-        pin,
+      const pin = form.get("pin") || "7492";
+      const { item, totalCount } = store.add(pin, {
         type: "file",
-        name: file?.name || formData.get("name") || "file",
-        size: formData.get("size") || (file?.size ? (file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(2) + " MB" : (file.size / 1024).toFixed(1) + " KB") : "0 KB"),
+        name: name || "file",
         dataUrl,
-        sender,
-        senderId,
-        isP2P: false,
-        fileId
-      };
-    } else {
-      body = await request.json();
+        size: form.get("size"),
+        sender: form.get("sender") || "Device_Peer",
+        senderId: form.get("senderId"),
+        fileId: form.get("fileId"),
+        ip,
+      });
+      return NextResponse.json({ success: true, pin, item, totalCount });
     }
 
-    const { action, pin = "7492", signal, type = "text", content, name, size, dataUrl, sender = "Device_Peer", isP2P, fileId } = body;
-
-    if (!isValidPin(pin)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid PIN format: Must be 4 to 8 numeric digits" },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const { action, pin = "7492", signal, sender = "Device_Peer" } = body;
 
     if (action === "signal") {
-      pruneSignals(pin);
-      const list = signalingStores.get(pin) || [];
-      const newSignal = {
-        signal,
-        sender,
-        timestamp: Date.now()
-      };
-      signalingStores.set(pin, [...list, newSignal]);
+      store.addSignal(pin, { signal, sender });
       return NextResponse.json({ success: true });
     }
 
-    if (!content && !name) {
-      return NextResponse.json({ success: false, error: "Payload content or filename required" }, { status: 400 });
-    }
-
-    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-    // Extract caller client IP
-    const rawIp = request.headers.get("x-forwarded-for")?.split(",")[0] || request.socket?.remoteAddress || "127.0.0.1";
-    const cleanIp = rawIp === "::1" || rawIp === "::ffff:127.0.0.1" ? "127.0.0.1" : rawIp;
-    const finalSender = sender.includes("(") ? sender : `${sender} (${cleanIp})`;
-
-    const newItem = {
-      id: body.id || fileId || (Date.now().toString() + "_" + Math.random().toString(36).substring(2, 6)),
-      type,
-      sender: finalSender,
-      senderId: body.senderId || null,
-      createdTimestamp: Date.now(),
-      timestamp,
-      content: content || "",
-      name: name || null,
-      size: size || null,
-      dataUrl: dataUrl || null,
-      isP2P: isP2P || false,
-      fileId: fileId || null,
-    };
-
-    const currentItems = roomStores.get(pin) || [];
-    const updatedItems = [newItem, ...currentItems].slice(0, 50); // Keep latest 50 items per room
-    roomStores.set(pin, updatedItems);
-
-    return NextResponse.json({
-      success: true,
-      pin,
-      item: newItem,
-      totalCount: updatedItems.length
+    const { item, totalCount } = store.add(pin, {
+      type: body.type,
+      content: body.content,
+      name: body.name,
+      dataUrl: body.dataUrl,
+      size: body.size,
+      sender,
+      senderId: body.senderId,
+      isP2P: body.isP2P,
+      fileId: body.fileId,
+      id: body.id,
+      ip,
     });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
+    return NextResponse.json({ success: true, pin, item, totalCount });
+  });
 }
 
 export async function DELETE(request) {
-  const { searchParams } = new URL(request.url);
-  const pin = searchParams.get("pin") || "7492";
-  const itemId = searchParams.get("itemId");
-  const senderId = searchParams.get("senderId");
+  const limited = guard(request);
+  if (limited) return limited;
+  return handle(() => {
+    const { searchParams } = new URL(request.url);
+    const pin = searchParams.get("pin") || "7492";
+    const itemId = searchParams.get("itemId");
 
-  if (itemId) {
-    const currentItems = roomStores.get(pin) || [];
-    const item = currentItems.find(i => i.id === itemId);
-    if (!item) {
-      return NextResponse.json({ success: false, error: "Item not found" }, { status: 404 });
+    if (itemId) {
+      const totalCount = store.remove(pin, itemId, searchParams.get("senderId"));
+      return NextResponse.json({ success: true, message: "Item deleted successfully", totalCount });
     }
-    // Verify ownership
-    if (item.senderId && item.senderId !== senderId) {
-      return NextResponse.json({ success: false, error: "Unauthorized: You can only delete your own items" }, { status: 403 });
-    }
-    const updatedItems = currentItems.filter(i => i.id !== itemId);
-    roomStores.set(pin, updatedItems);
-    return NextResponse.json({
-      success: true,
-      message: `Item deleted successfully`,
-      totalCount: updatedItems.length
-    });
-  }
-
-  roomStores.delete(pin);
-  signalingStores.delete(pin);
-  return NextResponse.json({
-    success: true,
-    message: `Room ${pin} reset successfully`
+    store.reset(pin);
+    return NextResponse.json({ success: true, message: `Room ${pin} reset successfully` });
   });
 }

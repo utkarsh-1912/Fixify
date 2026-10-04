@@ -23,6 +23,12 @@ import {
   FileText
 } from 'lucide-react';
 import { validateFIXMessage } from '@/lib/fixParser';
+import {
+  LatencyStats, SequenceTracker, compileAlertPattern, computeLatencyMs, createFeedGenerator,
+  evaluateAlerts, parseWsUrl, splitFixMessages,
+} from '@/lib/feedEngine';
+
+const EMPTY_STATS = { receivedCount: 0, gapDetections: 0, avgLatency: 0, p95: 0, p99: 0 };
 import SohVisualizer from "@/components/SohVisualizer";
 
 export default function LiveStreamingPage() {
@@ -31,14 +37,16 @@ export default function LiveStreamingPage() {
   const [feedLogs, setFeedLogs] = useState([]);
   const [sessionState, setSessionState] = useState("DISCONNECTED");
   const [profile, setProfile] = useState("order-gateway");
-  const [stats, setStats] = useState({ receivedCount: 0, gapDetections: 0, avgLatency: 0 });
+  const [stats, setStats] = useState(EMPTY_STATS);
   const [timelinePoints, setTimelinePoints] = useState([]);
   
   // Real-time WebSocket connection states
   const [connectionMode, setConnectionMode] = useState("simulated"); // "simulated" | "websocket"
   const [wsUrl, setWsUrl] = useState("ws://localhost:8080");
   const wsRef = useRef(null);
-  const expectedSeqNumRef = useRef(1);
+  const sequenceTrackerRef = useRef(new SequenceTracker());
+  const latencyStatsRef = useRef(new LatencyStats());
+  const confirmOpenRef = useRef(false);
   
   // Custom states for modals, hover tooltips, and timeout stop safeguard
   const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -66,7 +74,6 @@ export default function LiveStreamingPage() {
   const timerRef = useRef(null);
   const activityTimerRef = useRef(null); // fires after ACTIVITY_CHECK_MS
   const countdownIntervalRef = useRef(null);
-  const seqNumRef = useRef(1);
   const isPausedRef = useRef(false); // mirrors isPaused state for use inside setInterval
   const logsEndRef = useRef(null);
 
@@ -90,6 +97,7 @@ export default function LiveStreamingPage() {
 
   // Handle countdown timer for auto-stop confirm modal
   useEffect(() => {
+    confirmOpenRef.current = showConfirmModal;
     if (showConfirmModal) {
       setConfirmCountdown(10);
       countdownIntervalRef.current = setInterval(() => {
@@ -124,77 +132,31 @@ export default function LiveStreamingPage() {
     }, ACTIVITY_CHECK_MS);
   };
 
-  const handleIncomingRawMessage = (rawMsg, customLatency = null, customGap = null) => {
+  const handleIncomingRawMessage = (rawMsg, customLatency = null) => {
     if (!rawMsg || !rawMsg.trim()) return;
     const parsed = validateFIXMessage(rawMsg);
     if (!parsed) return;
 
-    const msgType = parsed.tags['35'] || '0';
+    const tags = parsed.tags;
+    const msgType = tags['35'] || '0';
     const msgName = parsed.msgTypeName || 'Unknown';
-    const seqNum = parseInt(parsed.tags['34'] || '0', 10);
+    const seqNum = parseInt(tags['34'] || '0', 10);
 
-    let latency = customLatency;
-    if (latency === null) {
-      latency = 5;
-      const sendingTimeStr = parsed.tags['52'];
-      if (sendingTimeStr) {
-        try {
-          let date = null;
-          if (sendingTimeStr.includes('-')) {
-            const timePart = sendingTimeStr.split('-')[1];
-            if (timePart) {
-              const [hh, mm, ss] = timePart.split(':');
-              const [sec, ms] = ss.split('.');
-              date = new Date();
-              date.setUTCHours(parseInt(hh, 10));
-              date.setUTCMinutes(parseInt(mm, 10));
-              date.setUTCSeconds(parseInt(sec, 10));
-              date.setUTCMilliseconds(parseInt(ms || '0', 10));
-            }
-          } else {
-            date = new Date(sendingTimeStr);
-          }
-          if (date && !isNaN(date.getTime())) {
-            const diff = Date.now() - date.getTime();
-            if (diff > 0 && diff < 100000) {
-              latency = diff;
-            }
-          }
-        } catch (e) {}
-      }
-    }
+    // Latency: synthetic feeds supply their own; real feeds are measured from SendingTime (52).
+    const latency = customLatency ?? computeLatencyMs(tags['52'], Date.now(), { skewToleranceMs: 1000 }) ?? 0;
 
-    let isGap = customGap;
-    if (isGap === null) {
-      isGap = false;
-      if (expectedSeqNumRef.current > 1 && seqNum > expectedSeqNumRef.current) {
-        isGap = true;
-      }
-      expectedSeqNumRef.current = seqNum + 1;
-    }
+    // Sequence tracking is per sending CompID (each direction has its own MsgSeqNum stream).
+    const seqStatus = sequenceTrackerRef.current.observe(tags['49'], tags);
+    const isGap = seqStatus.status === 'gap';
 
-    // Evaluate alert rules
-    let alertTriggered = false;
-    let alertReason = "";
-
-    // 1. Latency check
-    if (latencyThreshold && !isNaN(parseFloat(latencyThreshold))) {
-      if (latency > parseFloat(latencyThreshold)) {
-        alertTriggered = true;
-        alertReason = `Latency ${latency}ms exceeded threshold of ${latencyThreshold}ms`;
-      }
-    }
-
-    // 2. Regex check
-    if (regexPattern && regexPattern.trim()) {
-      try {
-        const rx = new RegExp(regexPattern, "i");
-        if (rx.test(rawMsg)) {
-          alertTriggered = true;
-          alertReason = alertReason ? `${alertReason} & Message matched regex "${regexPattern}"` : `Message matched regex "${regexPattern}"`;
-        }
-      } catch (e) {}
-    }
+    const threshold = parseFloat(latencyThreshold);
+    const { rx } = compileAlertPattern(regexPattern);
+    const reasons = evaluateAlerts(
+      { raw: rawMsg, latency, seqStatus },
+      { latencyThresholdMs: Number.isFinite(threshold) ? threshold : null, rx }
+    );
+    const alertTriggered = reasons.length > 0;
+    const alertReason = reasons.join(' & ');
 
     if (alertTriggered) {
       const alertItem = {
@@ -220,6 +182,7 @@ export default function LiveStreamingPage() {
           gain.connect(audioCtx.destination);
           osc.start();
           osc.stop(audioCtx.currentTime + 0.1);
+          osc.onended = () => audioCtx.close();
         } catch (e) {}
       }
 
@@ -248,37 +211,54 @@ export default function LiveStreamingPage() {
       raw: rawMsg
     };
 
+    latencyStatsRef.current.add(latency);
+    const snap = latencyStatsRef.current.snapshot();
+
     setFeedLogs(prev => [...prev.slice(-29), logItem]);
     setTimelinePoints(prev => {
       const lastX = prev.length > 0 ? prev[prev.length - 1].x : 0;
       return [...prev.slice(-29), { x: lastX + 1, y: latency, isGap, msgType, isAlert: alertTriggered }];
     });
-    setStats(prev => {
-      const count = prev.receivedCount + 1;
-      const totalLat = prev.avgLatency * prev.receivedCount + latency;
-      return {
-        receivedCount: count,
-        gapDetections: prev.gapDetections + (isGap ? 1 : 0),
-        avgLatency: parseFloat((totalLat / count).toFixed(2))
-      };
-    });
+    setStats(prev => ({
+      receivedCount: snap.count,
+      gapDetections: prev.gapDetections + (isGap ? 1 : 0),
+      avgLatency: snap.avg,
+      p95: snap.p95,
+      p99: snap.p99
+    }));
   };
 
+  // Always call the latest handler: the interval / socket callbacks outlive the render
+  // that created them, so reading the handler directly would freeze alert settings at start time.
+  const handlerRef = useRef(null);
+  handlerRef.current = handleIncomingRawMessage;
+
   const startFeed = () => {
+    let socketUrl = null;
+    if (connectionMode === "websocket") {
+      const checked = parseWsUrl(wsUrl, { pageProtocol: window.location.protocol });
+      if (checked.error) {
+        setSessionState("ERROR");
+        alert(checked.error);
+        return;
+      }
+      socketUrl = checked.url;
+    }
+
     setIsRunning(true);
     setIsPaused(false);
     setFeedLogs([]);
     setTimelinePoints([]);
-    setStats({ receivedCount: 0, gapDetections: 0, avgLatency: 0 });
-    seqNumRef.current = 1;
-    expectedSeqNumRef.current = 1;
+    setStats(EMPTY_STATS);
+    sequenceTrackerRef.current.reset();
+    latencyStatsRef.current = new LatencyStats();
 
     scheduleActivityCheck();
 
-    if (connectionMode === "websocket") {
+    if (socketUrl) {
       setSessionState("CONNECTING");
       try {
-        const ws = new WebSocket(wsUrl);
+        const ws = new WebSocket(socketUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
@@ -286,8 +266,9 @@ export default function LiveStreamingPage() {
         };
 
         ws.onmessage = (event) => {
-          if (isPausedRef.current || showConfirmModal) return;
-          handleIncomingRawMessage(event.data);
+          if (isPausedRef.current || confirmOpenRef.current) return;
+          const payload = typeof event.data === 'string' ? event.data : '';
+          splitFixMessages(payload).forEach((msg) => handlerRef.current(msg));
         };
 
         ws.onerror = () => {
@@ -295,7 +276,7 @@ export default function LiveStreamingPage() {
         };
 
         ws.onclose = () => {
-          setSessionState("DISCONNECTED");
+          setSessionState((s) => (s === "ERROR" ? s : "DISCONNECTED"));
           setIsRunning(false);
         };
       } catch (err) {
@@ -305,92 +286,12 @@ export default function LiveStreamingPage() {
       }
     } else {
       setSessionState("CONNECTING");
-      let step = 0;
+      const generator = createFeedGenerator({ profile, seed: Date.now() & 0xffffffff });
       timerRef.current = setInterval(() => {
-        if (isPausedRef.current || showConfirmModal) return;
-
-        step++;
-
-        let newMsg = "";
-        let latency = 5;
-        let msgType = "0";
-        let msgName = "Heartbeat";
-
-        if (profile === "market-data") {
-          latency = Math.floor(Math.random() * 4) + 1; // 1-4ms
-        } else if (profile === "drop-copy") {
-          latency = Math.floor(Math.random() * 20) + 20; // 20-39ms
-        } else {
-          latency = Math.floor(Math.random() * 8) + 5; // 5-12ms standard order-gateway
-        }
-
-        if (step === 1) {
-          setSessionState("LOGON_SENT");
-          msgType = "A";
-          msgName = "Logon Initiated";
-          newMsg = `8=FIX.4.4|9=72|35=A|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|98=0|108=30|10=180|`;
-        } else if (step === 2) {
-          setSessionState("ESTABLISHED");
-          msgType = "A";
-          msgName = "Logon Established (Acceptor Reply)";
-          newMsg = `8=FIX.4.4|9=72|35=A|34=1|49=TEST_GATEWAY|56=LIVE_CLIENT|52=${new Date().toISOString()}|98=0|108=30|10=182|`;
-          seqNumRef.current--; // Keep align seq
-        } else {
-          const roll = Math.random();
-          
-          if (profile === "market-data") {
-            if (roll < 0.25) {
-              msgType = "0";
-              msgName = "Heartbeat";
-              newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=MD_FEED|56=LIVE_CLIENT|52=${new Date().toISOString()}|10=114|`;
-            } else {
-              msgType = "X";
-              msgName = "Market Data Incremental Refresh";
-              const bid = (180 + Math.random() * 10).toFixed(2);
-              const ask = (parseFloat(bid) + 0.05).toFixed(2);
-              newMsg = `8=FIX.4.4|9=152|35=X|34=${seqNumRef.current}|49=MD_FEED|56=LIVE_CLIENT|52=${new Date().toISOString()}|262=MD_REQ_1|268=2|269=0|270=${bid}|271=100|269=1|270=${ask}|271=150|10=199|`;
-            }
-          } else if (profile === "drop-copy") {
-            if (roll < 0.2) {
-              msgType = "0";
-              msgName = "Heartbeat";
-              newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=DROP_COPY|56=LIVE_CLIENT|52=${new Date().toISOString()}|10=114|`;
-            } else {
-              msgType = "8";
-              msgName = "Execution Report (Drop Copy Allocation)";
-              latency += Math.floor(Math.random() * 15);
-              const prc = (120 + Math.random() * 15).toFixed(2);
-              newMsg = `8=FIX.4.4|9=162|35=8|34=${seqNumRef.current}|49=DROP_COPY|56=LIVE_CLIENT|52=${new Date().toISOString()}|37=DC_${Date.now()}|17=E_${Date.now()}|150=F|39=2|55=MSFT|38=200|32=200|31=${prc}|10=210|`;
-            }
-          } else {
-            if (roll < 0.35) {
-              msgType = "0";
-              msgName = "Heartbeat";
-              newMsg = `8=FIX.4.4|9=60|35=0|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|10=114|`;
-            } else if (roll < 0.7) {
-              msgType = "D";
-              msgName = "New Order Single";
-              const qty = [100, 200, 500, 1000][Math.floor(Math.random() * 4)];
-              const prc = (150 + Math.random() * 30).toFixed(2);
-              newMsg = `8=FIX.4.4|9=120|35=D|34=${seqNumRef.current}|49=LIVE_CLIENT|56=TEST_GATEWAY|52=${new Date().toISOString()}|11=CL_${Date.now()}|55=AAPL|54=1|38=${qty}|44=${prc}|40=2|10=044|`;
-            } else {
-              msgType = "8";
-              msgName = "Execution Report (Trade Fill)";
-              latency += Math.floor(Math.random() * 10) + 5;
-              const prc = (150 + Math.random() * 30).toFixed(2);
-              newMsg = `8=FIX.4.4|9=140|35=8|34=${seqNumRef.current}|49=TEST_GATEWAY|56=LIVE_CLIENT|52=${new Date().toISOString()}|37=O_${Date.now()}|17=E_${Date.now()}|150=F|39=2|55=AAPL|38=100|32=100|31=${prc}|10=190|`;
-            }
-          }
-        }
-
-        let isGap = false;
-        if (step > 4 && step % 12 === 0) {
-          seqNumRef.current += 3; // artificial gap
-          isGap = true;
-        }
-
-        handleIncomingRawMessage(newMsg, latency, isGap);
-        seqNumRef.current++;
+        if (isPausedRef.current || confirmOpenRef.current) return;
+        const msg = generator.next();
+        setSessionState(msg.state);
+        handlerRef.current(msg.raw, msg.latency);
       }, 1500);
     }
   };
@@ -421,9 +322,9 @@ export default function LiveStreamingPage() {
     stopFeed();
     setFeedLogs([]);
     setTimelinePoints([]);
-    seqNumRef.current = 1;
-    expectedSeqNumRef.current = 1;
-    setStats({ receivedCount: 0, gapDetections: 0, avgLatency: 0 });
+    sequenceTrackerRef.current.reset();
+    latencyStatsRef.current = new LatencyStats();
+    setStats(EMPTY_STATS);
   };
 
   const handleConfirmContinue = () => {
@@ -642,6 +543,7 @@ export default function LiveStreamingPage() {
                 <div className="flex justify-between"><span>Received count:</span> <span className="font-bold text-zinc-200">{stats.receivedCount}</span></div>
                 <div className="flex justify-between"><span>Sequence gaps:</span> <span className="font-bold text-red-400">{stats.gapDetections}</span></div>
                 <div className="flex justify-between"><span>Avg latency:</span> <span className="font-bold text-[var(--primary)]">{stats.avgLatency} ms</span></div>
+                <div className="flex justify-between"><span>p95 / p99 latency:</span> <span className="font-bold text-zinc-200">{stats.p95} / {stats.p99} ms</span></div>
               </div>
             </div>
           </div>

@@ -97,6 +97,24 @@ function getVersionValueMeaning(tag, val, version) {
   return FIX_VALUES[tag]?.[val] || val;
 }
 
+// localStorage is ~5 MB per origin: a write that throws (QuotaExceededError) inside an effect crashes the
+// whole page, so every persist goes through this guard and skips very large values.
+const MAX_PERSIST_CHARS = 1000000;
+const MAX_FILE_BYTES = 100 * 1024 * 1024;
+const MODAL_PAGE = 200;
+const safeSave = (key, value) => {
+  try {
+    const v = String(value);
+    if (v.length > MAX_PERSIST_CHARS) {
+      localStorage.removeItem(key);
+      return;
+    }
+    localStorage.setItem(key, v);
+  } catch (e) {
+    console.warn('Could not persist', key, e);
+  }
+};
+
 export default function FIXComparePage() {
   const [compareMode, setCompareMode] = useState("message");
   const [compareType, setCompareType] = useState("values");
@@ -110,6 +128,7 @@ export default function FIXComparePage() {
   const [file1Content, setFile1Content] = useState("");
   const [file2Content, setFile2Content] = useState("");
   const [fileDiff, setFileDiff] = useState(null);
+  const [modalLimit, setModalLimit] = useState(MODAL_PAGE);
 
   const [inputType1, setInputType1] = useState("file");
   const [inputType2, setInputType2] = useState("file");
@@ -163,47 +182,47 @@ export default function FIXComparePage() {
   // Save states on change
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-msg1', msg1);
+    safeSave('fixify-compare-msg1', msg1);
   }, [msg1, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-msg2', msg2);
+    safeSave('fixify-compare-msg2', msg2);
   }, [msg2, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-mode', compareMode);
+    safeSave('fixify-compare-mode', compareMode);
   }, [compareMode, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-type', compareType);
+    safeSave('fixify-compare-type', compareType);
   }, [compareType, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-delim', delimiter);
+    safeSave('fixify-compare-delim', delimiter);
   }, [delimiter, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-f1', file1Content);
+    safeSave('fixify-compare-f1', file1Content);
   }, [file1Content, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-f2', file2Content);
+    safeSave('fixify-compare-f2', file2Content);
   }, [file2Content, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-inputType1', inputType1);
+    safeSave('fixify-compare-inputType1', inputType1);
   }, [inputType1, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-inputType2', inputType2);
+    safeSave('fixify-compare-inputType2', inputType2);
   }, [inputType2, isLoaded]);
 
   useEffect(() => {
@@ -217,11 +236,11 @@ export default function FIXComparePage() {
 
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined') return;
-    localStorage.setItem('fixify-compare-pairIndex', String(selectedPairIndex));
+    safeSave('fixify-compare-pairIndex', String(selectedPairIndex));
   }, [selectedPairIndex, isLoaded]);
 
   const parseMessageTags = (rawMsg, delim) => {
-    const parsed = validateFIXMessage(rawMsg, delim);
+    const parsed = validateFIXMessage(rawMsg, delim, { light: true });
     return parsed ? parsed.tags : {};
   };
 
@@ -336,19 +355,42 @@ export default function FIXComparePage() {
     const parsed1 = lines1.map((line, idx) => ({ line, tags: parseMessageTags(line, delimiter), lineNumber: idx + 1 }));
     const parsed2 = lines2.map((line, idx) => ({ line, tags: parseMessageTags(line, delimiter), lineNumber: idx + 1 }));
 
-    const matches = [], unmatched1 = [], unmatched2 = [...parsed2];
+    // Index file 2 by transaction key once (O(n)) instead of scanning it for every line of file 1.
+    const keyOf = (m) => [m.tags[11], m.tags[17], m.tags[37]].filter(Boolean).join("|");
+    const byKey = new Map();
+    parsed2.forEach((m2, i) => {
+      const k = keyOf(m2);
+      if (!k) return;
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(i);
+    });
+    const used = new Set();
+    const matches = [], unmatched1 = [];
     for (const m1 of parsed1) {
-      const key1 = [m1.tags[11], m1.tags[17], m1.tags[37]].filter(Boolean).join("|");
-      let matchIndex = -1;
-      if (key1) matchIndex = unmatched2.findIndex(m2 => [m2.tags[11], m2.tags[17], m2.tags[37]].filter(Boolean).join("|") === key1);
-      if (matchIndex !== -1) { matches.push({ msg1: m1, msg2: unmatched2[matchIndex] }); unmatched2.splice(matchIndex, 1); }
-      else unmatched1.push(m1);
+      const queue = byKey.get(keyOf(m1));
+      if (queue && queue.length) {
+        const j = queue.shift();
+        used.add(j);
+        matches.push({ msg1: m1, msg2: parsed2[j] });
+      } else unmatched1.push(m1);
     }
+    const unmatched2 = parsed2.filter((_, i) => !used.has(i));
     setFileDiff({ matches, unmatched1, unmatched2 });
   };
 
-  const onDrop1 = (files) => { const r = new FileReader(); r.onload = () => setFile1Content(r.result); r.readAsText(files[0]); };
-  const onDrop2 = (files) => { const r = new FileReader(); r.onload = () => setFile2Content(r.result); r.readAsText(files[0]); };
+  const readLogFile = (file, setContent) => {
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) {
+      alert(`"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(0)} MB; the limit is ${MAX_FILE_BYTES / (1024 * 1024)} MB. Split the log first.`);
+      return;
+    }
+    const r = new FileReader();
+    r.onload = () => setContent(r.result);
+    r.onerror = () => alert(`Could not read "${file.name}".`);
+    r.readAsText(file);
+  };
+  const onDrop1 = (files) => readLogFile(files[0], setFile1Content);
+  const onDrop2 = (files) => readLogFile(files[0], setFile2Content);
   const { getRootProps: rp1, getInputProps: ip1 } = useDropzone({ onDrop: onDrop1, accept: { "text/plain": [".txt", ".fix", ".log"] }, multiple: false });
   const { getRootProps: rp2, getInputProps: ip2 } = useDropzone({ onDrop: onDrop2, accept: { "text/plain": [".txt", ".fix", ".log"] }, multiple: false });
 
@@ -1020,7 +1062,7 @@ export default function FIXComparePage() {
                       key={i}
                       className="flex items-center gap-3 cursor-pointer hover:underline"
                       style={{ color: row.color }}
-                      onClick={() => { setModalContent({ data: row.data, title: row.label, type: row.type }); setShowModal(true); }}
+                      onClick={() => { setModalLimit(MODAL_PAGE); setModalContent({ data: row.data, title: row.label, type: row.type }); setShowModal(true); }}
                     >
                       <row.icon className="h-4 w-4 shrink-0" />
                       <span>{row.label}</span>
@@ -1127,7 +1169,7 @@ export default function FIXComparePage() {
                   </div>
                 ) : modalContent.type === 'matched' ? (
                   <div className="space-y-3">
-                    {modalContent.data.map(({ msg1, msg2 }, idx) => (
+                    {modalContent.data.slice(0, modalLimit).map(({ msg1, msg2 }, idx) => (
                       <div key={idx} className="p-4 rounded-xl space-y-2" style={{ border: '1px solid var(--border)', background: 'var(--background)' }}>
                         <div className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
                           <span className="font-bold uppercase text-[10px]">Pair #{idx + 1}</span>
@@ -1154,7 +1196,7 @@ export default function FIXComparePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {modalContent.data.map((msg, idx) => (
+                        {modalContent.data.slice(0, modalLimit).map((msg, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                             <td className="py-2.5 px-4 text-center font-bold" style={{ color: 'var(--text-muted)', borderRight: '1px solid var(--border)' }}>{msg.lineNumber}</td>
                             <td className="py-2.5 px-4 break-all" style={{ color: 'var(--foreground)' }}>
@@ -1166,6 +1208,11 @@ export default function FIXComparePage() {
                     </table>
                   </div>
                 )
+              )}
+              {modalContent?.data && modalContent.type !== 'tagDiff' && modalContent.data.length > modalLimit && (
+                <button onClick={() => setModalLimit((n) => n + MODAL_PAGE)} className="fx-btn-secondary">
+                  Showing {modalLimit} of {modalContent.data.length} — show {MODAL_PAGE} more
+                </button>
               )}
             </div>
             <div className="px-6 py-4 text-right" style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}>

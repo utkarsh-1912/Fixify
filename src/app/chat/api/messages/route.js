@@ -1,18 +1,31 @@
 import { NextResponse } from "next/server";
+import { rateLimit, readJson } from "@/lib/serverGuards";
 
+// Null-prototype maps: a roomId such as "__proto__" or "constructor" must be just another key.
 if (!global.chatMessagesDb) {
-  global.chatMessagesDb = {};
+  global.chatMessagesDb = Object.create(null);
 }
 
 if (!global.chatAnalyticsDb) {
-  global.chatAnalyticsDb = {};
+  global.chatAnalyticsDb = Object.create(null);
 }
+
+const ROOM_ID_RE = /^[^\u0000-\u001f]{1,64}$/; // any printable name; null-prototype maps make "__proto__" safe
+const MAX_ROOMS = 200;
+const MAX_MESSAGE_CHARS = 64 * 1024;
+const MAX_BODY_BYTES = 256 * 1024;
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
+  const limited = rateLimit(request, "chat-get", { limit: 240 });
+  if (limited) return limited;
   const roomId = searchParams.get("roomId");
   const userId = searchParams.get("userId");
   const username = searchParams.get("username");
+  if (roomId && !ROOM_ID_RE.test(roomId)) return NextResponse.json({ error: "Invalid roomId" }, { status: 400 });
+  if ((userId && userId.length > 64) || (username && username.length > 64)) {
+    return NextResponse.json({ error: "userId / username too long" }, { status: 400 });
+  }
 
   const activeRooms = Array.from(new Set([
     ...Object.keys(global.chatMessagesDb || {}),
@@ -112,10 +125,18 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const limited = rateLimit(request, "chat-post", { limit: 120 });
+    if (limited) return limited;
+    const body = await readJson(request, MAX_BODY_BYTES);
     const { action, roomId } = body;
     if (!roomId) {
       return NextResponse.json({ error: "Missing roomId" }, { status: 400 });
+    }
+    if (!ROOM_ID_RE.test(String(roomId))) {
+      return NextResponse.json({ error: "Invalid roomId" }, { status: 400 });
+    }
+    if (!global.chatMessagesDb[roomId] && Object.keys(global.chatMessagesDb).length >= MAX_ROOMS) {
+      return NextResponse.json({ error: "Too many active rooms" }, { status: 503 });
     }
 
     if (!global.chatMessagesDb[roomId]) {
@@ -124,8 +145,11 @@ export async function POST(request) {
 
     if (action === "send") {
       const { message } = body;
-      if (!message) {
-        return NextResponse.json({ error: "Missing message" }, { status: 400 });
+      if (!message || typeof message !== "object" || typeof message.id !== "string") {
+        return NextResponse.json({ error: "Missing or malformed message" }, { status: 400 });
+      }
+      if (JSON.stringify(message).length > MAX_MESSAGE_CHARS) {
+        return NextResponse.json({ error: "Message too large" }, { status: 413 });
       }
       
       // Prevent duplicates by checking id
@@ -204,6 +228,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     console.error("Chat API error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    if (err.status) return NextResponse.json({ error: err.message }, { status: err.status });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

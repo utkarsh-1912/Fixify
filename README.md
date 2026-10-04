@@ -123,32 +123,32 @@ FixDrop is designed for zero-configuration, cross-device trading desk file and p
 
 ## 💻 Available Scripts
 
-- `npm run dev` — Starts local development server with Turbopack / HMR.
-- `npm run build` — Compiles and builds production optimized package (verifies TypeScript & routes).
-- `npm run start` — Starts static production server.
-- `npm run lint` — Runs ESLint and checks code formatting rules.
-- `node tests/run-all-tests.mjs` — Runs automated unit and integration tests.
+- `npm run dev` — Starts the local development server.
+- `npm run build` — Production build (type-checks and compiles every route).
+- `npm run start` — Serves the production build.
+- `npm run lint` — ESLint over `src/` and `tests/`.
+- `npm test` — Vitest unit + route-handler suite (`npm run test:watch` for watch mode).
+- `npm run check` — Lint, test and build in one go (what CI runs).
 
 ---
 
-## 🧪 Automated Testing & Continuous Integration (CI)
+## 🧪 Engine Layer, Tests & CI
 
-FIXify is equipped with a dual-stage automated validation harness designed for high-integrity protocol verification:
+The workstation pages are thin React views over **pure, tested engine modules** in `src/lib/`. Nothing in these modules touches React, the DOM or `localStorage`, so every behaviour is unit-testable and reusable from a CLI, a service or another UI.
 
-### 1. **Automated Test Runner (`tests/run-all-tests.mjs`)**
-Run the full test suite locally by invoking:
-```bash
-node tests/run-all-tests.mjs
-```
-- **Unit Verification**: Tests core regex extraction, SOH/pipe delimiter detection, and payload segmentation.
-- **Integration Validation**: Automatically launches a lightweight in-memory FixDrop test server if `localhost:3000` is offline to test endpoint diagnostics (GET polling, POST data transfer, WebRTC signaling, target routing, and DELETE cleanup) with 100% automated coverage.
+| Engine module | Used by | What it guarantees |
+| :--- | :--- | :--- |
+| `fixWire.js` | everything | Byte-correct BodyLength / CheckSum, UTCTimestamp format & parse, delimiter detection |
+| `binaryCodec.js` + `binaryPresets.js` | Binary Decoder | SBE (signed/unsigned 64-bit via BigInt, enums, composites, char arrays, endianness), FAST (real stop-bit ints, nullable fields, copy/default/increment/constant operators, dictionary state, template IDs) and FIX-ASCII — decode **and** encode, round-trip tested |
+| `sanitizer.js` | Log Sanitizer | Masks by tag group, Luhn-checked card redaction, HMAC-SHA256 pseudonyms (salt required), recomputed BodyLength/CheckSum, non-FIX lines passed through untouched |
+| `kanbanBoard.js` | Kanban Tasks | Collision-free ids, legacy-data migration/repair, cycle-free dependencies, column/row deletion rules, filtering & stats |
+| `fixdropStore.js` + `/api/fixdrop` | FixDrop / AirShare | PIN validation, per-item / per-room / global byte caps, TTL eviction, ownership checks, signalling fan-out, per-IP rate limiting |
+| `feedEngine.js` | Live Session Feed | Seeded generator of **valid** FIX, per-CompID sequence tracker (gap / duplicate / reset), latency percentiles, safe alert rules, WebSocket URL validation |
+| `indicators.js` + `portfolioEngine.js` | Multi-Algo Studio | Indicators, backtester with fees/slippage and drawdown, real parameter sweep, fill-only execution parsing, idempotent ledger import, long/short/flip position accounting |
 
-### 2. **GitHub Actions CI Workflow Pipeline (`.github/workflows/ci.yml`)**
-The integration pipeline automatically triggers on all pushes and pull requests to `main` and `master`:
-- Boots up a Node 18 build environment.
-- Installs cached dependencies (`npm ci`).
-- Executes production-level Next.js route compilation (`npm run build`).
-- Starts a background dev server instance and runs the entire automated test suite to ensure zero regressions before merging.
+**Tests** (`tests/*.test.js`, Vitest) import the real modules and call the real Next.js route handlers — there are no copies of the logic inside the tests.
+
+**CI** (`.github/workflows/ci.yml`, Node 22) runs on every push / PR: `npm ci` → `npm run lint` → `npm test` → `npm run build` (+ a non-blocking `npm audit`).
 
 ---
 
@@ -170,7 +170,7 @@ Fixify/
 │   │   ├── multi-algo/         # Technical Indicator Studio & Backtester
 │   │   ├── custom-dialect/     # QuickFIX XML Dialect Manager
 │   │   ├── fixtags/            # Specification Tag Reference
-│   │   ├── binary-decoder/     # FAST & ITCH Binary Packet Decoder
+│   │   ├── binary-decoder/     # SBE / FAST / FIX-ASCII Binary Decoder & Encoder
 │   │   ├── atdl/               # FIXatdl Algorithmic Schema Builder
 │   │   ├── live-streaming/     # Socket Stream Simulation Sandbox
 │   │   ├── coderunner/         # Client-Side Code Execution Sandbox
@@ -181,7 +181,8 @@ Fixify/
 │   │   ├── draw/               # Architecture Whiteboard Canvas
 │   │   └── about/              # Platform Capabilities Overview
 │   ├── components/             # Reusable UI Components (Navbar, Drawers, SoxVisualizer)
-│   └── lib/                    # Core FIX Parsers, Calculators & Dialect Engines
+│   └── lib/                    # Pure engine modules (parsers, codecs, sanitizer, feed, board, trade)
+├── tests/                      # Vitest suites (real modules + real route handlers)
 ├── public/                     # Static Assets & Icons
 └── package.json                # Project Dependencies & Scripts
 ```

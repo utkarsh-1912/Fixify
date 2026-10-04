@@ -18,31 +18,23 @@ import {
   Info,
   Sparkles
 } from 'lucide-react';
+import { sanitizeLog } from '@/lib/sanitizer';
 import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from '@/lib/workspaceSession';
 
-function cyrb128(str) {
-  let h1 = 1779033703, h2 = 3024733165, h3 = 3362453659, h4 = 502493250;
-  for (let i = 0, k; i < str.length; i++) {
-    k = str.charCodeAt(i);
-    h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
-    h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
-    h3 = h4 ^ Math.imul(h4 ^ k, 951274213);
-    h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
-  }
-  h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
-  h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
-  h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
-  h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
-  return (h1>>>0).toString(16).padStart(8,'0') + (h2>>>0).toString(16).padStart(8,'0') + (h3>>>0).toString(16).padStart(8,'0') + (h4>>>0).toString(16).padStart(8,'0');
-}
+// Browsers choke on rendering / copying giant strings in the DOM, so large results are previewed
+// and only the download / copy actions touch the full text.
+const MAX_INPUT_BYTES = 100 * 1024 * 1024;
+const PREVIEW_CHARS = 200000;
 
 export default function LogSanitizerPage() {
   const [inputText, setInputText] = useState('');
   const [outputText, setOutputText] = useState('');
   const [useHashing, setUseHashing] = useState(false);
-  const [saltVal, setSaltVal] = useState('fixify_salt_2026');
+  const [saltVal, setSaltVal] = useState('');
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [progress, setProgress] = useState(0);
   const [showSetup, setShowSetup] = useState(true);
   const [inputMode, setInputMode] = useState('file'); // 'file' or 'paste'
   const [fileName, setFileName] = useState('');
@@ -77,11 +69,12 @@ export default function LogSanitizerPage() {
     setCustomTagsStr('');
     setReplacementStr('[MASKED]');
     setUseHashing(false);
-    setSaltVal('fixify_salt_2026');
+    setSaltVal('');
     setStats({ messageCount: 0, fieldsMasked: 0, byteReduction: 0 });
     setCopied(false);
     setShowSetup(true);
     setFileName('');
+    setErrorMsg('');
   };
 
   const handleLoadDemo = () => {
@@ -122,6 +115,10 @@ export default function LogSanitizerPage() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > MAX_INPUT_BYTES) {
+      setErrorMsg(`"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(0)} MB; the limit is ${MAX_INPUT_BYTES / (1024 * 1024)} MB. Split the log first.`);
+      return;
+    }
     setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -147,156 +144,51 @@ export default function LogSanitizerPage() {
     }
   }, []);
 
-  const performSanitize = (text) => {
+  const performSanitize = async (text) => {
     if (!text.trim()) return;
     setIsProcessing(true);
+    setErrorMsg('');
+    setProgress(0);
 
     if (isWorkspaceSharingEnabled()) {
       setWorkspaceSession({ rawText: text, source: 'sanitizer' });
     }
 
-    setTimeout(() => {
-      const lines = text.split(/\r?\n/);
-      const customTags = customTagsStr
-        .split(',')
-        .map(t => t.trim())
-        .filter(Boolean);
-
-      const credentialTags = ['554', '96', '89', '91'];
-      const compIdTags = ['49', '56', '115', '128'];
-      const accountTags = ['1', '50', '57', '142', '143', '109', '11'];
-      const priceTags = ['44', '99', '31', '6'];
-      const sizeTags = ['38', '32', '14', '151'];
-
-      let totalMasked = 0;
-      let totalMessages = 0;
-      const sanitizedLines = [];
-
-      lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          sanitizedLines.push('');
-          return;
-        }
-
-        totalMessages++;
-
-        // Determine separator
-        let sep = '\x01';
-        if (trimmed.includes('\x01')) sep = '\x01';
-        else if (trimmed.includes('\u0001')) sep = '\u0001';
-        else if (trimmed.includes('|')) sep = '|';
-        else if (trimmed.includes('^A')) sep = '^A';
-
-        // Normalize delimiters to SOH (\x01) for parsing
-        let normalized = trimmed;
-        if (sep !== '\x01') {
-          if (sep === '^A') {
-            normalized = trimmed.replace(/\^A/g, '\x01');
-          } else {
-            normalized = trimmed.split(sep).join('\x01');
-          }
-        }
-
-        const fields = normalized.split('\x01');
-        const tagList = [];
-
-        fields.forEach(field => {
-          if (!field) return;
-          const eqIdx = field.indexOf('=');
-          if (eqIdx !== -1) {
-            const tag = field.substring(0, eqIdx).trim();
-            let val = field.substring(eqIdx + 1);
-
-            let shouldMask = false;
-            if (maskCredentials && credentialTags.includes(tag)) shouldMask = true;
-            if (maskCompIds && compIdTags.includes(tag)) shouldMask = true;
-            if (maskAccounts && accountTags.includes(tag)) shouldMask = true;
-            if (maskPrices && priceTags.includes(tag)) shouldMask = true;
-            if (maskSizes && sizeTags.includes(tag)) shouldMask = true;
-            if (customTags.includes(tag)) shouldMask = true;
-
-            // Maintain integrity of headers/checksum
-            if (tag === '8' || tag === '9' || tag === '10') shouldMask = false;
-
-            if (shouldMask) {
-              val = useHashing ? cyrb128(val + saltVal) : replacementStr;
-              totalMasked++;
-            }
-
-            if (maskIpAddress && /\b(?:\d{1,3}\.){3}\d{1,3}\b/.test(val)) {
-              val = val.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, 'xxx.xxx.xxx.xxx');
-              totalMasked++;
-            }
-
-            if (maskFinancialPii && /\b(?:\d[ -]*?){13,19}\b/.test(val)) {
-              val = val.replace(/\b(?:\d[ -]*?){13,19}\b/g, '****-****-****-****');
-              totalMasked++;
-            }
-
-            tagList.push({ tag, val });
-          }
-        });
-
-        if (tagList.length === 0) {
-          sanitizedLines.push(trimmed);
-          return;
-        }
-
-        // Recompute BodyLength (tag 9) and Checksum (tag 10)
-        const tag8 = tagList.find(t => t.tag === '8')?.val || 'FIX.4.4';
-        const otherFields = tagList.filter(t => t.tag !== '8' && t.tag !== '9' && t.tag !== '10');
-
-        // Body string is everything after Tag 9 up to before Tag 10
-        const bodyStr = otherFields.map(t => `${t.tag}=${t.val}`).join('\x01') + '\x01';
-        const bodyLength = bodyStr.length;
-
-        const partialMsg = `8=${tag8}\x019=${bodyLength}\x01${bodyStr}`;
-
-        // modulo 256 sum of bytes
-        let sum = 0;
-        for (let i = 0; i < partialMsg.length; i++) {
-          sum += partialMsg.charCodeAt(i);
-        }
-        const checksum = String(sum % 256).padStart(3, '0');
-        const finalMsgSoh = `${partialMsg}10=${checksum}\x01`;
-
-        // Restore original delimiter
-        let result = finalMsgSoh;
-        if (sep !== '\x01') {
-          if (sep === '^A') {
-            result = finalMsgSoh.replace(/\x01/g, '^A');
-          } else {
-            result = finalMsgSoh.split('\x01').join(sep);
-          }
-        }
-
-        sanitizedLines.push(result);
+    try {
+      const { output, stats: result, warnings } = await sanitizeLog(text, {
+        groups: {
+          credentials: maskCredentials,
+          compIds: maskCompIds,
+          accounts: maskAccounts,
+          ips: maskIpAddress,
+          pii: maskFinancialPii,
+          prices: maskPrices,
+          sizes: maskSizes,
+        },
+        customTags: customTagsStr,
+        remaps: tagRemapsStr,
+        replacement: replacementStr,
+        useHashing,
+        salt: saltVal,
+        onProgress: setProgress,
       });
-
-      let output = sanitizedLines.join('\n');
-
-      if (tagRemapsStr.trim()) {
-        const pairs = tagRemapsStr.split(',').map(s => s.trim()).filter(Boolean);
-        pairs.forEach(pair => {
-          const parts = pair.split('=').map(s => s.trim());
-          if (parts.length === 2 && parts[0] && parts[1]) {
-            const [tagNum, alias] = parts;
-            const rx = new RegExp(`(?:^|\\||\\x01)${tagNum}=`, 'g');
-            output = output.replace(rx, match => match.replace(`${tagNum}=`, `${alias}=`));
-          }
-        });
-      }
-
       setOutputText(output);
       setStats({
-        messageCount: totalMessages,
-        fieldsMasked: totalMasked,
-        byteReduction: text.length - output.length
+        messageCount: result.messageCount,
+        fieldsMasked: result.fieldsMasked,
+        byteReduction: result.byteReduction,
       });
-      setIsProcessing(false);
+      const notes = [...warnings];
+      if (result.skippedLines > 0) {
+        notes.push(`${result.skippedLines} line(s) were not FIX messages and were passed through unchanged.`);
+      }
+      setErrorMsg(notes.join(' '));
       setShowSetup(false);
-    }, 300);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCopy = () => {
@@ -519,7 +411,7 @@ export default function LogSanitizerPage() {
                 type="text"
                 value={saltVal}
                 onChange={(e) => setSaltVal(e.target.value)}
-                placeholder="fixify_salt_2026"
+                placeholder="secret salt (required)"
                 className="w-full fx-input font-mono"
                 style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
               />
@@ -547,8 +439,11 @@ export default function LogSanitizerPage() {
           className="w-full fx-btn-primary justify-center font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 cursor-pointer mt-4"
         >
           <ScanEyeIcon className="h-4 w-4" />
-          <span>{isProcessing ? 'Processing...' : 'Sanitize Raw Logs'}</span>
+          <span>{isProcessing ? `Processing... ${Math.round(progress * 100)}%` : 'Sanitize Raw Logs'}</span>
         </button>
+        {errorMsg && (
+          <p role="status" className="text-[11px] font-mono mt-3 text-amber-500">{errorMsg}</p>
+        )}
       </div>
     </div>
   );
@@ -671,8 +566,13 @@ export default function LogSanitizerPage() {
                   className="w-full min-h-[300px] max-h-[500px] overflow-y-auto p-4 rounded-xl border font-mono text-[10px] leading-relaxed break-all whitespace-pre-wrap select-all"
                   style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
                 >
-                  {outputText}
+                  {outputText.length > PREVIEW_CHARS ? outputText.slice(0, PREVIEW_CHARS) : outputText}
                 </pre>
+                {outputText.length > PREVIEW_CHARS && (
+                  <p className="text-[10px] font-mono mt-2 text-amber-500">
+                    Preview shows the first {PREVIEW_CHARS.toLocaleString()} of {outputText.length.toLocaleString()} characters. Download or Copy gives the full result.
+                  </p>
+                )}
               </div>
             </div>
           </div>

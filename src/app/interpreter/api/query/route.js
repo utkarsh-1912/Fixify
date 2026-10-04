@@ -1,3 +1,4 @@
+import { jsonError, rateLimit, readJson } from "@/lib/serverGuards";
 import { NextResponse } from "next/server";
 import { FIX_TAGS, FIX_VALUES } from "@/lib/fixTags";
 import { validateFIXMessage } from "@/lib/fixParser";
@@ -537,7 +538,8 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
     };
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  // The key travels in a header, never in the URL, so it cannot end up in access / proxy logs.
+  const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
   const body = {
     contents: [
@@ -556,8 +558,9 @@ async function queryGemini(prompt, apiKey, systemInstruction = "") {
   try {
     const res = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!res.ok) {
@@ -1529,9 +1532,16 @@ function recalculateFixMessage(queryText) {
 }
 
 export async function POST(req) {
+  // Callers who bring their own key get a normal limit; anyone riding the server's key gets a tight one.
+  const usesServerKey = !req.headers.get("x-gemini-key");
+  const limited = rateLimit(req, usesServerKey ? "interpreter-server-key" : "interpreter", { limit: usesServerKey ? 10 : 40 });
+  if (limited) return limited;
+
   try {
-    const { query, customDialect } = await req.json();
-    
+    const { query, customDialect } = await readJson(req, 512 * 1024);
+    if (typeof query !== "string" || !query.trim()) return jsonError("A non-empty query is required.", 400);
+    if (query.length > 20000) return jsonError("Query is longer than 20,000 characters.", 413);
+
     // Extract Gemini API key from client request header, fallback to server process env
     const clientKey = req.headers.get("x-gemini-key");
     const apiKey = clientKey || process.env.GEMINI_API_KEY || "";

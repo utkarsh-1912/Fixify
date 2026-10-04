@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -89,6 +89,8 @@ function evaluateFQL(lineContent, query, delimiter = "|") {
     });
   });
 }
+
+const MAX_FILE_BYTES = 100 * 1024 * 1024;
 
 export default function LogsProcessorPage() {
   const [files, setFiles] = useState([]);
@@ -200,8 +202,14 @@ export default function LogsProcessorPage() {
   const [showTagSearch, setShowTagSearch] = useState(false);
 
   // Derived state: filtered tags based on search query
+  // Parsed lines are stored in light mode (no per-tag names); the full tag list is built only for the
+  // single message being inspected.
+  const selectedTagList = useMemo(
+    () => (selectedLineInfo ? validateFIXMessage(selectedLineInfo.content, delimiter)?.tagList || [] : []),
+    [selectedLineInfo, delimiter]
+  );
   const displayedTags = (() => {
-    const allTags = selectedLineInfo?.validation?.tagList || [];
+    const allTags = selectedTagList;
     if (!tagSearchQuery.trim()) return allTags;
     const query = tagSearchQuery.toLowerCase().trim();
     return allTags.filter((t) => {
@@ -411,6 +419,7 @@ export default function LogsProcessorPage() {
 
   const parseLinesChunked = useCallback((lines, fileName, callback) => {
     const total = lines.length;
+    const runId = Date.now();
     const chunkSize = 2500;
     let index = 0;
     const results = [];
@@ -419,14 +428,15 @@ export default function LogsProcessorPage() {
       const end = Math.min(index + chunkSize, total);
       for (let i = index; i < end; i++) {
         const line = lines[i];
-        const validation = validateFIXMessage(line, delimiter);
+        const validation = validateFIXMessage(line, delimiter, { light: true });
+        const t = validation?.tags;
         results.push({
-          id: `${fileName}-${i}-${Date.now()}`,
+          id: `${fileName}-${i}-${runId}`,
           content: line,
           timestampObj: extractTimestamp(line, delimiter),
-          clOrdID: getTagValue(line, '11', delimiter),
-          msgType: getTagValue(line, '35', delimiter),
-          msgSeqNum: getTagValue(line, '34', delimiter),
+          clOrdID: t ? (t['11'] || '') : getTagValue(line, '11', delimiter),
+          msgType: t ? (t['35'] || '') : getTagValue(line, '35', delimiter),
+          msgSeqNum: t ? (t['34'] || '') : getTagValue(line, '34', delimiter),
           validation
         });
       }
@@ -460,6 +470,12 @@ export default function LogsProcessorPage() {
       }
 
       const file = acceptedFiles[fileIndex];
+      if (file.size > MAX_FILE_BYTES) {
+        alert(`"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(0)} MB; the limit is ${MAX_FILE_BYTES / (1024 * 1024)} MB. Split the log first.`);
+        fileIndex++;
+        processNextFile();
+        return;
+      }
       const isLarge = file.size > 1500000;
       if (isLarge) {
         const confirmProceed = window.confirm(`Warning: The file "${file.name}" is very large (>1.5MB). FIXify will process all messages in memory, but will truncate the saved version in browser cache storage to prevent QuotaExceeded errors. Proceed?`);
@@ -487,6 +503,11 @@ export default function LogsProcessorPage() {
           fileIndex++;
           processNextFile();
         });
+      };
+      reader.onerror = () => {
+        alert(`Could not read "${file.name}".`);
+        fileIndex++;
+        processNextFile();
       };
       reader.readAsText(file);
     }
@@ -560,8 +581,7 @@ export default function LogsProcessorPage() {
       return { 
         ...fileObj, 
         parsedLines: sortedLines, 
-        parsedDelimiter: delimiter,
-        sortedContent: sortedLines.map((l) => l.content).join('\n') 
+        parsedDelimiter: delimiter
       };
     });
 
@@ -2493,7 +2513,7 @@ export default function LogsProcessorPage() {
                 <div>
                   <div className="flex items-center justify-between gap-4 mb-2 select-none">
                     <p className="fx-section-label">
-                      Tag Breakdown ({selectedLineInfo.validation?.tagList?.length || 0} fields)
+                      Tag Breakdown ({selectedTagList.length} fields)
                     </p>
                     
                     {/* Search Trigger / Bar */}
@@ -2666,12 +2686,12 @@ export default function LogsProcessorPage() {
       {activeTag && (
         <TagDetailsModal
           tag={activeTag}
-          version={selectedLineInfo?.validation?.tagList?.find(t => t.tag === '8')?.val || 'FIX.4.4'}
+          version={selectedTagList.find(t => t.tag === '8')?.val || 'FIX.4.4'}
           isOpen={!!activeTag}
           onClose={() => setActiveTag(null)}
           onTagSelect={setActiveTag}
-          val1={selectedLineInfo?.validation?.tagList?.find(t => t.tag === activeTag)?.val}
-          mappedVal1={selectedLineInfo?.validation?.tagList?.find(t => t.tag === activeTag)?.meaning}
+          val1={selectedTagList.find(t => t.tag === activeTag)?.val}
+          mappedVal1={selectedTagList.find(t => t.tag === activeTag)?.meaning}
         />
       )}
 

@@ -36,6 +36,8 @@ import {
   parseFixExecutionReport, 
   calculatePortfolioPositions, 
   generateFixNewOrderSingle, 
+  previewFixNewOrderSingle,
+  mergeExecutions,
   runParameterSweep 
 } from '@/lib/portfolioEngine';
 import { getWorkspaceSession, setWorkspaceSession, isWorkspaceSharingEnabled } from '@/lib/workspaceSession';
@@ -317,8 +319,13 @@ export default function MultiAlgoStudio() {
 
   // Dispatch / Confirm generated FIX 35=D order
   const handleDispatchFixOrder = (simulateFill = true) => {
-    const generatedPayload = generateFixNewOrderSingle(assistantOrderParams);
-    
+    const generatedPayload = previewFixNewOrderSingle(assistantOrderParams);
+    if (!generatedPayload.ok) {
+      setTradeActionMessage({ type: 'error', text: `Cannot build order: ${generatedPayload.error}` });
+      setTimeout(() => setTradeActionMessage(null), 5000);
+      return;
+    }
+
     // Copy to clipboard
     try {
       navigator.clipboard.writeText(generatedPayload.pipeMessage);
@@ -350,7 +357,7 @@ export default function MultiAlgoStudio() {
         rawText: `8=FIX.4.4|35=8|49=${assistantOrderParams.targetCompId}|56=${assistantOrderParams.senderCompId}|11=${assistantOrderParams.clOrdId}|17=EXEC_${Date.now()}|150=F|39=2|55=${assistantOrderParams.symbol}|54=${assistantOrderParams.side === 'BUY' ? '1' : '2'}|38=${assistantOrderParams.qty}|32=${assistantOrderParams.qty}|31=${assistantOrderParams.price}|`
       };
 
-      const updated = [mockExec, ...portfolioExecutions];
+      const updated = mergeExecutions(portfolioExecutions, [mockExec]).merged;
       setPortfolioExecutions(updated);
       localStorage.setItem('fixify-portfolio-executions', JSON.stringify(updated));
     }
@@ -367,29 +374,25 @@ export default function MultiAlgoStudio() {
   const handleImportExecutionReport = () => {
     if (!rawExecutionReportInput.trim()) return;
     const lines = rawExecutionReportInput.split(/\r?\n/).filter(Boolean);
-    let count = 0;
     const newExecs = [];
 
     lines.forEach(line => {
       const parsed = parseFixExecutionReport(line);
-      if (parsed) {
-        newExecs.push(parsed);
-        count++;
-      }
+      if (parsed) newExecs.push(parsed);
     });
 
+    const { merged: updated, added: count, duplicates } = mergeExecutions(portfolioExecutions, newExecs);
     if (count > 0) {
-      const updated = [...newExecs, ...portfolioExecutions];
       setPortfolioExecutions(updated);
       localStorage.setItem('fixify-portfolio-executions', JSON.stringify(updated));
       setRawExecutionReportInput('');
       setTradeActionMessage({
         type: 'success',
-        text: `Successfully ingested ${count} FIX Execution Reports (35=8) into Portfolio Ledger!`
+        text: `Ingested ${count} fill(s) into the Portfolio Ledger${duplicates ? ` (${duplicates} duplicate ExecID(s) skipped)` : ''}.`
       });
       setTimeout(() => setTradeActionMessage(null), 4000);
     } else {
-      alert("No valid 35=8 Execution Reports found in input string.");
+      alert(newExecs.length ? "All fills in that input were already in the ledger (same ExecID)." : "No fill Execution Reports (35=8 with ExecType F/1/2) found in input.");
     }
   };
 
@@ -1886,7 +1889,14 @@ export default function MultiAlgoStudio() {
 
               {/* Generated FIX Payload Preview Box */}
               {(() => {
-                const generated = generateFixNewOrderSingle(assistantOrderParams);
+                const generated = previewFixNewOrderSingle(assistantOrderParams);
+                if (!generated.ok) {
+                  return (
+                    <div className="pt-2 border-t text-[11px] font-mono text-amber-500" style={{ borderColor: 'var(--border)' }}>
+                      {generated.error}
+                    </div>
+                  );
+                }
                 return (
                   <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                     <div className="flex items-center justify-between">

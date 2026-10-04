@@ -1,5 +1,6 @@
 import { FIX_TAGS, FIX_VALUES } from "./fixTags";
 import { getCustomDialect } from "./dialect";
+import { fixChecksum, byteLength } from "./fixWire";
 
 export const getTagName = (tag) => {
   const custom = getCustomDialect();
@@ -157,7 +158,12 @@ export const extractTimestamp = (line, customDelimiter) => {
  * Validates a single FIX message line.
  * Checks structure, checksum (modulo 256), and body length.
  */
-export const validateFIXMessage = (rawMessage, customDelimiter) => {
+/**
+ * options.light: skip per-tag name / meaning lookups and do not return `tagList` (the heavy part).
+ * Use it when parsing thousands of lines; call again without it for the one message being inspected.
+ */
+export const validateFIXMessage = (rawMessage, customDelimiter, options = {}) => {
+  const light = !!options.light;
   let line = rawMessage.trim();
   if (!line) return null;
 
@@ -222,7 +228,7 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
     if (eqIdx !== -1) {
       const tag = field.substring(0, eqIdx).trim();
       const val = field.substring(eqIdx + 1);
-      tagList.push({ tag, val, name: getTagName(tag) || `CustomTag_${tag}`, meaning: getValueMeaning(tag, val) || val });
+      tagList.push(light ? { tag, val } : { tag, val, name: getTagName(tag) || `CustomTag_${tag}`, meaning: getValueMeaning(tag, val) || val });
       parsedTags[tag] = val;
 
       // Group AST Parser Logic
@@ -280,15 +286,10 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
   let calculatedChecksumStr = '';
   if (checksumField) {
     const expectedChecksumStr = checksumField.val;
-    const tenIdx = normalized.indexOf('10=');
-    if (tenIdx !== -1) {
-      const dataToCalculate = normalized.substring(0, tenIdx);
-      let sum = 0;
-      for (let i = 0; i < dataToCalculate.length; i++) {
-        sum += dataToCalculate.charCodeAt(i);
-      }
-      const standardCalculated = sum % 256;
-      calculatedChecksumStr = standardCalculated.toString().padStart(3, '0');
+    // Anchor on the SOH that precedes tag 10 so tags such as 110= or 5010= are never mistaken for it.
+    const tenIdx = normalized.lastIndexOf('\x0110=') + 1;
+    if (tenIdx > 0) {
+      calculatedChecksumStr = fixChecksum(normalized.substring(0, tenIdx));
 
       if (calculatedChecksumStr !== expectedChecksumStr) {
         errors.push(`Checksum mismatch: Header claims ${expectedChecksumStr}, calculated ${calculatedChecksumStr}.`);
@@ -301,12 +302,13 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
   let calculatedLength = -1;
   if (bodyLengthField) {
     const expectedLength = parseInt(bodyLengthField.val, 10);
-    const nineIdx = normalized.indexOf('9=');
-    const tenIdx = normalized.indexOf('10=');
-    if (nineIdx !== -1 && tenIdx !== -1) {
+    // Tag 9 is the second field, so it is the first "9=" that follows an SOH (49=, 109= etc. never match).
+    const nineIdx = normalized.indexOf('\x019=') + 1;
+    const tenIdx = normalized.lastIndexOf('\x0110=') + 1;
+    if (nineIdx > 0 && tenIdx > 0) {
       const valStart = normalized.indexOf('\x01', nineIdx) + 1; // position directly after the SOH ending the 9=xx field
       const bodyLengthData = normalized.substring(valStart, tenIdx);
-      calculatedLength = bodyLengthData.length;
+      calculatedLength = byteLength(bodyLengthData);
 
       if (calculatedLength !== expectedLength) {
         errors.push(`BodyLength mismatch: Header claims ${expectedLength}, calculated ${calculatedLength}.`);
@@ -322,7 +324,8 @@ export const validateFIXMessage = (rawMessage, customDelimiter) => {
     errors,
     warnings,
     tags: parsedTags,
-    tagList,
+    tagList: light ? [] : tagList,
+    tagCount: tagList.length,
     groups: parsedGroups,
     separator: sep,
     msgType,
