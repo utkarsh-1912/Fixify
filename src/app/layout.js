@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import SafeStorage from "@/components/SafeStorage";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,6 +26,7 @@ export default function RootLayout({ children }) {
         suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-x-hidden transition-colors duration-200`}
       >
+        <SafeStorage />
         <div className="ambient-glow" />
         <div className="absolute inset-x-0 top-0 h-[450px] bg-grid-pattern pointer-events-none z-[-5]" />
         <Navbar />

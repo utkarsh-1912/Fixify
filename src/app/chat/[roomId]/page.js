@@ -31,7 +31,7 @@ import {
   FileJson,
   RotateCcw
 } from "lucide-react";
-import { encryptMessage, decryptMessage } from "@/lib/cipher";
+import { encryptMessage, decryptMessage, validatePassphrase } from "@/lib/chatCrypto";
 import SohVisualizer from "@/components/SohVisualizer";
 
 const reactionEmojis = ["👍", "😂", "❤️", "🔥", "😢"];
@@ -90,7 +90,7 @@ export default function RoomChatPage({ params }) {
   const router = useRouter();
 
   // Lobby/Creds state (prefilled if dynamic route page loads directly)
-  const [secretKey, setSecretKey] = useState("fix-sec-key-101");
+  const [secretKey, setSecretKey] = useState("");
   const [username, setUsername] = useState("Jammie");
   const [isJoined, setIsJoined] = useState(false);
   const [recentRooms, setRecentRooms] = useState([]);
@@ -152,7 +152,6 @@ export default function RoomChatPage({ params }) {
     present: [],
     left: [],
     history: [],
-    clientIp: "127.0.0.1"
   });
 
   // Refs for audio and auto-scroll proximity check
@@ -164,12 +163,43 @@ export default function RoomChatPage({ params }) {
   const inputRef = useRef(null);
   const isFetchingRef = useRef(false);
 
+  // Decryption is async (WebCrypto), so results are cached per message id and recomputed when the key/room changes.
+  const decryptCtx = `${roomId}\n${secretKey}`;
+  const [decrypted, setDecrypted] = useState({ ctx: '', byId: {} });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const sameCtx = decrypted.ctx === decryptCtx;
+      const base = sameCtx ? decrypted.byId : {};
+      const todo = messages.filter((m) => !(m.id in base));
+      if (sameCtx && todo.length === 0) return;
+      const entries = await Promise.all(todo.map(async (m) => [m.id, await decryptMessage(m.text, secretKey, roomId)]));
+      if (!cancelled) setDecrypted({ ctx: decryptCtx, byId: { ...base, ...Object.fromEntries(entries) } });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, decryptCtx]);
+  const decryptedFor = (m) => {
+    const r = decrypted.ctx === decryptCtx ? decrypted.byId[m.id] : undefined;
+    return r ? r.text : '…';
+  };
+  const encryptOrAlert = async (plaintext) => {
+    try {
+      return await encryptMessage(plaintext, secretKey, roomId);
+    } catch (err) {
+      alert(err.message);
+      return null;
+    }
+  };
+
   // Load configuration on mount & instant cache restoration
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
     const savedRoom = localStorage.getItem('fixify-chat-roomId');
-    const savedKey = localStorage.getItem('fixify-chat-secretKey') || "fix-sec-key-101";
+    // The old shared default key is never reused: every room needs a key the user chose.
+    const rawKey = localStorage.getItem('fixify-chat-secretKey') || "";
+    const savedKey = rawKey === "fix-sec-key-101" ? "" : rawKey;
     const savedUser = localStorage.getItem('fixify-chat-username') || "Jammie";
     const savedIsJoined = localStorage.getItem('fixify-chat-isJoined') === 'true';
 
@@ -430,7 +460,8 @@ export default function RoomChatPage({ params }) {
     }
 
     const payloadStr = `[WORKSTATE]:${JSON.stringify(payload)}`;
-    const encryptedText = encryptMessage(payloadStr, secretKey);
+    const encryptedText = await encryptOrAlert(payloadStr);
+    if (!encryptedText) return;
     const msg = {
       id: uuid(),
       sender: username,
@@ -494,7 +525,8 @@ export default function RoomChatPage({ params }) {
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const encryptedText = encryptMessage(input.trim(), secretKey);
+    const encryptedText = await encryptOrAlert(input.trim());
+    if (!encryptedText) return;
     const msg = {
       id: uuid(),
       sender: username,
@@ -609,8 +641,11 @@ export default function RoomChatPage({ params }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "clear",
-          roomId
+          roomId,
+          userId
         })
+      }).then(async (res) => {
+        if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Could not clear the room.");
       });
       fetchMessages();
     } catch (err) {
@@ -654,8 +689,11 @@ export default function RoomChatPage({ params }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "delete_room",
-          roomId: roomToDelete
+          roomId: roomToDelete,
+          userId
         })
+      }).then(async (res) => {
+        if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Could not delete the room.");
       });
 
       // 2. Remove from recent rooms local state and storage
@@ -864,7 +902,7 @@ export default function RoomChatPage({ params }) {
                     type={showSecretKey ? "text" : "password"}
                     value={secretKey}
                     onChange={(e) => handleSecretKeyChange(e.target.value)}
-                    placeholder="Key for message encryption..."
+                    placeholder="Secret key (min 8 characters)..."
                     className="w-full fx-input pr-9"
                   />
                   <button
@@ -880,7 +918,8 @@ export default function RoomChatPage({ params }) {
               <button 
                 onClick={joinChatRoom} 
                 className="w-full fx-btn-primary justify-center font-bold"
-                disabled={!username.trim() || !secretKey.trim()}
+                disabled={!username.trim() || !!validatePassphrase(secretKey)}
+                title={validatePassphrase(secretKey) || undefined}
               >
                 Join Secured Room
               </button>
@@ -1221,7 +1260,7 @@ export default function RoomChatPage({ params }) {
           {messages.map((m) => {
             const isSelf = m.senderId === userId;
             const time = new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-            const decryptedText = decryptMessage(m.text, secretKey);
+            const decryptedText = decryptedFor(m);
             const isDecryptionFailed = decryptedText.includes("Decryption Failed");
             const showTray = isMobile ? tappedMessageId === m.id : true;
 
@@ -1673,7 +1712,7 @@ export default function RoomChatPage({ params }) {
                   </div>
                 ) : (
                   pinnedMessages.map((m) => {
-                    const decryptedText = decryptMessage(m.text, secretKey);
+                    const decryptedText = decryptedFor(m);
                     const time = new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                     return (
                       <div 
@@ -1791,13 +1830,6 @@ export default function RoomChatPage({ params }) {
                   />
                 </div>
 
-                <div 
-                  className="flex items-center justify-between p-2.5 rounded-xl text-[10px] font-mono"
-                  style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-                >
-                  <span style={{ color: "var(--text-muted)" }}>TRACKING IP:</span>
-                  <span className="font-semibold text-emerald-400">{analytics.clientIp}</span>
-                </div>
               </div>
 
               <div style={{ borderTop: "1px solid var(--border)" }} />
@@ -1850,7 +1882,7 @@ export default function RoomChatPage({ params }) {
                       const isJoin = h.type === "join";
                       return (
                         <div key={idx} className={isJoin ? "text-emerald-400/90" : "text-zinc-500"}>
-                          [{t}] <span className="font-semibold">{h.username}</span> {isJoin ? "joined" : "departed"} ({h.ip})
+                          [{t}] <span className="font-semibold">{h.username}</span> {isJoin ? "joined" : "departed"} 
                         </div>
                       );
                     })

@@ -1,5 +1,6 @@
 "use client";
 
+import { validatePassphrase } from "@/lib/chatCrypto";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Key, Eye, EyeOff } from "lucide-react";
@@ -7,7 +8,7 @@ import { Shield, Key, Eye, EyeOff } from "lucide-react";
 export default function ChatLobbyPage() {
   const router = useRouter();
   const [roomId, setRoomId] = useState("conformance-desk");
-  const [secretKey, setSecretKey] = useState("fix-sec-key-101");
+  const [secretKey, setSecretKey] = useState("");
   const [username, setUsername] = useState("");
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -17,7 +18,9 @@ export default function ChatLobbyPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const savedRoom = localStorage.getItem("fixify-chat-roomId") || "conformance-desk";
-    const savedKey = localStorage.getItem("fixify-chat-secretKey") || "fix-sec-key-101";
+    // The old shared default key is never reused: every room needs a key the user chose.
+    const rawKey = localStorage.getItem("fixify-chat-secretKey") || "";
+    const savedKey = rawKey === "fix-sec-key-101" ? "" : rawKey;
     const savedUser = localStorage.getItem("fixify-chat-username");
     const savedIsJoined = localStorage.getItem("fixify-chat-isJoined") === "true";
 
@@ -65,10 +68,10 @@ export default function ChatLobbyPage() {
   const resetForm = () => {
     setUsername("");
     setRoomId("conformance-desk");
-    setSecretKey("fix-sec-key-101");
+    setSecretKey("");
     if (typeof window !== "undefined") {
       localStorage.removeItem("fixify-chat-username");
-      localStorage.setItem("fixify-chat-secretKey", "fix-sec-key-101");
+      localStorage.removeItem("fixify-chat-secretKey");
       localStorage.setItem("fixify-chat-roomId", "conformance-desk");
       localStorage.setItem("fixify-chat-isJoined", "false");
     }
@@ -142,7 +145,7 @@ export default function ChatLobbyPage() {
                   type={showSecretKey ? "text" : "password"}
                   value={secretKey}
                   onChange={(e) => handleSecretKeyChange(e.target.value)}
-                  placeholder="Key for message encryption..."
+                  placeholder="Secret key (min 8 characters)..."
                   className="w-full fx-input pr-9"
                 />
                 <button
@@ -159,7 +162,8 @@ export default function ChatLobbyPage() {
               <button
                 onClick={joinChatRoom}
                 className="flex-1 fx-btn-primary justify-center font-bold"
-                disabled={!username.trim() || !roomId.trim() || !secretKey.trim()}
+                disabled={!username.trim() || !roomId.trim() || !!validatePassphrase(secretKey)}
+                title={validatePassphrase(secretKey) || undefined}
               >
                 Join Secured Room
               </button>
@@ -184,7 +188,7 @@ export default function ChatLobbyPage() {
                       onClick={() => {
                         setRoomId(room);
                         const fallbackUser = localStorage.getItem("fixify-chat-username") || "Jammie";
-                        const fallbackKey = localStorage.getItem("fixify-chat-secretKey") || "fix-sec-key-101";
+                        const fallbackKey = localStorage.getItem("fixify-chat-secretKey") || "";
                         
                         const finalUser = username.trim() ? username.trim() : fallbackUser;
                         const finalKey = secretKey.trim() ? secretKey.trim() : fallbackKey;

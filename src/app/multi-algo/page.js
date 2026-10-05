@@ -51,6 +51,7 @@ export default function MultiAlgoStudio() {
   const [range, setRange] = useState('3mo'); // 3mo is better for backtests
   const [marketData, setMarketData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState('');
   const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [chartMode, setChartViewMode] = useState('price'); // price, rsi, macd, backtest
@@ -130,9 +131,20 @@ export default function MultiAlgoStudio() {
   // Fetch market data from server proxy
   const fetchMarketData = async (symbolList = symbols, currentRange = range) => {
     setLoading(true);
+    setDataError('');
     try {
-      const response = await fetch(`/api/market-data?symbols=${symbolList.join(',')}&range=${currentRange}`);
-      const json = await response.json();
+      // The API accepts at most 20 symbols per request, so larger watchlists are fetched in chunks.
+      const merged = {};
+      let failure = '';
+      for (let i = 0; i < symbolList.length; i += 20) {
+        const chunk = symbolList.slice(i, i + 20);
+        const response = await fetch(`/api/market-data?symbols=${encodeURIComponent(chunk.join(','))}&range=${currentRange}`);
+        const part = await response.json();
+        if (part.success && part.data) Object.assign(merged, part.data);
+        else failure = part.error || 'Market data request failed.';
+      }
+      if (failure) setDataError(failure);
+      const json = { success: Object.keys(merged).length > 0, data: merged };
       if (json.success && json.data) {
         setMarketData(json.data);
         // Default selected symbol if current one is not in the list
@@ -142,6 +154,7 @@ export default function MultiAlgoStudio() {
       }
     } catch (e) {
       console.error("Failed to load market data", e);
+      setDataError('Could not reach the market data service.');
     } finally {
       setLoading(false);
     }
@@ -674,9 +687,24 @@ export default function MultiAlgoStudio() {
     };
   }, [portfolioData]);
 
+  const mockSymbols = Object.values(marketData).filter((d) => d && d.isMock).map((d) => d.symbol);
+
   return (
     <div className="space-y-6 sm:space-y-8 max-w-screen-2xl mx-auto px-3 sm:px-6 py-6 sm:py-8 animate-in fade-in duration-200">
       
+      {/* Data-quality banners: simulated prices must never pass for live quotes */}
+      {mockSymbols.length > 0 && (
+        <div role="alert" className="p-3 rounded-xl border text-xs font-sans" style={{ background: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.35)', color: '#f59e0b' }}>
+          <strong>Simulated prices:</strong> live data was unavailable for {mockSymbols.join(', ')}. Signals, backtests and the
+          order assistant for these symbols run on generated data and must not be used for trading decisions.
+        </div>
+      )}
+      {dataError && (
+        <div role="status" className="p-3 rounded-xl border text-xs font-sans" style={{ background: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#ef4444' }}>
+          {dataError}
+        </div>
+      )}
+
       {/* Header */}
       <div className="fx-page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1.5">

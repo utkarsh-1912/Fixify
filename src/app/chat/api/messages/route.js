@@ -10,6 +10,17 @@ if (!global.chatAnalyticsDb) {
   global.chatAnalyticsDb = Object.create(null);
 }
 
+// roomId -> userId of the first participant. Never sent to clients; it acts as the room's admin capability.
+if (!global.chatRoomOwners) {
+  global.chatRoomOwners = Object.create(null);
+}
+const claimRoom = (roomId, userId) => {
+  if (userId && typeof userId === "string" && userId.length <= 64 && !global.chatRoomOwners[roomId]) {
+    global.chatRoomOwners[roomId] = userId;
+  }
+};
+const isOwner = (roomId, userId) => !!userId && global.chatRoomOwners[roomId] === userId;
+
 const ROOM_ID_RE = /^[^\u0000-\u001f]{1,64}$/; // any printable name; null-prototype maps make "__proto__" safe
 const MAX_ROOMS = 200;
 const MAX_MESSAGE_CHARS = 64 * 1024;
@@ -36,10 +47,6 @@ export async function GET(request) {
     return NextResponse.json({ rooms: activeRooms });
   }
 
-  // Determine client IP
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded ? forwarded.split(/, /)[0] : "127.0.0.1";
-
   // Initialize analytics database for this room if not present
   if (!global.chatAnalyticsDb[roomId]) {
     global.chatAnalyticsDb[roomId] = {
@@ -54,6 +61,7 @@ export async function GET(request) {
 
   // Update presence if user parameters are provided
   if (userId && username) {
+    claimRoom(roomId, userId);
     const wasPresent = !!roomAnalytics.presentUsers[userId];
     
     // Remove from leftUsers if they re-joined
@@ -64,7 +72,6 @@ export async function GET(request) {
     // Update presence
     roomAnalytics.presentUsers[userId] = {
       username,
-      ip,
       lastSeen: now
     };
 
@@ -73,7 +80,6 @@ export async function GET(request) {
       roomAnalytics.joinHistory.push({
         username,
         type: "join",
-        ip,
         timestamp: new Date().toISOString()
       });
       // Cap history
@@ -89,14 +95,12 @@ export async function GET(request) {
     if (now - u.lastSeen > 45000) {
       roomAnalytics.leftUsers[uid] = {
         username: u.username,
-        ip: u.ip,
         leftAt: now
       };
       
       roomAnalytics.joinHistory.push({
         username: u.username,
         type: "leave",
-        ip: u.ip,
         timestamp: new Date().toISOString()
       });
       
@@ -107,8 +111,8 @@ export async function GET(request) {
   const messages = global.chatMessagesDb[roomId] || [];
   
   // Format lists for client response
-  const present = Object.values(roomAnalytics.presentUsers).map(u => ({ username: u.username, ip: u.ip }));
-  const left = Object.values(roomAnalytics.leftUsers).map(u => ({ username: u.username, ip: u.ip }));
+  const present = Object.values(roomAnalytics.presentUsers).map(u => ({ username: u.username }));
+  const left = Object.values(roomAnalytics.leftUsers).map(u => ({ username: u.username }));
   const history = roomAnalytics.joinHistory;
 
   return NextResponse.json({
@@ -117,8 +121,7 @@ export async function GET(request) {
     analytics: {
       present,
       left,
-      history,
-      clientIp: ip
+      history
     }
   });
 }
@@ -151,6 +154,7 @@ export async function POST(request) {
       if (JSON.stringify(message).length > MAX_MESSAGE_CHARS) {
         return NextResponse.json({ error: "Message too large" }, { status: 413 });
       }
+      claimRoom(roomId, message.senderId);
       
       // Prevent duplicates by checking id
       if (!global.chatMessagesDb[roomId].some(m => m.id === message.id)) {
@@ -186,6 +190,9 @@ export async function POST(request) {
       }
       return NextResponse.json({ success: true });
     } else if (action === "clear") {
+      if (!isOwner(roomId, body.userId)) {
+        return NextResponse.json({ error: "Only the room creator can clear this room" }, { status: 403 });
+      }
       global.chatMessagesDb[roomId] = [];
       return NextResponse.json({ success: true });
     } else if (action === "pin") {
@@ -206,22 +213,24 @@ export async function POST(request) {
         if (u) {
           global.chatAnalyticsDb[roomId].leftUsers[userId] = {
             username: u.username,
-            ip: u.ip,
-            leftAt: Date.now()
+                leftAt: Date.now()
           };
           global.chatAnalyticsDb[roomId].joinHistory.push({
             username: u.username,
             type: "leave",
-            ip: u.ip,
-            timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString()
           });
           delete global.chatAnalyticsDb[roomId].presentUsers[userId];
         }
       }
       return NextResponse.json({ success: true });
     } else if (action === "delete_room") {
+      if (!isOwner(roomId, body.userId)) {
+        return NextResponse.json({ error: "Only the room creator can delete this room" }, { status: 403 });
+      }
       delete global.chatMessagesDb[roomId];
       delete global.chatAnalyticsDb[roomId];
+      delete global.chatRoomOwners[roomId];
       return NextResponse.json({ success: true });
     }
 

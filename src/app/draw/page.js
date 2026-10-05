@@ -52,6 +52,7 @@ export default function WhiteboardPage() {
     if (savedDataUrl) {
       const img = new Image();
       img.onload = () => {
+        if (!canvasRef.current) return; // page was left before the image finished loading
         ctx.drawImage(img, 0, 0);
         saveState(); // push loaded state to undoStack
       };
@@ -104,6 +105,7 @@ export default function WhiteboardPage() {
   // ✅ backup & restore use ImageData
   const backupCanvas = () => {
     const canvas = canvasRef.current;
+    if (!canvas || canvas.width < 1 || canvas.height < 1) return;
     imageBackup.current = ctxRef.current.getImageData(0, 0, canvas.width, canvas.height);
   };
 
@@ -124,20 +126,21 @@ export default function WhiteboardPage() {
     tempCtx.drawImage(canvas, 0, 0);
 
     if (fullscreen) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = Math.max(1, window.innerWidth);
+      canvas.height = Math.max(1, window.innerHeight);
       canvas.style.position = "fixed";
       canvas.style.left = "0";
       canvas.style.top = "0";
       canvas.style.zIndex = "40";
     } else {
-      canvas.width = Math.round(window.innerWidth * 0.9);
-      canvas.height = Math.round(window.innerHeight * 0.75);
+      canvas.width = Math.max(1, Math.round(window.innerWidth * 0.9));
+      canvas.height = Math.max(1, Math.round(window.innerHeight * 0.75));
       canvas.style.position = "static";
       canvas.style.zIndex = "1";
     }
 
     // restore scaled content
+    if (temp.width < 1 || temp.height < 1) return;
     ctxRef.current.drawImage(
       temp,
       0,
@@ -170,7 +173,7 @@ export default function WhiteboardPage() {
   // ✅ use ImageData for undo/redo
   const saveState = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !ctxRef.current) return;
+    if (!canvas || !ctxRef.current || canvas.width < 1 || canvas.height < 1) return;
     undoStack.current.push(ctxRef.current.getImageData(0, 0, canvas.width, canvas.height));
     if (undoStack.current.length > 50) undoStack.current.shift();
 
@@ -187,9 +190,10 @@ export default function WhiteboardPage() {
 
   const restoreState = (stack, opposite) => {
     if (!stack.current.length) return;
+    const canvas = canvasRef.current;
+    if (!canvas || canvas.width < 1 || canvas.height < 1) return;
     const last = stack.current.pop();
     ctxRef.current.putImageData(last, 0, 0);
-    const canvas = canvasRef.current;
     opposite.current.push(ctxRef.current.getImageData(0, 0, canvas.width, canvas.height));
 
     // Persist drawing

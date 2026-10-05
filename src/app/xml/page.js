@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Braces,
   Copy,
@@ -272,7 +272,7 @@ export default function XMLFormatterPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = () => {
+  const handleDownload = useCallback(() => {
     if (!formatted) return;
     const blob = new Blob([formatted], { type: "application/xml" });
     const url = URL.createObjectURL(blob);
@@ -283,7 +283,7 @@ export default function XMLFormatterPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
+  }, [formatted]);
 
   const handleReset = () => {
     setInput("");

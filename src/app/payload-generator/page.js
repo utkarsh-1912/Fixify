@@ -92,12 +92,14 @@ export default function PayloadGeneratorPage() {
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   
   // Timer for current time
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [clock, setClock] = useState(null);
+  const currentTime = clock ?? new Date(0);
 
   useEffect(() => {
+    setClock(new Date());
     if (!autoSendingTime) return;
     const interval = setInterval(() => {
-      setCurrentTime(new Date());
+      setClock(new Date());
     }, 1000);
     return () => clearInterval(interval);
   }, [autoSendingTime]);

@@ -121,6 +121,16 @@ FixDrop is designed for zero-configuration, cross-device trading desk file and p
 
 ---
 
+## 🔐 Security & Deployment Notes
+
+- **Chat encryption**: messages are sealed in the browser with AES-256-GCM (key derived from the room passphrase via PBKDF2-SHA256, 310k iterations, room id bound as AAD, random 96-bit IV). The server only ever stores ciphertext (`v2.…`). A passphrase of at least 8 characters is required — there is no default key. Messages written by the old cipher can still be read but are flagged as legacy. Usernames, message ids and timestamps are *not* encrypted, and the server no longer stores or returns client IP addresses. The first participant to join a room owns it; only they can clear or delete it.
+- **Previews of received files** (AirShare) are limited to inert types; HTML/SVG/other script-capable files can only be downloaded.
+- **Content-Security-Policy** is set in `next.config.mjs` (own origin only; `cdn.jsdelivr.net` is allowed solely for the Monaco editor, and `ws:`/`wss:` for the Live Feed monitor).
+- **API abuse controls**: per-IP rate limits and size caps on `/api/fixdrop`, `/api/market-data`, `/coderunner/api`, `/interpreter/api/query` and `/chat/api/messages`.
+- **Single-instance state**: FixDrop rooms and chat rooms live in server memory (by design — nothing is written to disk). Run **one server process** (or use sticky sessions); a restart or a second instance will not see existing rooms. Moving this to Redis would be required for horizontal scaling or serverless deployments.
+
+---
+
 ## 💻 Available Scripts
 
 - `npm run dev` — Starts the local development server.

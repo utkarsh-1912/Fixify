@@ -551,7 +551,7 @@ function FlowchartPage() {
   const updateNodeLabel = useCallback((id, label) => {
     setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)));
     setActiveScenario("");
-  }, [setActiveScenario]);
+  }, [setNodes]);
 
   const stampUpdateLabel = useCallback(
     (nodeList) =>
@@ -591,7 +591,7 @@ function FlowchartPage() {
       console.error("Failed to load flowchart state", e);
     }
     setIsLoaded(true);
-  }, [updateNodeLabel]);
+  }, [setEdges, setNodes, updateNodeLabel]);
 
   // Save states to localStorage on change
   useEffect(() => {
@@ -643,7 +643,7 @@ function FlowchartPage() {
       setActiveScenario("");
       return node;
     },
-    [updateNodeLabel, setActiveScenario]
+    [updateNodeLabel, setNodes]
   );
 
   const onDragStart = (event, nodeType) => {
@@ -684,24 +684,24 @@ function FlowchartPage() {
     };
     setEdges((eds) => addEdge(edge, eds));
     setActiveScenario("");
-  }, [setActiveScenario]);
+  }, [setEdges]);
 
   const deleteSelected = useCallback(() => {
     setNodes((nds) => nds.filter((n) => !n.selected));
     setEdges((eds) => eds.filter((e) => !e.selected));
     setSelectedNode(null);
     setActiveScenario("");
-  }, [setActiveScenario]);
+  }, [setEdges, setNodes]);
 
   const deleteSelectedEdge = useCallback(() => {
     setEdges((eds) => eds.filter((e) => !e.selected));
     setActiveScenario("");
-  }, [setActiveScenario]);
+  }, [setEdges]);
 
   const updateEdgeLabel = useCallback((id, label) => {
     setEdges((eds) => eds.map((e) => (e.id === id ? { ...e, label } : e)));
     setActiveScenario("");
-  }, [setActiveScenario]);
+  }, [setEdges]);
 
   /* Selection Changes */
   const handleSelectionChange = useCallback((sel) => {
@@ -730,7 +730,7 @@ function FlowchartPage() {
       setNodes(positioned);
       setTimeout(() => rfInstance && rfInstance.fitView({ padding: 0.15 }), 120);
     },
-    [nodes, edges, rfInstance]
+    [nodes, edges, setNodes, rfInstance]
   );
 
   const saveCurrentAsTemplate = () => {
@@ -935,7 +935,7 @@ function FlowchartPage() {
       reader.readAsText(file);
       e.target.value = "";
     },
-    [updateNodeLabel, rfInstance, setActiveScenario]
+    [setNodes, setEdges, rfInstance]
   );
 
   /* AUTO-SEQUENCE DIAGRAM GENERATOR FROM FIX LOGS */
@@ -1100,7 +1100,7 @@ function FlowchartPage() {
     setEdges([]);
     setSelectedNode(null);
     setActiveScenario("");
-  }, [setActiveScenario]);
+  }, [setEdges, setNodes]);
 
   /* Properties Panel drawer content */
   const renderMetaPane = () => {

@@ -100,3 +100,37 @@ describe('/interpreter/api/query guards', () => {
     expect(codes.slice(10)).toEqual([429, 429]);
   });
 });
+
+describe('chat room ownership and privacy', () => {
+  const api = (body, ip) => chatPost(post('/chat/api/messages', body, ip));
+  const room = 'owned-room-1';
+
+  it('only the room creator can clear or delete it', async () => {
+    expect((await api({ action: 'send', roomId: room, message: { id: 'a', senderId: 'owner-1', text: 'x' } }, '7.7.7.1')).status).toBe(200);
+    expect((await api({ action: 'clear', roomId: room, userId: 'intruder' }, '7.7.7.2')).status).toBe(403);
+    expect((await api({ action: 'clear', roomId: room }, '7.7.7.2')).status).toBe(403);
+    expect((await api({ action: 'delete_room', roomId: room, userId: 'intruder' }, '7.7.7.2')).status).toBe(403);
+    const still = await (await chatGet(get(`/chat/api/messages?roomId=${room}`, '7.7.7.3'))).json();
+    expect(still.messages).toHaveLength(1);
+
+    expect((await api({ action: 'clear', roomId: room, userId: 'owner-1' }, '7.7.7.1')).status).toBe(200);
+    expect((await api({ action: 'delete_room', roomId: room, userId: 'owner-1' }, '7.7.7.1')).status).toBe(200);
+  });
+
+  it('never stores or returns client IP addresses', async () => {
+    const r = 'privacy-room-1';
+    const res = await chatGet(get(`/chat/api/messages?roomId=${r}&userId=u9&username=zed`, '203.0.113.77'));
+    const text = JSON.stringify(await res.json());
+    expect(text).not.toContain('203.0.113.77');
+    expect(text).not.toContain('"ip"');
+    expect(text).not.toContain('clientIp');
+  });
+
+  it('the first participant to join claims the room', async () => {
+    const r = 'claimed-by-join';
+    await chatGet(get(`/chat/api/messages?roomId=${r}&userId=first&username=a`, '7.7.8.1'));
+    await chatGet(get(`/chat/api/messages?roomId=${r}&userId=second&username=b`, '7.7.8.2'));
+    expect((await api({ action: 'clear', roomId: r, userId: 'second' }, '7.7.8.2')).status).toBe(403);
+    expect((await api({ action: 'clear', roomId: r, userId: 'first' }, '7.7.8.1')).status).toBe(200);
+  });
+});

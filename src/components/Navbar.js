@@ -39,6 +39,31 @@ import {
 import SettingsModal, { applyGlobalSettings } from './SettingsModal';
 import { isWorkspaceSharingEnabled, setWorkspaceSharingEnabled } from '@/lib/workspaceSession';
 
+const navItems = [
+  { href: '/',            label: 'Logs Processor',  icon: FileCog,      short: 'Logs', desc: 'Paste multi-message FIX session logs to find gaps, Logon order, and duplicates.' },
+  { href: '/compare',     label: 'Comparator',       icon: GitCompare,   short: 'Compare', desc: 'Compare FIX messages side-by-side to highlight field-level differences.' },
+  { href: '/xml',         label: 'XML Formatter',    icon: Braces,       short: 'XML', desc: 'Format, minify, and search XML schemas with developer shortcuts.' },
+  { href: '/chat',        label: 'Team Chat',        icon: MessageSquare, short: 'Chat', desc: 'Isolated local team room chat relay fallback with WebRTC peers.' },
+  { href: '/interpreter', label: 'FIXi Interpreter', icon: Brain, short: 'FIXi AI', desc: 'Protocol AI assistant with custom tag lookup and checksum audits.' },
+  { href: '/flowchart',   label: 'Flowchart',        icon: Network,      short: 'Flow', desc: 'Auto-generate sequence flow diagrams and export to Mermaid.js.' },
+  { href: '/latency',     label: 'Latency Dashboard', icon: Activity,     short: 'Latency', desc: 'Audit hop latency offset timings and RTT trends.' },
+  { href: '/missing-fills', label: 'Missing Fills',   icon: ArrowRightLeft, short: 'Fills', desc: 'Compare raw FIX execution reports against blotter database sheets.' },
+  { href: '/tasks',       label: 'Tasks',            icon: LayoutGrid,   short: 'Tasks', desc: 'Kanban tasks board with dependencies, checklists, and slide drawer.' },
+  { href: '/coderunner',  label: 'Code Sandbox',     icon: Terminal,     short: 'Code', desc: 'Compile and run FIX parser templates in C++, Python, and Java.' },
+  { href: '/fixtags',     label: 'FIX Dictionary',  icon: BookOpen,      short: 'Dict', desc: 'Interactive FIX tag and enums specs dictionary explorer.', inMenu: false },
+  { href: '/security-auditor', label: 'FIX Security Auditor', icon: ShieldAlert, short: 'Security', desc: 'Scan logs for replay windows, plaintext credentials, SOH injection, and hijack vulnerabilities.', inMenu: false },
+  { href: '/live-streaming', label: 'Live Stream Simulator', icon: Radio, short: 'Live Stream', desc: 'Simulate live FIX session socket streaming with dynamic timelines.', inMenu: false },
+  { href: '/payload-generator', label: 'FIX Message Generator', icon: Layers, short: 'Generator', desc: 'Compose valid test FIX message payloads with real-time length and checksum validation.', inMenu: false },
+  { href: '/log-sanitizer', label: 'Log Sanitizer & Anonymizer', icon: ScanEyeIcon, short: 'Sanitizer', desc: 'Mask sensitive fields like credentials, CompIDs, prices, and sizes in raw logs.', inMenu: false },
+  { href: '/custom-dialect', label: 'Custom Dialect Manager', icon: BookOpen, short: 'Dialect', desc: 'Upload custom QuickFIX XML dictionaries to map proprietary tags (5000-9999).', inMenu: false },
+  { href: '/multi-algo',   label: 'Multi-Algo Studio', icon: LineChart, short: 'Algos', desc: 'Scan markets with SMA, RSI, MACD, and Bollinger Bands, overlay interactive charts, and paper trade.', inMenu: false },
+  { href: '/correlation', label: 'Multi-Hop Tracker', icon: Network, short: 'Correlation', desc: 'Correlate transaction flows across multiple system layers and trace transit delays.', inMenu: false },
+  { href: '/atdl', label: 'ATDL Renderer', icon: UserCog, short: 'ATDL', desc: 'Parse FIXatdl 1.1 strategy XML, render interactive parameter controls, and generate wire preview.', inMenu: false },
+  { href: '/binary-decoder', label: 'Binary FAST/SBE Decoder', icon: Cpu, short: 'Binary', desc: 'Decode CME/Nasdaq FAST streams and SBE binary messages into standard tag-value maps.', inMenu: false },
+  { href: '/market-hours', label: 'Global Market Hours', icon: Globe2, short: 'Markets', desc: 'Live 24-hour timeline of trading sessions across 25+ global exchanges with rotating globe.', inMenu: false },
+  { href: '/airshare', label: 'FixDrop Transfer', icon: Shredder, short: 'FixDrop', desc: 'Instant cross-device text & file sharing with 4-digit PIN codes and mobile QR codes.', inMenu: false },
+];
+
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileSearch, setMobileSearch] = useState("");
@@ -48,30 +73,6 @@ export default function Navbar() {
   const [searchIndex, setSearchIndex] = useState(0);
   const pathname = usePathname();
 
-  const navItems = [
-    { href: '/',            label: 'Logs Processor',  icon: FileCog,      short: 'Logs', desc: 'Paste multi-message FIX session logs to find gaps, Logon order, and duplicates.' },
-    { href: '/compare',     label: 'Comparator',       icon: GitCompare,   short: 'Compare', desc: 'Compare FIX messages side-by-side to highlight field-level differences.' },
-    { href: '/xml',         label: 'XML Formatter',    icon: Braces,       short: 'XML', desc: 'Format, minify, and search XML schemas with developer shortcuts.' },
-    { href: '/chat',        label: 'Team Chat',        icon: MessageSquare, short: 'Chat', desc: 'Isolated local team room chat relay fallback with WebRTC peers.' },
-    { href: '/interpreter', label: 'FIXi Interpreter', icon: Brain, short: 'FIXi AI', desc: 'Protocol AI assistant with custom tag lookup and checksum audits.' },
-    { href: '/flowchart',   label: 'Flowchart',        icon: Network,      short: 'Flow', desc: 'Auto-generate sequence flow diagrams and export to Mermaid.js.' },
-    { href: '/latency',     label: 'Latency Dashboard', icon: Activity,     short: 'Latency', desc: 'Audit hop latency offset timings and RTT trends.' },
-    { href: '/missing-fills', label: 'Missing Fills',   icon: ArrowRightLeft, short: 'Fills', desc: 'Compare raw FIX execution reports against blotter database sheets.' },
-    { href: '/tasks',       label: 'Tasks',            icon: LayoutGrid,   short: 'Tasks', desc: 'Kanban tasks board with dependencies, checklists, and slide drawer.' },
-    { href: '/coderunner',  label: 'Code Sandbox',     icon: Terminal,     short: 'Code', desc: 'Compile and run FIX parser templates in C++, Python, and Java.' },
-    { href: '/fixtags',     label: 'FIX Dictionary',  icon: BookOpen,      short: 'Dict', desc: 'Interactive FIX tag and enums specs dictionary explorer.', inMenu: false },
-    { href: '/security-auditor', label: 'FIX Security Auditor', icon: ShieldAlert, short: 'Security', desc: 'Scan logs for replay windows, plaintext credentials, SOH injection, and hijack vulnerabilities.', inMenu: false },
-    { href: '/live-streaming', label: 'Live Stream Simulator', icon: Radio, short: 'Live Stream', desc: 'Simulate live FIX session socket streaming with dynamic timelines.', inMenu: false },
-    { href: '/payload-generator', label: 'FIX Message Generator', icon: Layers, short: 'Generator', desc: 'Compose valid test FIX message payloads with real-time length and checksum validation.', inMenu: false },
-    { href: '/log-sanitizer', label: 'Log Sanitizer & Anonymizer', icon: ScanEyeIcon, short: 'Sanitizer', desc: 'Mask sensitive fields like credentials, CompIDs, prices, and sizes in raw logs.', inMenu: false },
-    { href: '/custom-dialect', label: 'Custom Dialect Manager', icon: BookOpen, short: 'Dialect', desc: 'Upload custom QuickFIX XML dictionaries to map proprietary tags (5000-9999).', inMenu: false },
-    { href: '/multi-algo',   label: 'Multi-Algo Studio', icon: LineChart, short: 'Algos', desc: 'Scan markets with SMA, RSI, MACD, and Bollinger Bands, overlay interactive charts, and paper trade.', inMenu: false },
-    { href: '/correlation', label: 'Multi-Hop Tracker', icon: Network, short: 'Correlation', desc: 'Correlate transaction flows across multiple system layers and trace transit delays.', inMenu: false },
-    { href: '/atdl', label: 'ATDL Renderer', icon: UserCog, short: 'ATDL', desc: 'Parse FIXatdl 1.1 strategy XML, render interactive parameter controls, and generate wire preview.', inMenu: false },
-    { href: '/binary-decoder', label: 'Binary FAST/SBE Decoder', icon: Cpu, short: 'Binary', desc: 'Decode CME/Nasdaq FAST streams and SBE binary messages into standard tag-value maps.', inMenu: false },
-    { href: '/market-hours', label: 'Global Market Hours', icon: Globe2, short: 'Markets', desc: 'Live 24-hour timeline of trading sessions across 25+ global exchanges with rotating globe.', inMenu: false },
-    { href: '/airshare', label: 'FixDrop Transfer', icon: Shredder, short: 'FixDrop', desc: 'Instant cross-device text & file sharing with 4-digit PIN codes and mobile QR codes.', inMenu: false },
-  ];
 
   const [wsShared, setWsShared] = useState(false);
 
@@ -127,7 +128,7 @@ export default function Navbar() {
         items: navItems.filter(i => ['/flowchart', '/coderunner', '/tasks', '/chat', '/airshare'].includes(i.href)).filter(filterItem)
       }
     ].filter(cat => cat.items.length > 0);
-  }, [navItems, mobileSearch]);
+  }, [mobileSearch]);
 
   // Apply saved settings and track page visits on mount/pathchange
   useEffect(() => {
